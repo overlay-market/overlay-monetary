@@ -1,0 +1,847 @@
+
+% Default to the notebook output style
+
+    
+
+
+% Inherit from the specified cell style.
+
+
+
+
+    
+\documentclass[11pt]{article}
+
+    
+    
+    \usepackage[T1]{fontenc}
+    % Nicer default font (+ math font) than Computer Modern for most use cases
+    \usepackage{mathpazo}
+
+    % Basic figure setup, for now with no caption control since it's done
+    % automatically by Pandoc (which extracts ![](path) syntax from Markdown).
+    \usepackage{graphicx}
+    % We will generate all images so they have a width \maxwidth. This means
+    % that they will get their normal width if they fit onto the page, but
+    % are scaled down if they would overflow the margins.
+    \makeatletter
+    \def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth
+    \else\Gin@nat@width\fi}
+    \makeatother
+    \let\Oldincludegraphics\includegraphics
+    % Set max figure width to be 80% of text width, for now hardcoded.
+    \renewcommand{\includegraphics}[1]{\Oldincludegraphics[width=.8\maxwidth]{#1}}
+    % Ensure that by default, figures have no caption (until we provide a
+    % proper Figure object with a Caption API and a way to capture that
+    % in the conversion process - todo).
+    \usepackage{caption}
+    \DeclareCaptionLabelFormat{nolabel}{}
+    \captionsetup{labelformat=nolabel}
+
+    \usepackage{adjustbox} % Used to constrain images to a maximum size 
+    \usepackage{xcolor} % Allow colors to be defined
+    \usepackage{enumerate} % Needed for markdown enumerations to work
+    \usepackage{geometry} % Used to adjust the document margins
+    \usepackage{amsmath} % Equations
+    \usepackage{amssymb} % Equations
+    \usepackage{textcomp} % defines textquotesingle
+    % Hack from http://tex.stackexchange.com/a/47451/13684:
+    \AtBeginDocument{%
+        \def\PYZsq{\textquotesingle}% Upright quotes in Pygmentized code
+    }
+    \usepackage{upquote} % Upright quotes for verbatim code
+    \usepackage{eurosym} % defines \euro
+    \usepackage[mathletters]{ucs} % Extended unicode (utf-8) support
+    \usepackage[utf8x]{inputenc} % Allow utf-8 characters in the tex document
+    \usepackage{fancyvrb} % verbatim replacement that allows latex
+    \usepackage{grffile} % extends the file name processing of package graphics 
+                         % to support a larger range 
+    % The hyperref package gives us a pdf with properly built
+    % internal navigation ('pdf bookmarks' for the table of contents,
+    % internal cross-reference links, web links for URLs, etc.)
+    \usepackage{hyperref}
+    \usepackage{longtable} % longtable support required by pandoc >1.10
+    \usepackage{booktabs}  % table support for pandoc > 1.12.2
+    \usepackage[inline]{enumitem} % IRkernel/repr support (it uses the enumerate* environment)
+    \usepackage[normalem]{ulem} % ulem is needed to support strikethroughs (\sout)
+                                % normalem makes italics be italics, not underlines
+    
+
+    
+    
+    % Colors for the hyperref package
+    \definecolor{urlcolor}{rgb}{0,.145,.698}
+    \definecolor{linkcolor}{rgb}{.71,0.21,0.01}
+    \definecolor{citecolor}{rgb}{.12,.54,.11}
+
+    % ANSI colors
+    \definecolor{ansi-black}{HTML}{3E424D}
+    \definecolor{ansi-black-intense}{HTML}{282C36}
+    \definecolor{ansi-red}{HTML}{E75C58}
+    \definecolor{ansi-red-intense}{HTML}{B22B31}
+    \definecolor{ansi-green}{HTML}{00A250}
+    \definecolor{ansi-green-intense}{HTML}{007427}
+    \definecolor{ansi-yellow}{HTML}{DDB62B}
+    \definecolor{ansi-yellow-intense}{HTML}{B27D12}
+    \definecolor{ansi-blue}{HTML}{208FFB}
+    \definecolor{ansi-blue-intense}{HTML}{0065CA}
+    \definecolor{ansi-magenta}{HTML}{D160C4}
+    \definecolor{ansi-magenta-intense}{HTML}{A03196}
+    \definecolor{ansi-cyan}{HTML}{60C6C8}
+    \definecolor{ansi-cyan-intense}{HTML}{258F8F}
+    \definecolor{ansi-white}{HTML}{C5C1B4}
+    \definecolor{ansi-white-intense}{HTML}{A1A6B2}
+
+    % commands and environments needed by pandoc snippets
+    % extracted from the output of `pandoc -s`
+    \providecommand{\tightlist}{%
+      \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+    % Add ',fontsize=\small' for more characters per line
+    \newenvironment{Shaded}{}{}
+    \newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{{#1}}}
+    \newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{{#1}}}}
+    \newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{{#1}}}
+    \newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{{#1}}}
+    \newcommand{\RegionMarkerTok}[1]{{#1}}
+    \newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\NormalTok}[1]{{#1}}
+    
+    % Additional commands for more recent versions of Pandoc
+    \newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{{#1}}}
+    \newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{{#1}}}
+    \newcommand{\ImportTok}[1]{{#1}}
+    \newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{{#1}}}}
+    \newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{{#1}}}
+    \newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{{#1}}}
+    \newcommand{\BuiltInTok}[1]{{#1}}
+    \newcommand{\ExtensionTok}[1]{{#1}}
+    \newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{{#1}}}
+    \newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{{#1}}}
+    \newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    
+    
+    % Define a nice break command that doesn't care if a line doesn't already
+    % exist.
+    \def\br{\hspace*{\fill} \\* }
+    % Math Jax compatability definitions
+    \def\gt{>}
+    \def\lt{<}
+    % Document parameters
+    \title{for\_niraj}
+    
+    
+    
+
+    % Pygments definitions
+    
+\makeatletter
+\def\PY@reset{\let\PY@it=\relax \let\PY@bf=\relax%
+    \let\PY@ul=\relax \let\PY@tc=\relax%
+    \let\PY@bc=\relax \let\PY@ff=\relax}
+\def\PY@tok#1{\csname PY@tok@#1\endcsname}
+\def\PY@toks#1+{\ifx\relax#1\empty\else%
+    \PY@tok{#1}\expandafter\PY@toks\fi}
+\def\PY@do#1{\PY@bc{\PY@tc{\PY@ul{%
+    \PY@it{\PY@bf{\PY@ff{#1}}}}}}}
+\def\PY#1#2{\PY@reset\PY@toks#1+\relax+\PY@do{#2}}
+
+\expandafter\def\csname PY@tok@nb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@vg\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@ge\endcsname{\let\PY@it=\textit}
+\expandafter\def\csname PY@tok@o\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@mo\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@kn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@gd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@mf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@c\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@s1\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@nf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@ne\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.82,0.25,0.23}{##1}}}
+\expandafter\def\csname PY@tok@cp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.74,0.48,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.69,0.00,0.25}{##1}}}
+\expandafter\def\csname PY@tok@nd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@kp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@vi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@cs\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@sr\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@gi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@se\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@m\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@nt\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@w\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.73,0.73}{##1}}}
+\expandafter\def\csname PY@tok@mh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@gr\endcsname{\def\PY@tc##1{\textcolor[rgb]{1.00,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@si\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@nn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@sx\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@err\endcsname{\def\PY@bc##1{\setlength{\fboxsep}{0pt}\fcolorbox[rgb]{1.00,0.00,0.00}{1,1,1}{\strut ##1}}}
+\expandafter\def\csname PY@tok@k\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@vc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@sh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@c1\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@gu\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.50,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@no\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@na\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.49,0.56,0.16}{##1}}}
+\expandafter\def\csname PY@tok@gs\endcsname{\let\PY@bf=\textbf}
+\expandafter\def\csname PY@tok@kr\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.27,0.87}{##1}}}
+\expandafter\def\csname PY@tok@mi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@go\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.53,0.53}{##1}}}
+\expandafter\def\csname PY@tok@bp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gp\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@kd\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@sd\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@kc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@ss\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@gh\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@sb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@il\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@ni\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.60,0.60,0.60}{##1}}}
+\expandafter\def\csname PY@tok@nv\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@s\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@nl\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@ow\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@s2\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@cm\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+
+\def\PYZbs{\char`\\}
+\def\PYZus{\char`\_}
+\def\PYZob{\char`\{}
+\def\PYZcb{\char`\}}
+\def\PYZca{\char`\^}
+\def\PYZam{\char`\&}
+\def\PYZlt{\char`\<}
+\def\PYZgt{\char`\>}
+\def\PYZsh{\char`\#}
+\def\PYZpc{\char`\%}
+\def\PYZdl{\char`\$}
+\def\PYZhy{\char`\-}
+\def\PYZsq{\char`\'}
+\def\PYZdq{\char`\"}
+\def\PYZti{\char`\~}
+% for compatibility with earlier versions
+\def\PYZat{@}
+\def\PYZlb{[}
+\def\PYZrb{]}
+\makeatother
+
+
+    % Exact colors from NB
+    \definecolor{incolor}{rgb}{0.0, 0.0, 0.5}
+    \definecolor{outcolor}{rgb}{0.545, 0.0, 0.0}
+
+
+
+    
+    % Prevent overflowing lines due to hard-to-break entities
+    \sloppy 
+    % Setup hyperref package
+    \hypersetup{
+      breaklinks=true,  % so long urls are correctly broken across lines
+      colorlinks=true,
+      urlcolor=urlcolor,
+      linkcolor=linkcolor,
+      citecolor=citecolor,
+      }
+    % Slightly bigger margins than the latex defaults
+    
+    \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+    
+    
+
+    \begin{document}
+    
+    
+    \maketitle
+    
+    
+
+    
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}121}]:} \PY{k+kn}{import} \PY{n+nn}{matplotlib}\PY{n+nn}{.}\PY{n+nn}{pyplot} \PY{k}{as} \PY{n+nn}{plt}
+          \PY{k+kn}{import} \PY{n+nn}{numpy} \PY{k}{as} \PY{n+nn}{np}
+          \PY{k+kn}{from} \PY{n+nn}{IPython}\PY{n+nn}{.}\PY{n+nn}{core}\PY{n+nn}{.}\PY{n+nn}{display} \PY{k}{import} \PY{n}{HTML}
+          \PY{n}{HTML}\PY{p}{(}\PY{l+s}{\PYZdq{}\PYZdq{}\PYZdq{}}
+          \PY{l+s}{\PYZlt{}style\PYZgt{}}
+          
+          \PY{l+s}{div.cell \PYZob{} /* Tunes the space between cells */}
+          \PY{l+s}{margin\PYZhy{}top:1em;}
+          \PY{l+s}{margin\PYZhy{}bottom:1em;}
+          \PY{l+s}{\PYZcb{}}
+          
+          \PY{l+s}{div.text\PYZus{}cell\PYZus{}render h1 \PYZob{} /* Main titles bigger, centered */}
+          \PY{l+s}{font\PYZhy{}size: 2.2em;}
+          \PY{l+s}{line\PYZhy{}height:1.4em;}
+          \PY{l+s}{text\PYZhy{}align:center;}
+          \PY{l+s}{\PYZcb{}}
+          
+          \PY{l+s}{div.text\PYZus{}cell\PYZus{}render h2 \PYZob{} /*  Parts names nearer from text */}
+          \PY{l+s}{margin\PYZhy{}bottom: \PYZhy{}0.4em;}
+          \PY{l+s}{\PYZcb{}}
+          
+          
+          \PY{l+s}{div.text\PYZus{}cell\PYZus{}render \PYZob{} /* Customize text cells */}
+          \PY{l+s}{font\PYZhy{}family: }\PY{l+s}{\PYZsq{}}\PY{l+s}{Times New Roman}\PY{l+s}{\PYZsq{}}\PY{l+s}{;}
+          \PY{l+s}{font\PYZhy{}size:1.5em;}
+          \PY{l+s}{line\PYZhy{}height:1.4em;}
+          \PY{l+s}{padding\PYZhy{}left:3em;}
+          \PY{l+s}{padding\PYZhy{}right:3em;}
+          \PY{l+s}{ }
+          \PY{l+s}{\PYZcb{}}
+          \PY{l+s}{\PYZlt{}/style\PYZgt{}}
+          \PY{l+s}{\PYZdq{}\PYZdq{}\PYZdq{}}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}121}]:} <IPython.core.display.HTML object>
+\end{Verbatim}
+            
+    \section{What is Overlay?}\label{what-is-overlay}
+
+    \subsubsection{Short Version}\label{short-version}
+
+Overlay is a cryptocurrency that allows users to make and lose money on
+nearly any streaming data. It recreates the dynamics of trading, but
+without counterparties. Thus it completely solves the liquidity problems
+which beset similar systems like cash-settled futures and scalar
+prediction markets.
+
+    \subsubsection{Longer Version}\label{longer-version}
+
+There are some sources of streaming data (price data is a paradigm, but
+it could be CPI numbers, weather data, crime rate, etc.) and holders of
+OVL "buy" or "sell" these data points through some interface. The data
+value at the time of the "trade" is saved to the blockchain. At a later
+time when the "trade" is unwound the value of the streaming data is
+queried again, compared to the value in the blockchain, and a simple
+return is calculated. The original amount of OVL committed to the
+"trade" is multiplied by the return. \emph{The OVL in a user's wallet is
+minted or burned dynamically, based on the "trades" the user makes.}
+
+    \section{What are Some Killer Use
+Cases?}\label{what-are-some-killer-use-cases}
+
+    Like an organism from a single cell, Overlay is based on a simple idea
+which unfolds into a beautiful and complex system. Some consequences of
+the system are:
+
+\begin{itemize}
+\tightlist
+\item
+  Overlay solves liquidity problems. Most data sources are not tradable,
+  either on a futures market or a prediction market, because sellers and
+  buyers must be matched. Significant trader interest must already exist
+  to make such markets tradable, and so very few of such possible
+  markets are actual.
+\item
+  The Overlay system can easily set fees negative, thus paying users to
+  trade and providing a powerful incentive to attract users in the early
+  days and drive network effects. These negative fees can also be
+  offered whenever the system is deflationary and can afford to attract
+  more traders.
+\item
+  Global data sources and interest in monetizing data will continue to
+  grow, with no end in sight. Overlay has enormous potential to serve as
+  a go-to platform which offers investors, hedgers, and speculators
+  exposure to financial instruments they cannot get anywhere else.
+\item
+  As a consequence of the previous point, a mature Overlay market would
+  establish OVL as an entirely new class of financial derivative, in its
+  own right. It would also allow higher-level derivatives like futures
+  and options to be defined on extremely illiquid markets.
+\item
+  Overlay allows for the easy synthetic construction of a crypto (or
+  any) portfolio. It thus simulates a universal cryptocurrency wallet
+  without the need to maintain multiple nodes or keep money on an
+  exchange.
+\item
+  Because there are no counterparties, there is no price impact. Any OVL
+  trade, of any amount, settles at a single price.
+\end{itemize}
+
+    \section{From Problem to Solution}\label{from-problem-to-solution}
+
+    To provide the greatest context for the idea, and to help understand how
+it is innovative, we will start with a well-known problem, and using
+alchemy transform it into a series of increasingly tractable problems.
+
+    \subsubsection{\texorpdfstring{PROBLEM: How can we monetize streaming
+data that is just a
+number?}{PROBLEM:  How can we monetize streaming data that is just a number?}}\label{problem-how-can-we-monetize-streaming-data-that-is-just-a-number}
+
+Price is streaming data formed by buyers and sellers, and is extremely
+interesting because it is monetized. Most streaming data is not formed
+in this way and is not monetizable. Obvious examples abound, the most
+relevant ones are data values derived from prices, like the S\&P 500 and
+VIX.
+
+    \subsubsection{\texorpdfstring{SOLUTION:Cash-settled futures markets and
+scalar prediction
+markets.}{SOLUTION: Cash-settled futures markets and scalar prediction markets.}}\label{solution-cash-settled-futures-markets-and-scalar-prediction-markets.}
+
+Most futures markets have physical settlement: a coffee future contract
+can result in delivery of a truck of 200 lb burlap sacks. Cash-settled
+futures result in payouts. When the contract expires, all parties settle
+in cash at the data level, and the result is to allow for synthetic
+ownership, i.e. monetization of the underyling data stream. Scalar
+prediction markets are essentially cash-settled futures: they set a band
+within which a data value is predicted to remain, and upon expiry all
+parties settle in cash. This solution works, but it gives rise to a new
+problem:
+
+    \subsubsection{\texorpdfstring{PROBLEM:Liquidity is only available for
+hugely popular data
+streams.}{PROBLEM: Liquidity is only available for hugely popular data streams.}}\label{problem-liquidity-is-only-available-for-hugely-popular-data-streams.}
+
+Only a handful of the possible data streams can be monetized with
+futures or prediction markets because of the liquidity problem caused by
+the nature of exchange itself: every buyer needs to be matched with a
+seller. To my knowledge there have been no serious attempts to address
+this problem.
+
+    \subsubsection{\texorpdfstring{SOLUTION:A cryptocurrency which allows
+synthetic ownership without
+exchange.}{SOLUTION: A cryptocurrency which allows synthetic ownership without exchange.}}\label{solution-a-cryptocurrency-which-allows-synthetic-ownership-without-exchange.}
+
+The novelty of Overlay is that it allows for any data stream to be
+monetized and it solves the liquidity problem by doing away with
+exchange. The cryptocurrency plays the role of a trading platform like
+Interactive Brokers, which gives users access to various tradable
+instruments. It is not quite right to say there are no counterparties,
+because now the counterparty is the entire user base, the Overlay system
+itself. Overlay solves the first and second problems completely, but it
+replaces them with another hard problem.
+
+    \subsubsection{\texorpdfstring{PROBLEM How to control the currency
+supply of OVL to avoid
+hyperinflation?}{PROBLEM  How to control the currency supply of OVL to avoid hyperinflation?}}\label{problem-how-to-control-the-currency-supply-of-ovl-to-avoid-hyperinflation}
+
+Overlay is only interesting if users can redeem it for their favorite
+currency without too much slippage. Thus there needs to be liquid OVL
+secondary markets on exchanges. However, if new OVL supply floods the
+system then the price of OVL on exchanges can plummet, causing the users
+of OVL to abandon the system.
+
+    \subsubsection{\texorpdfstring{SOLUTION:Caps.}{SOLUTION: Caps.}}\label{solution-caps.}
+
+If the amount of new OVL available to mint at a given time is capped,
+there is no inflation problem. The max\_supply of OVL is greater than or
+equal to the current\_supply of OVL, and the difference is the buffer,
+the total amount users can pull from the system. The max\_supply should
+be dynamic. For example it could grow linearly (10 OVL are added per
+block), nonlinearly in an error-function-like curve (BTC and ETH
+issuance), or be constant until the buffer is distressed (quantitative
+easing). The max\_supply could even shrink in some situations. Users of
+OVL can know that the currency supply will always be less than or equal
+to a given number.
+
+    \#\#\# PROBLEM:How to assure that the buffer stays large enough?
+
+We have actually now come full circle, because this is a liquidity
+problem, but of quite a different sort than the one in problem \#2. If
+the buffer drops to zero the system must react. If the buffer stays at
+zero no users can redeem their positions, and it becomes unlikely then
+that they will enter new positions. If users even suspect that this is
+about to happen, the system is likely to experience a crisis.
+
+    \subsubsection{\texorpdfstring{SOLUTION:Trader caps and dynamic
+fees.}{SOLUTION: Trader caps and dynamic fees.}}\label{solution-trader-caps-and-dynamic-fees.}
+
+The best situation is that the buffer never gets small and either stays
+roughly constant or is always growing. The first problem to solve is the
+case of black swan windfalls when a trader makes millions of OVL by
+betting 1 OVL. (This can happen if a trader shorts any amount at any
+price and the data feed crashes to near zero.) This problem is easy
+though: all traders have a max\_bet, and a max\_payout. The max\_bet can
+depend on the number of active traders and the current buffer size,
+among other things. The max\_payout can be large, like 10*max\_bet. This
+will help assure that the buffer is not destroyed by black swan
+windfalls. Even if we assume moderate wins per trade, however, it is by
+no means obvious that the buffer will still stay large enough. It is
+quite surprising that dynamic fees solve this problem.
+
+    \section{Modeling Dynamic Fees}\label{modeling-dynamic-fees}
+
+    \subsection{Data}\label{data}
+
+    We start by setting up a data feed which we can control. The histogram
+below shows the distribution, which is just random normal. The positive
+values are green and the negative are red.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}122}]:} \PY{n}{distribution} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{random}\PY{o}{.}\PY{n}{normal}
+          \PY{n}{samples} \PY{o}{=} \PY{p}{[}\PY{p}{]}
+          \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{l+m+mi}{10000}\PY{p}{)}\PY{p}{:}
+              \PY{n}{samples}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{distribution}\PY{p}{(}
+                  \PY{n}{loc}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{,}     \PY{c}{\PYZsh{}the average value of the distribution}
+                  \PY{n}{scale}\PY{o}{=}\PY{l+m+mi}{1}\PY{p}{)}   \PY{c}{\PYZsh{}the standard deviation (spread, or width) of the distribution }
+              \PY{p}{)}
+          \PY{n}{pos} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZgt{}}\PY{l+m+mi}{0}\PY{p}{]}
+          \PY{n}{neg} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZlt{}}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{]}
+          \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{pos}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{g}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{45}\PY{p}{)}
+          \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{neg}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{5}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{mean}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{1}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{1 std}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{o}{\PYZhy{}}\PY{l+m+mi}{1}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{legend}\PY{p}{(}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_19_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    We get our price values through time by taking the cumulative sum of
+these deltas. Disregard the negative prices, that's just a fluke of the
+randomness we can control for by starting the market at a different
+price.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}73}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_21_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    We can change the volatility by changing the standard distribution,
+causing much larger price swings
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}76}]:} \PY{n}{distribution} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{random}\PY{o}{.}\PY{n}{normal}
+         \PY{n}{samples2} \PY{o}{=} \PY{p}{[}\PY{p}{]}
+         \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{l+m+mi}{10000}\PY{p}{)}\PY{p}{:}
+             \PY{n}{samples2}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{distribution}\PY{p}{(}
+                 \PY{n}{loc}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{,}     \PY{c}{\PYZsh{}the average value of the distribution}
+                 \PY{n}{scale}\PY{o}{=}\PY{l+m+mi}{10}\PY{p}{)}   \PY{c}{\PYZsh{}the standard deviation (spread, or width) of the distribution }
+             \PY{p}{)}
+         \PY{n}{pos} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples2} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZgt{}}\PY{l+m+mi}{0}\PY{p}{]}
+         \PY{n}{neg} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples2} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZlt{}}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{]}
+         \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{pos}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{g}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{45}\PY{p}{)}
+         \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{neg}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{5}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{mean}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{10}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{1 std}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{o}{\PYZhy{}}\PY{l+m+mi}{10}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{legend}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_23_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    The previous chart is also plotted for comparison.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}81}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{)}
+         \PY{n}{cumsum2} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples2}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum2}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{std:10}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{std:1}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{legend}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_25_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    We can make the market trend up or down by changing the mean value of
+the distribution. A shift of a single standard deviation upwards has a
+profound impact on the market through time.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}55}]:} \PY{n}{samples} \PY{o}{=} \PY{p}{[}\PY{p}{]}
+         \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{l+m+mi}{10000}\PY{p}{)}\PY{p}{:}
+             \PY{n}{samples}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{distribution}\PY{p}{(}
+                 \PY{n}{loc}\PY{o}{=}\PY{l+m+mi}{1}\PY{p}{,}     \PY{c}{\PYZsh{}the average value of the distribution}
+                 \PY{n}{scale}\PY{o}{=}\PY{l+m+mi}{1}\PY{p}{)}   \PY{c}{\PYZsh{}the standard deviation (spread, or width) of the distribution }
+             \PY{p}{)}
+         \PY{n}{pos} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZgt{}}\PY{l+m+mi}{0}\PY{p}{]}
+         \PY{n}{neg} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZlt{}}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{]}
+         \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{pos}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{g}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{45}\PY{p}{)}
+         \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{neg}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{12}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{5}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{1}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{mean}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{2}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{1 std}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{legend}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_27_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    Not random globally, looks just like the line \(y = x\).
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}37}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_29_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    Locally, the randomness is more evident.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}67}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{[}\PY{l+m+mi}{1110}\PY{p}{:}\PY{l+m+mi}{1125}\PY{p}{]}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_31_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    Even a very slight shift in the mean has a profound effect. This is a
+counterintuitive feature of statistics and why statistical reasoning is
+simultaneously so powerful and so poorly understood by most people.
+Below we shift the mean up by only .05
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}103}]:} \PY{n}{samples} \PY{o}{=} \PY{p}{[}\PY{p}{]}
+          \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{l+m+mi}{10000}\PY{p}{)}\PY{p}{:}
+              \PY{n}{samples}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{distribution}\PY{p}{(}
+                  \PY{n}{loc}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{05}\PY{p}{,}     \PY{c}{\PYZsh{}the average value of the distribution}
+                  \PY{n}{scale}\PY{o}{=}\PY{l+m+mi}{1}\PY{p}{)}     \PY{c}{\PYZsh{}the standard deviation (spread, or width) of the distribution }
+              \PY{p}{)}
+          \PY{n}{pos} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZgt{}}\PY{l+m+mi}{0}\PY{p}{]}
+          \PY{n}{neg} \PY{o}{=} \PY{p}{[}\PY{n}{x} \PY{k}{for} \PY{n}{x} \PY{o+ow}{in} \PY{n}{samples} \PY{k}{if} \PY{n}{x}\PY{o}{\PYZlt{}}\PY{o}{=}\PY{l+m+mi}{0}\PY{p}{]}
+          \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{pos}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{g}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{45}\PY{p}{)}
+          \PY{n}{hist} \PY{o}{=} \PY{n}{plt}\PY{o}{.}\PY{n}{hist}\PY{p}{(}\PY{n}{neg}\PY{p}{,} \PY{n}{bins}\PY{o}{=}\PY{l+m+mi}{25}\PY{p}{,} \PY{n}{color}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{alpha}\PY{o}{=}\PY{o}{.}\PY{l+m+mi}{5}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{o}{.}\PY{l+m+mi}{05}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{r}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{mean}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{l+m+mf}{1.1}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{1 std}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{axvline}\PY{p}{(}\PY{o}{\PYZhy{}}\PY{o}{.}\PY{l+m+mi}{9}\PY{p}{,} \PY{n}{c}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{k}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{legend}\PY{p}{(}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_33_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    This is still far from random gobally, the slope is approximately 5/100
+or .05
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}104}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_35_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    Locally the randomness is much more evident
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}105}]:} \PY{n}{cumsum} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{cumsum}\PY{p}{(}\PY{n}{samples}\PY{p}{[}\PY{l+m+mi}{1110}\PY{p}{:}\PY{l+m+mi}{1125}\PY{p}{]}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{cumsum}\PY{p}{)}
+          \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{for_niraj_files/for_niraj_37_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \subsection{Traders}\label{traders}
+
+    We now add traders to these markets. The logic here can get arbitrarily
+complex. Below we have a trader who, at each time step, has a \(33\%\)
+chance of trading. Upon \emph{entry} a side is chosen by coin toss, and
+at each trade the trader commits all capital.
+
+The \texttt{price\_action} plot shows the price along with the trades
+made. The \texttt{P\&L} chart shows the real-time, marked-to-market
+profit and loss of the trader.
+
+We run the model for one year, supposing that each step is a day.
+
+    
+
+    It may seem unrealistic to pursue this model, but it is useful because
+trader luck and skill (and the opposite) can be simulated without
+writing any trading strategies. This is done by increasing the
+probability of trades going in the direction of a controlled trend. In
+the below chart, the market is trending up and the trader is twice as
+likely to go long as short upon entry.
+
+    
+
+    We may also control the frequency of trades through the entry and exit
+probabilities. Keeping everything form the previous chart except
+reducing the percentage of a trade to \(2\%\) we get the following.
+(Note that the \texttt{LongEnter} strategy has a 1/3 chance of going
+short, so despite having a winning strategy this trader gets unlucky.)
+
+    
+
+    \subsection{Agent-Based Modeling}\label{agent-based-modeling}
+
+    What we are actually interested in are statistical features of this
+model, so we add many more traders, and we do many runs of the same
+parameters to look for regularities.
+
+Below, the top chart is the earned wealth of the 100 traders \emph{on
+aggregate} (i.e. the sum of all traders' wealth). The middle chart is
+the buffer, and the bottom chart is the currency supply. The charts on
+the right are rotated histograms of the outcomes.
+
+Each line on each chart is a separate run of the model. Each run is a
+complete reset and is independent of all other runs. As is clear, these
+three quantities are essentially the same thing: changes in earned
+wealth just are changes in currency supply, and changes in the buffer
+are the same, but inverted. We bother charting them all because there
+are ways of decoupling them.
+
+The results are entirely expected: the outcomes roughly follow a random
+normal distribution, with the mean outcome being no different than the
+initial state.
+
+    
+
+    The \texttt{issue} variable describes how many OVL are added per time
+step to the \texttt{max\_supply}. Such 'issuance' does not actually
+affect the OVL currency supply, but it does affect the buffer. Changing
+the \texttt{issue} parameter to 10 and otherwise leaving the model
+unchanged, results in a decoupling of the \texttt{buffer} from the
+\texttt{earned\_wealth} and \texttt{curency\_supply}.
+
+    
+
+    Now, if we set \texttt{issue} to 0 again, but change the
+\texttt{free\_fee} to 10 basis points (\(.1\%\) of each trade size), all
+variables are coupled again, but the result is profound:
+
+    
+
+    Over the course of a year, 10 basis points shifts the average
+performance down \(10\%\). This is for traders who trade, on balance,
+once every three days. If we reduce the trading frequency to once per
+month, we obtain a decidedly more modest result (eyeballing it, it looks
+like fees take about \(1\%\) of \texttt{earned\_wealth} on average):
+
+    
+
+    If we run the exact same model for two years, the result of the fees is
+more apparent (fees take about \(2\%\) of \texttt{earned\_wealth} now):
+
+    
+
+    Finally, let us reset the trading frequency to once every three days,
+and run the model for a year. If we combine fees and issue, we get the
+expected result: while \texttt{earned\_wealth} decreases by roughly
+\(10\%\), the \texttt{buffer} increases by roughly \(15\%\).
+
+    
+
+    All of the above examples used a random market and random entry and exit
+parameters. How do fees affect the situation when traders, on aggregate,
+are winning? Below we look at a \texttt{LongEntry} strategy (i.e. twice
+as likely to go long than short), with a rising market, in the absence
+of fees and issue.
+
+    
+
+    If we keep everything the same, and include a fee of 10 basis points,
+the pressue on the system is alleviated.
+
+    
+
+    If we reduce the trading frequency by a factor of ten (one trade per
+month on average), the fees are less effective.
+
+    
+
+    And if we have traders use a \texttt{AlwaysLongEnter} strategy in a
+market which trends strongly upwards, along with a low trading
+probability, we get a simulation of incredible trader skill, and a
+system which experiences a great deal of pressure:
+
+    
+
+    Doubling the fees, we get
+
+    
+
+    Tripling the fees (which is now getting a little expensive):
+
+    
+
+    The higher fees go, the fewer users we will have and the fewer new
+trades will be entered. If, instead of raising fees to deal with trader
+luck and skill, we allow for some inflation in the system, we can
+maintain the buffer. The following chart shows what happens when we
+charge 25 basis points fee, and issue 50 OVL per day to the
+\texttt{max\_supply}. The result is a system which experiences, at
+worst, \(4\%\) inflation per year, and a trader population that makes
+\(40\%\) return over the year. The buffer, in the worst case, loses only
+\(20\%\).
+
+    
+
+    Running the model for two years gives the same result: the buffer is
+sustained in the face of what will probably be moderate inflation.
+
+    
+
+    \section{Conclusion}\label{conclusion}
+
+    We conclude that fees alone are sufficient to sustain and protect the
+system when traders are unskilled or unlucky. In the case that traders
+collectively get very lucky, or have unusual skill, a combination of
+fees and inflation of the currency allows the system to maintain the
+buffer. Such periods are stressful, and there should be other safeguards
+available to deal with market shocks. We believe that dynamic fees based
+on a careful (and continually optimized) model for the optimal fee, will
+be a necessary component of the Overlay system. The encouraging analysis
+above shows a way for future work on the monetary policy.
+
+
+    % Add a bibliography block to the postdoc
+    
+    
+    
+    \end{document}
