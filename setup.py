@@ -13,7 +13,7 @@ from setuptools import find_packages, setup, Command
 
 # Package meta-data.
 NAME = 'overlay-monetary'
-DESCRIPTION = 'Agent Based Simulation of Overlay DeFi Protocol'
+DESCRIPTION = 'Agent Based Simulation of Overlay Protocol'
 URL = 'https://github.com/overlay-market/overlay-monetary'
 EMAIL = ''
 AUTHOR = 'Adam Kay, Michael Feldman, Michael Nowotny'
