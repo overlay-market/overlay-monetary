@@ -29,10 +29,11 @@ REQUIRED = [
     "mesa",
     "numpy",
     "pandas",
+    "pyarrow",
+    "pytest",
     "recombinator",
     "scipy",
     "statsmodels",
-    "pytest"
 ]
 
 # What packages are optional?

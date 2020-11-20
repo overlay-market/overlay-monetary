@@ -1,6 +1,7 @@
 import ccxt
 import itertools
 from datetime import datetime
+import pandas as pd
 import typing as tp
 
 
@@ -16,7 +17,6 @@ def fetch_data(symbols: tp.Sequence[str],
 
     exchange = getattr(ccxt, exchange_id)()
     ms = exchange.parse_timeframe(timeframe) * 1000
-    # data = {}
 
     if not until:
         until = datetime.now().timestamp() * 1000
@@ -36,3 +36,40 @@ def fetch_data(symbols: tp.Sequence[str],
     }
 
     return data
+
+
+PriceHistory = tp.Sequence[tp.Tuple[int, float, float, float, float, float]]
+FTX_COLUMN_NAMES = ['start_time', 'open', 'high', 'low', 'close', 'volume']
+
+
+def convert_price_history_from_nested_list_to_dataframe(
+        price_history: PriceHistory,
+        set_time_index: bool = True) -> pd.DataFrame:
+    df = pd.DataFrame(data=price_history, columns=FTX_COLUMN_NAMES)
+    if set_time_index:
+        df.set_index('start_time', inplace=True)
+
+    return df
+
+
+def convert_multiple_price_histories_from_nested_lists_to_dict_of_dataframes(
+        name_to_price_history_map: tp.Dict[str, PriceHistory],
+        set_time_index: bool = True) -> tp.Dict[str, pd.DataFrame]:
+    return {name: convert_price_history_from_nested_list_to_dataframe(price_history=price_history,
+                                                                      set_time_index=set_time_index)
+            for name, price_history
+            in name_to_price_history_map.items()}
+
+
+def compute_number_of_days_in_price_history(price_history_df: pd.DataFrame,
+                                            period_length_in_seconds: float) -> float:
+    return len(price_history_df) / 60 / 60 / 24 * period_length_in_seconds
+
+
+def save_price_history_df(name: str, price_history_df: pd.DataFrame):
+    price_history_df.to_parquet(name.replace('/', '-'))
+
+
+def save_price_histories(name_to_price_history_df_map: tp.Dict[str, pd.DataFrame]):
+    for name, price_history_df in name_to_price_history_df_map.items():
+        save_price_history_df(name=name, price_history_df=price_history_df)
