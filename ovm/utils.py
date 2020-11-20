@@ -1,6 +1,7 @@
 import ccxt
 import itertools
 from datetime import datetime
+import numpy as np
 import pandas as pd
 import typing as tp
 
@@ -73,3 +74,12 @@ def save_price_history_df(name: str, price_history_df: pd.DataFrame):
 def save_price_histories(name_to_price_history_df_map: tp.Dict[str, pd.DataFrame]):
     for name, price_history_df in name_to_price_history_df_map.items():
         save_price_history_df(name=name, price_history_df=price_history_df)
+
+
+def compute_log_returns_from_price_history(price_history_df: pd.DataFrame,
+                                           period_length_in_seconds: float,
+                                           name: tp.Optional[str] = None) -> pd.Series:
+    log_returns = np.log(price_history_df['close']).diff().dropna() * np.sqrt(365 * 24 * 60 * 60 / period_length_in_seconds)
+    if name is not None:
+        log_returns.name = name
+    return log_returns
