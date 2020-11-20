@@ -1,12 +1,22 @@
 import ccxt
 import itertools
-from datetime import datetime, timedelta
+from datetime import datetime
+import typing as tp
 
 
-def fetch_data(symbols, exchange_id='ftx', timeframe='15s', since=None, until=None, limit=1500, params={}):
+def fetch_data(symbols: tp.Sequence[str],
+               exchange_id: str = 'ftx',
+               timeframe: str = '15s',
+               since: int = None,
+               until: int = None,
+               limit: int = 1500,
+               params: tp.Optional[tp.Dict] = None):
+    if params is None:
+        params = {}
+
     exchange = getattr(ccxt, exchange_id)()
     ms = exchange.parse_timeframe(timeframe) * 1000
-    data = {}
+    # data = {}
 
     if not until:
         until = datetime.now().timestamp() * 1000
@@ -24,4 +34,5 @@ def fetch_data(symbols, exchange_id='ftx', timeframe='15s', since=None, until=No
         ]))
         for symbol in symbols
     }
+
     return data

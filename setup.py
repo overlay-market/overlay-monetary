@@ -22,12 +22,16 @@ VERSION = "0.1.0"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
+    "arch",
     "ccxt",
     "jupyter",
+    "matplotlib",
     "mesa",
     "numpy",
     "pandas",
+    "recombinator",
     "scipy",
+    "statsmodels",
     "pytest"
 ]
 
