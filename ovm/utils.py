@@ -1,14 +1,28 @@
-import ccxt
-import itertools
+from enum import Enum
 from datetime import datetime
-import numpy as np
-import pandas as pd
+import itertools
 import typing as tp
+
+import ccxt
+
+
+class TimeResolution(Enum):
+    FIFTEEN_SECONDS = '15s'
+    ONE_MINUTE = '60s'
+    FIVE_MINUTES = '300s'
+    FIFTEEN_MINUTES = '900s'
+    ONE_HOUR = '3600s'
+    FOUR_HOURS = '14400s'
+    ONE_DAY = '86400s'
+
+    @property
+    def in_seconds(self) -> int:
+        return int(self.value[0:-1])
 
 
 def fetch_data(symbols: tp.Sequence[str],
                exchange_id: str = 'ftx',
-               timeframe: str = '15s',
+               timeframe: str = TimeResolution.FIFTEEN_SECONDS.value,
                since: int = None,
                until: int = None,
                limit: int = 1500,
@@ -39,47 +53,6 @@ def fetch_data(symbols: tp.Sequence[str],
     return data
 
 
-PriceHistory = tp.Sequence[tp.Tuple[int, float, float, float, float, float]]
-FTX_COLUMN_NAMES = ['start_time', 'open', 'high', 'low', 'close', 'volume']
-
-
-def convert_price_history_from_nested_list_to_dataframe(
-        price_history: PriceHistory,
-        set_time_index: bool = True) -> pd.DataFrame:
-    df = pd.DataFrame(data=price_history, columns=FTX_COLUMN_NAMES)
-    if set_time_index:
-        df.set_index('start_time', inplace=True)
-
-    return df
-
-
-def convert_multiple_price_histories_from_nested_lists_to_dict_of_dataframes(
-        name_to_price_history_map: tp.Dict[str, PriceHistory],
-        set_time_index: bool = True) -> tp.Dict[str, pd.DataFrame]:
-    return {name: convert_price_history_from_nested_list_to_dataframe(price_history=price_history,
-                                                                      set_time_index=set_time_index)
-            for name, price_history
-            in name_to_price_history_map.items()}
-
-
-def compute_number_of_days_in_price_history(price_history_df: pd.DataFrame,
-                                            period_length_in_seconds: float) -> float:
-    return len(price_history_df) / 60 / 60 / 24 * period_length_in_seconds
-
-
-def save_price_history_df(name: str, price_history_df: pd.DataFrame):
-    price_history_df.to_parquet(name.replace('/', '-'))
-
-
-def save_price_histories(name_to_price_history_df_map: tp.Dict[str, pd.DataFrame]):
-    for name, price_history_df in name_to_price_history_df_map.items():
-        save_price_history_df(name=name, price_history_df=price_history_df)
-
-
-def compute_log_returns_from_price_history(price_history_df: pd.DataFrame,
-                                           period_length_in_seconds: float,
-                                           name: tp.Optional[str] = None) -> pd.Series:
-    log_returns = np.log(price_history_df['close']).diff().dropna() * np.sqrt(365 * 24 * 60 * 60 / period_length_in_seconds)
-    if name is not None:
-        log_returns.name = name
-    return log_returns
+if __name__ == '__main__':
+    tr = TimeResolution.FIFTEEN_SECONDS
+    print(tr.in_seconds)
