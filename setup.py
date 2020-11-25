@@ -34,6 +34,7 @@ REQUIRED = [
     "recombinator",
     "scipy",
     "statsmodels",
+    "tqdm"
 ]
 
 # What packages are optional?

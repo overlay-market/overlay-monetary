@@ -64,8 +64,13 @@ def _construct_file_path(filename: str,
 def save_price_history_df(price_history_df: pd.DataFrame,
                           filename: str,
                           directory_path: tp.Optional[str] = None):
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
+
     filename = filename.replace('/', '-')
-    file_path = _construct_file_path(filename=filename, directory_path=directory_path)
+    file_path = _construct_file_path(filename=filename,
+                                     directory_path=directory_path)
+
     price_history_df.to_parquet(file_path)
 
 
