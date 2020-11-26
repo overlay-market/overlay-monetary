@@ -124,24 +124,6 @@ class PriceHistory:
         return self.garch_scaling_factor * self.unscaled_log_returns
 
 
-# class PriceHistory:
-#     def __init__(self,
-#                  name: str,
-#                  price_history_df: pd.DataFrame,
-#                  period_length_in_seconds: tp.Optional[float] = None):
-#         self._name = name
-#         self._price_history_df = price_history_df
-#         self._period_length_in_seconds = period_length_in_seconds
-#
-#     @property
-#     def name(self) -> str:
-#         return self._name
-#
-#     @property
-#     def price_history_df(self) -> pd.DataFrame:
-#         return self._price_history_df
-
-
 def load_price_history(filename: str,
                        series_name: str,
                        directory_path: str,
