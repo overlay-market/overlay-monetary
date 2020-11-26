@@ -94,7 +94,18 @@ def compute_log_returns_from_price_history(price_history_df: pd.DataFrame,
     return log_returns
 
 
-# def scale_log_returns_for_garch
+VectorType = tp.TypeVar('VectorType', np.ndarray, pd.Series)
+
+
+def compute_scaling_factor(period_length_in_seconds: float) -> float:
+    return np.sqrt(365 * 24 * 60 * 60 / period_length_in_seconds)
+
+
+def compute_scaled_log_returns(unscaled_log_returns: VectorType,
+                               period_length_in_seconds: float) \
+        -> VectorType:
+    scaling_factor = compute_scaling_factor(period_length_in_seconds)
+    return unscaled_log_returns * scaling_factor
 
 
 @dataclass(frozen=False)
