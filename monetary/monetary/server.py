@@ -22,14 +22,15 @@ def circle_portrayal_example(agent):
     return portrayal
 
 
-canvas_element = CanvasGrid(circle_portrayal_example, 20, 20, 500, 500)
-chart_element = ChartModule([{"Label": "Monetary", "Color": "Pink"}])
+chart_element = ChartModule([{"Label": "Gini",
+                      "Color": "Black"}],
+                    data_collector_name='datacollector')
 
 model_kwargs = {"num_agents": 10, "width": 10, "height": 10}
 
 server = ModularServer(
     MonetaryModel,
-    [canvas_element, chart_element],
+    [chart_element],
     "Monetary",
     model_kwargs,
 )
