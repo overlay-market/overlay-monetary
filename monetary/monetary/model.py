@@ -27,13 +27,14 @@ class MonetaryPosition(object):
 
 
 class MonetaryFMarket(object):
-    def __init__(self, unique_id, x, y, px, py, k):
+    def __init__(self, unique_id, x, y, px, py, k, y_denom='ETH'):
         self.unique_id = unique_id
         self.x = x
         self.y = y
         self.px = px
         self.py = py
         self.k = k
+        self.y_denom = y_denom  # either 'ETH' or 'USD'
 
     def price(self):
         return self.x / self.y
@@ -111,7 +112,7 @@ class MonetaryTrader(Agent):  # noqa
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
         # sims as off-chain price values(?)
 
-    def assess_funding(self):
+    def pay_funding(self):
         # mint/burn funding for each outstanding position
         # depending on
         i = self.model.scheduler.steps
@@ -166,20 +167,27 @@ class MonetaryKeeper(Agent):
         """
         self.unique_id = unique_id
         super().__init__(unique_id, model)
+        self.wealth = model.base_wealth
 
-    def assess_funding(self):
+    def distribute_funding(self):
         # Figure out funding payments on each agent's positions
         for agent in self.model.scheduler.agents:
             if agent.unique_id != self.unique_id:
-                agent.assess_funding()
+                agent.pay_funding()
 
     def update_markets(self):
         # Update px, py values from funding oracle fetch
         i = self.model.scheduler.steps
+        ovleth_spot = self.model.markets['OVLETH'][i]
+        ethusd_spot = self.model.markets['ETHUSD'][i]
         for k, market in self.model.markets.items():
             # always assume Y is ETH so py is ETH/OVL
             spot = self.model.sims[k][i]
-            market.py = 1  # TODO: fetch from special spot market OVLETH
+            py = 1.0 / ovleth_spot  # assume y_denom == 'ETH' as standard
+            if market.y_denom == 'USD':
+                py /= ethusd_spot
+
+            market.py = py  # special spot market OVLETH or OVLUSD
             market.px = spot * market.py  # spot = px/py
 
     def step(self):
@@ -190,7 +198,7 @@ class MonetaryKeeper(Agent):
         print("Agent {} activated", self.unique_id)
         i = self.model.scheduler.steps
         if i % self.model.sampling_interval == 0:
-            self.assess_funding()
+            self.distribute_funding()
             self.update_markets()
 
 
@@ -205,21 +213,32 @@ class MonetaryModel(Model):
     The scheduler is a special model component which controls the order in which agents are activated.
     """
 
-    def __init__(self, num_agents, sims, base_wealth):
+    def __init__(self, num_arbitrageurs, num_keepers, num_holders, sims, base_wealth):
         super().__init__()
-        self.num_agents = num_agents
+        self.num_agents = num_arbitrageurs + num_keepers + num_holders
+        self.num_arbitraguers = num_arbitrageurs
+        self.num_keepers = num_keepers
+        self.num_holders = num_holders
         self.base_wealth = base_wealth
-        self.supply = base_wealth * num_agents
+        self.supply = base_wealth * self.num_agents
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
-        self.markets = {
-            k: MonetaryFMarket(k)
+
+        # Markets: Assume OVLETH is in here ...
+        self.fmarkets = {
+            k: MonetaryFMarket(k)  # x, y, px, py, k)
             for k, _ in sims.items()
         }
 
         for i in range(self.num_agents):
-            # TODO: add other types of agents
-            agent = MonetaryArbitrageur(i, self)
+            agent = None
+            if i < self.num_arbitraguers:
+                agent = MonetaryArbitrageur(i, self)
+            elif i < self.num_arbitraguers + self.num_keepers:
+                agent = MonetaryKeeper(i, self)
+            else:
+                agent = MonetaryTrader(i, self)
+
             self.schedule.add(agent)
 
         # data collector
