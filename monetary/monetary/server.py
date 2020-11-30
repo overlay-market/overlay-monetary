@@ -2,10 +2,10 @@
 Configure visualization elements and instantiate a server
 """
 
-from .model import MonetaryModel, MonetaryAgent  # noqa
+from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import CanvasGrid, ChartModule
+from mesa.visualization.modules import ChartModule
 
 
 def circle_portrayal_example(agent):
@@ -26,7 +26,21 @@ chart_element = ChartModule([{"Label": "Gini",
                       "Color": "Black"}],
                     data_collector_name='datacollector')
 
-model_kwargs = {"num_agents": 10, "width": 10, "height": 10}
+# num_arbitrageurs, num_keepers, num_holders, sims, base_wealth
+sims = {
+    "OVLETH": [1.0],
+    "ETHUSD": [1.0],
+    "AAVEETH": [1.0],
+}
+
+model_kwargs = {
+    "sims": sims,
+    "num_arbitrageurs": len(sims.keys()) * 5,
+    "num_keepers": len(sims.keys()),
+    "num_holders": 0,
+    "base_wealth": 100,
+    "sampling_interval": 1920, # 8h with 15s blocks
+}
 
 server = ModularServer(
     MonetaryModel,

@@ -20,7 +20,8 @@ def compute_gini(model):
 
 
 class MonetaryPosition(object):
-    def __init__(self, lock_price=0.0, amount=0.0, long=True):
+    def __init__(self, fmarket, lock_price=0.0, amount=0.0, long=True):
+        self.fmarket = fmarket
         self.lock_price = lock_price
         self.amount = amount
         self.long = long
@@ -93,19 +94,20 @@ class MonetaryTrader(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, pos_max=0.1, deploy_max=0.75):
+    def __init__(self, unique_id, model, fmarket, pos_max=0.1, deploy_max=0.75):
         """
         Customize the agent
         """
         self.unique_id = unique_id
         super().__init__(unique_id, model)
+        self.fmarket = fmarket  # each 'trader' focuses on one market for now
         self.wealth = model.base_wealth
         self.locked = 0
         self.pos_max = pos_max
         self.deploy_max = deploy_max
         self.positions = {
-            k: MonetaryPosition()
-            for k, _ in model.sims.items()
+            ticker: MonetaryPosition(ticker)
+            for ticker, _ in model.fmarkets.items()
         }
         # TODO: store wealth in ETH and OVL, have feeds agent can trade on be
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
@@ -115,14 +117,14 @@ class MonetaryTrader(Agent):  # noqa
     def pay_funding(self):
         # mint/burn funding for each outstanding position
         # depending on
-        i = self.model.scheduler.steps
+        i = self.model.schedule.steps
         if i % self.model.sampling_interval != 0:
             return
 
         ds = 0
         for k, pos in self.positions.items():
             spot = self.model.sims[k][i]
-            price = self.model.markets[k].price()
+            price = self.model.fmarkets[k].price()
             if pos.amount > 0:
                 # TODO: use twap instead (won't make a huge diff for analysis tho)
                 funding = pos.amount * (price - spot) / spot
@@ -134,6 +136,7 @@ class MonetaryTrader(Agent):  # noqa
                     funding = pos.amount
 
                 pos.amount -= funding
+                self.positions.update({k: pos})
                 ds -= funding
 
         self.model.supply += ds
@@ -157,38 +160,45 @@ class MonetaryArbitrageur(MonetaryTrader):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
-        i = self.model.scheduler.steps
+        i = self.model.schedule.steps
+        for k, market in self.model.fmarkets.items():
+            break
 
 
 class MonetaryKeeper(Agent):
-    def __init__(self, unique_id, model):
+    def __init__(self, unique_id, model, fmarket):
         """
         Customize the agent
         """
         self.unique_id = unique_id
         super().__init__(unique_id, model)
+        self.fmarket = fmarket
         self.wealth = model.base_wealth
 
     def distribute_funding(self):
         # Figure out funding payments on each agent's positions
-        for agent in self.model.scheduler.agents:
-            if agent.unique_id != self.unique_id:
+        for agent in self.model.schedule.agents:
+            if type(agent) != type(self):
                 agent.pay_funding()
 
     def update_markets(self):
         # Update px, py values from funding oracle fetch
-        i = self.model.scheduler.steps
-        ovleth_spot = self.model.markets['OVLETH'][i]
-        ethusd_spot = self.model.markets['ETHUSD'][i]
-        for k, market in self.model.markets.items():
-            # always assume Y is ETH so py is ETH/OVL
-            spot = self.model.sims[k][i]
-            py = 1.0 / ovleth_spot  # assume y_denom == 'ETH' as standard
-            if market.y_denom == 'USD':
-                py /= ethusd_spot
+        i = self.model.schedule.steps
+        ovleth_spot = self.model.sims['OVLETH'][i]
+        ethusd_spot = self.model.sims['ETHUSD'][i]
 
-            market.py = py  # special spot market OVLETH or OVLUSD
-            market.px = spot * market.py  # spot = px/py
+        # always assume Y is ETH so py is ETH/OVL
+        market = self.model.fmarkets[self.fmarket]
+        spot = self.model.sims[self.fmarket][i]
+        py = 1.0 / ovleth_spot  # assume y_denom == 'ETH' as standard
+        if market.y_denom == 'USD':
+            py /= ethusd_spot
+
+        market.py = py  # special spot market OVLETH or OVLUSD
+        market.px = spot * market.py  # spot = px/py
+        self.model.fmarkets.update({
+            self.fmarket: market
+        })
 
     def step(self):
         """
@@ -196,7 +206,7 @@ class MonetaryKeeper(Agent):
         Can include logic based on neighbors states.
         """
         print("Agent {} activated", self.unique_id)
-        i = self.model.scheduler.steps
+        i = self.model.schedule.steps
         if i % self.model.sampling_interval == 0:
             self.distribute_funding()
             self.update_markets()
@@ -213,31 +223,49 @@ class MonetaryModel(Model):
     The scheduler is a special model component which controls the order in which agents are activated.
     """
 
-    def __init__(self, num_arbitrageurs, num_keepers, num_holders, sims, base_wealth):
+    def __init__(
+        self,
+        num_arbitrageurs,
+        num_keepers,
+        num_holders,
+        sims,
+        base_wealth,
+        sampling_interval
+    ):
         super().__init__()
         self.num_agents = num_arbitrageurs + num_keepers + num_holders
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_holders = num_holders
         self.base_wealth = base_wealth
+        self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
         # Markets: Assume OVLETH is in here ...
         self.fmarkets = {
-            k: MonetaryFMarket(k)  # x, y, px, py, k)
-            for k, _ in sims.items()
+            ticker: MonetaryFMarket(
+                ticker,
+                100000,
+                100000,
+                15000,
+                1,
+                (100000 * 15000) * (100000 * 1)
+            )  # TODO: remove hardcode of x,y,px,py,k for real vals
+            for ticker, _ in sims.items()
         }
 
+        tickers = list(self.fmarkets.keys())
         for i in range(self.num_agents):
             agent = None
+            fmarket = tickers[i % len(tickers)]
             if i < self.num_arbitraguers:
-                agent = MonetaryArbitrageur(i, self)
+                agent = MonetaryArbitrageur(i, self, fmarket)
             elif i < self.num_arbitraguers + self.num_keepers:
-                agent = MonetaryKeeper(i, self)
+                agent = MonetaryKeeper(i, self, fmarket)
             else:
-                agent = MonetaryTrader(i, self)
+                agent = MonetaryTrader(i, self, fmarket)
 
             self.schedule.add(agent)
 
