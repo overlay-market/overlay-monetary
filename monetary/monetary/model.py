@@ -85,7 +85,7 @@ class MonetarySMarket(object):
         return self.price()
 
 
-class MonetaryAgent(Agent):  # noqa
+class MonetaryTrader(Agent):  # noqa
     """
     An agent ... these are the arbers with stop losses.
     Add in position hodlers as a different agent
@@ -120,7 +120,7 @@ class MonetaryAgent(Agent):  # noqa
 
         ds = 0
         for k, pos in self.positions.items():
-            spot = self.sims[k][i]
+            spot = self.model.sims[k][i]
             price = self.model.markets[k].price()
             if pos.amount > 0:
                 # TODO: use twap instead (won't make a huge diff for analysis tho)
@@ -146,18 +146,52 @@ class MonetaryAgent(Agent):  # noqa
         Can include logic based on neighbors states.
         """
         print("Agent {} activated", self.unique_id)
-        self.assess_funding()
         if self.wealth > 0 and self.locked / self.wealth < self.deploy_max:
             # Assume only make one trade per step ...
             self.trade()
 
 
-class MonetaryArbAgent(MonetaryAgent):
+class MonetaryArbitrageur(MonetaryTrader):
     def trade(self):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
         i = self.model.scheduler.steps
+
+
+class MonetaryKeeper(Agent):
+    def __init__(self, unique_id, model):
+        """
+        Customize the agent
+        """
+        self.unique_id = unique_id
+        super().__init__(unique_id, model)
+
+    def assess_funding(self):
+        # Figure out funding payments on each agent's positions
+        for agent in self.model.scheduler.agents:
+            if agent.unique_id != self.unique_id:
+                agent.assess_funding()
+
+    def update_markets(self):
+        # Update px, py values from funding oracle fetch
+        i = self.model.scheduler.steps
+        for k, market in self.model.markets.items():
+            # always assume Y is ETH so py is ETH/OVL
+            spot = self.model.sims[k][i]
+            market.py = 1  # TODO: fetch from special spot market OVLETH
+            market.px = spot * market.py  # spot = px/py
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        print("Agent {} activated", self.unique_id)
+        i = self.model.scheduler.steps
+        if i % self.model.sampling_interval == 0:
+            self.assess_funding()
+            self.update_markets()
 
 
 class MonetaryModel(Model):
@@ -185,7 +219,7 @@ class MonetaryModel(Model):
 
         for i in range(self.num_agents):
             # TODO: add other types of agents
-            agent = MonetaryArbAgent(i, self)
+            agent = MonetaryArbitrageur(i, self)
             self.schedule.add(agent)
 
         # data collector
