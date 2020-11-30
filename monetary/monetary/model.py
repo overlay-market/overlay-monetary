@@ -26,13 +26,63 @@ class MonetaryPosition(object):
         self.long = long
 
 
-class MonetaryMarket(object):
-    def __init__(self, x, y, px, py, k):
+class MonetaryFMarket(object):
+    def __init__(self, unique_id, x, y, px, py, k):
+        self.unique_id = unique_id
         self.x = x
         self.y = y
         self.px = px
         self.py = py
         self.k = k
+
+    def price(self):
+        return self.x / self.y
+
+    def swap(self, dn, buy=True):
+        # k = self.px * (nx + dnx) * self.py * (ny - dny)
+        # dny = ny - (k/(self.px * self.py))/(nx+dnx) .. mult by py ..
+        # dy = y - k/(x + dx)
+        if buy:
+            print("dn = +dx")
+            dx = self.px*dn
+            dy = self.y - self.k/(self.x + dx)
+            self.x += dx
+            self.y -= dy
+        else:
+            print("dn = -dx")
+            dy = self.py*dn
+            dx = self.x - self.k/(self.y + dy)
+            self.y += dy
+            self.x -= dx
+        return (self.x/self.y)
+
+
+class MonetarySMarket(object):
+    def __init__(self, unique_id, x, y, k):
+        self.unique_id = unique_id
+        self.x = x
+        self.y = y
+        self.k = k
+
+    def price(self):
+        return self.x / self.y
+
+    def swap(self, dn, buy=True):
+        # k = (x + dx) * (y - dy)
+        # dy = y - k/(x+dx)
+        if buy:
+            print("dn = +dx")
+            dx = dn
+            dy = self.y - self.k/(self.x + dx)
+            self.x += dx
+            self.y -= dy
+        else:
+            print("dn = -dx")
+            dy = dn
+            dx = self.x - self.k/(self.y + dy)
+            self.y += dy
+            self.x -= dx
+        return self.price()
 
 
 class MonetaryAgent(Agent):  # noqa
@@ -42,13 +92,16 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model):
+    def __init__(self, unique_id, model, pos_max=0.1, deploy_max=0.75):
         """
         Customize the agent
         """
         self.unique_id = unique_id
         super().__init__(unique_id, model)
         self.wealth = model.base_wealth
+        self.locked = 0
+        self.pos_max = pos_max
+        self.deploy_max = deploy_max
         self.positions = {
             k: MonetaryPosition()
             for k, _ in model.sims.items()
@@ -58,10 +111,34 @@ class MonetaryAgent(Agent):  # noqa
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
         # sims as off-chain price values(?)
 
-    def give_money(self):
-        other = self.random.choice(self.model.schedule.agents)
-        other.wealth += 1
-        self.wealth -= 1
+    def assess_funding(self):
+        # mint/burn funding for each outstanding position
+        # depending on
+        i = self.model.scheduler.steps
+        if i % self.model.sampling_interval != 0:
+            return
+
+        ds = 0
+        for k, pos in self.positions.items():
+            spot = self.sims[k][i]
+            price = self.model.markets[k].price()
+            if pos.amount > 0:
+                # TODO: use twap instead (won't make a huge diff for analysis tho)
+                funding = pos.amount * (price - spot) / spot
+                if not pos.long:
+                    funding *= -1
+
+                # So no debts in the sim ...
+                if funding > pos.amount:
+                    funding = pos.amount
+
+                pos.amount -= funding
+                ds -= funding
+
+        self.model.supply += ds
+
+    def trade(self):
+        pass
 
     def step(self):
         """
@@ -69,11 +146,18 @@ class MonetaryAgent(Agent):  # noqa
         Can include logic based on neighbors states.
         """
         print("Agent {} activated", self.unique_id)
-        # TODO: Check for an arb opportunity. If exists, trade it ...
-        if self.wealth > 0:
-            # If market futures price > spot then short, otherwise long
-            # Calc the slippage first to see if worth it
-            self.give_money()
+        self.assess_funding()
+        if self.wealth > 0 and self.locked / self.wealth < self.deploy_max:
+            # Assume only make one trade per step ...
+            self.trade()
+
+
+class MonetaryArbAgent(MonetaryAgent):
+    def trade(self):
+        # If market futures price > spot then short, otherwise long
+        # Calc the slippage first to see if worth it
+        # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
+        i = self.model.scheduler.steps
 
 
 class MonetaryModel(Model):
@@ -91,15 +175,17 @@ class MonetaryModel(Model):
         super().__init__()
         self.num_agents = num_agents
         self.base_wealth = base_wealth
+        self.supply = base_wealth * num_agents
         self.schedule = RandomActivation(self)
-        self.sims = sims
+        self.sims = sims  # { k: [ prices ] }
         self.markets = {
-            k: MonetaryMarket()
+            k: MonetaryFMarket(k)
             for k, _ in sims.items()
         }
 
         for i in range(self.num_agents):
-            agent = MonetaryAgent(i, self)
+            # TODO: add other types of agents
+            agent = MonetaryArbAgent(i, self)
             self.schedule.add(agent)
 
         # data collector
