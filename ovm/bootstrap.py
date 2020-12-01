@@ -2,6 +2,7 @@ import typing as tp
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from recombinator.optimal_block_length import (
     optimal_block_length,
     OptimalBlockLength
@@ -59,3 +60,22 @@ def max_optimal_block_length_in_seconds_for_selected_series(
             if series_name in selected_series_names)
 
     return max_optimal_block_length_in_seconds_for_selected_series
+
+
+def plot_multivariate_simulation(simulated_data: np.ndarray,
+                                 series_names: tp.Sequence[str],
+                                 title: tp.Optional[str] = None):
+    # simulated_data is an array with shape
+    # (number of monte carlo replications,
+    # length of simulated time series,
+    # number of cryptocurrencies simulated)
+
+    fig, axs = plt.subplots(simulated_data.shape[-1], figsize=(16, 9))
+    for i, series_name in enumerate(series_names):
+        axs[i].plot(simulated_data[0, :, i])
+        axs[i].set_title(series_name)
+
+    if title is not None:
+        plt.title(title)
+
+    plt.show()

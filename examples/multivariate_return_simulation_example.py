@@ -1,30 +1,15 @@
-from datetime import datetime
 import typing as tp
 
-import arch
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import pyarrow
-import scipy as sp
-import statsmodels.api as sm
-from statsmodels.tsa.stattools import adfuller
-from tqdm import tqdm
 
 from ovm.bootstrap import (
-    convert_block_lenghts_to_seconds,
     convert_block_length_from_seconds_to_blocks,
-    estimate_optimal_block_lengths_for_multiple_price_series,
-    estimate_optimal_block_lengths_in_seconds_for_multiple_price_series
+    plot_multivariate_simulation
 )
 
 from ovm.historical_data_io import (
-    PriceHistoryColumnNames as PHCN,
-    compute_number_of_days_in_price_history,
-    compute_log_returns_from_price_history,
-    save_price_histories,
-    load_price_history,
     load_price_histories,
     construct_series_name_to_closing_price_map,
     construct_closing_price_df,
@@ -34,17 +19,14 @@ from ovm.historical_data_io import (
 from ovm.utils import TimeResolution
 
 from recombinator import (
-    stationary_bootstrap,
-    tapered_block_bootstrap
+    stationary_bootstrap
 )
-
-from recombinator.optimal_block_length import optimal_block_length
 
 # specify base directory for data files
 base_directory = os.path.join('..', 'notebooks')
 
 # use data sampled at 15 second intervals from FTX
-time_resolution = TimeResolution.FIFTEEN_SECONDS
+time_resolution = TimeResolution.FIFTEEN_MINUTES
 directory_path = os.path.join(base_directory, time_resolution.value)
 
 # Make the block size approximately 6 hours
@@ -65,7 +47,8 @@ series_names = \
 
 def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
-                     directory_path: tp.Optional[str] = None):
+                     directory_path: tp.Optional[str] = None) \
+        -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     # load price data
     series_name_to_price_history_map = \
         load_price_histories(series_names=series_names,
@@ -73,38 +56,59 @@ def load_log_returns(series_names: tp.Sequence[str],
                              directory_path=directory_path)
 
     # construct log returns
-    log_return_df = \
-        compute_log_return_df(
-            construct_closing_price_df(
-                construct_series_name_to_closing_price_map(series_name_to_price_history_map)))
-    selected_log_return_df = log_return_df.loc[:, series_names].dropna()
+    closing_price_df = \
+        (construct_closing_price_df(
+            construct_series_name_to_closing_price_map(series_name_to_price_history_map))
+         .loc[:, series_names].dropna())
 
-    return selected_log_return_df
+    initial_prices = closing_price_df.iloc[0, :]
+
+    log_return_df = compute_log_return_df(closing_price_df).dropna()
+
+    return log_return_df, closing_price_df, initial_prices
+
+
+def convert_log_simulated_returns_to_prices(simulated_log_returns: np.ndarray,
+                                            initial_prices: np.ndarray):
+    # simulated_log_returns is an array with shape
+    # (number of monte carlo replications,
+    # length of simulated time series,
+    # number of cryptocurrencies simulated)
+    return np.exp(np.log(initial_prices.reshape((1, 1, -1))) + simulated_log_returns.cumsum(axis=1))
 
 
 def main():
-    selected_log_return_df = load_log_returns(series_names=series_names,
-                                              period_length_in_seconds=time_resolution.in_seconds,
-                                              directory_path=directory_path)
+    log_return_df, closing_price_df, initial_prices = \
+        load_log_returns(series_names=series_names,
+                         period_length_in_seconds=time_resolution.in_seconds,
+                         directory_path=directory_path)
 
     block_length = \
         convert_block_length_from_seconds_to_blocks(
-            15 * 60 * 60,  # 15 hour block length
+            block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
+            # block_length_in_seconds=7 * 24 * 60 * 60,  # 7 day block length
             period_length_in_seconds=time_resolution.in_seconds)
 
     # resample returns
-    bootstrap_simulation_result = \
+    simulated_log_returns = \
         stationary_bootstrap(
-            selected_log_return_df.values,
+            log_return_df.values,
             block_length=block_length,
             replications=1)
 
-    # plot the first monte carlo replication
-    fig, axs = plt.subplots(bootstrap_simulation_result.shape[-1], figsize=(16, 9))
-    for i, series_name in enumerate(series_names):
-        axs[i].plot(bootstrap_simulation_result[0, :, i])
-        axs[i].set_title(series_name)
-    plt.show()
+    # convert to prices
+    simulated_prices = \
+        convert_log_simulated_returns_to_prices(simulated_log_returns=simulated_log_returns,
+                                                initial_prices=initial_prices.values)
+
+    # # plot the first monte carlo replication of log returns and prices
+    plot_multivariate_simulation(simulated_data=simulated_log_returns,
+                                 series_names=series_names,
+                                 title='Log Returns')
+
+    plot_multivariate_simulation(simulated_data=simulated_prices,
+                                 series_names=series_names,
+                                 title='Exchange Rates')
 
 
 if __name__ == '__main__':
