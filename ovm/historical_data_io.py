@@ -145,3 +145,35 @@ def load_price_history(filename: str,
     return PriceHistory(name=series_name,
                         price_history_df=price_history_df,
                         period_length_in_seconds=period_length_in_seconds)
+
+
+def load_price_histories(series_names: tp.Sequence[str],
+                         period_length_in_seconds: float,
+                         directory_path: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
+    series_name_to_price_history_map = \
+        {series_name: load_price_history(filename=series_name,
+                                         series_name=series_name,
+                                         directory_path=directory_path,
+                                         period_length_in_seconds=period_length_in_seconds)
+         for series_name in series_names}
+
+    return series_name_to_price_history_map
+
+
+def construct_series_name_to_closing_price_map(
+        series_name_to_price_history_map: tp.Dict[str, PriceHistory]) -> tp.Dict[str, pd.Series]:
+    series_name_to_closing_price_map = \
+        {series_name: price_history.price_history_df.loc[:, PHCN.CLOSE]
+         for series_name, price_history
+         in series_name_to_price_history_map.items()}
+
+    return series_name_to_closing_price_map
+
+
+def construct_closing_price_df(series_name_to_closing_price_map: tp.Dict[str, pd.Series]) \
+        -> pd.DataFrame:
+    return pd.DataFrame(data=series_name_to_closing_price_map)
+
+
+def compute_log_return_df(closing_price_df: pd.DataFrame) -> pd.DataFrame:
+    return np.log(closing_price_df).diff()
