@@ -85,8 +85,8 @@ def main():
 
     block_length = \
         convert_block_length_from_seconds_to_blocks(
-            block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
-            # block_length_in_seconds=7 * 24 * 60 * 60,  # 7 day block length
+            # block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
+            block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
             period_length_in_seconds=time_resolution.in_seconds)
 
     # resample returns

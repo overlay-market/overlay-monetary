@@ -14,10 +14,11 @@ from .historical_data_io import PriceHistory
 
 
 def estimate_optimal_block_lengths_for_multiple_price_series(
-        series_name_to_price_history_map: tp.Dict[str, PriceHistory]) \
+        series_name_to_price_history_map: tp.Dict[str, PriceHistory],
+        moment: float = 1.0) \
         -> tp.Dict[str, OptimalBlockLength]:
     series_name_to_optimal_block_length_map = \
-        {series_name: optimal_block_length(price_history.unscaled_log_returns.values)
+        {series_name: optimal_block_length(price_history.unscaled_log_returns.values**moment)
          for series_name, price_history
          in tqdm(series_name_to_price_history_map.items())}
 

@@ -34,7 +34,7 @@ Optimal Block-Length in Seconds for Stationary Block Bootstrap Estimated from Da
  'CREAM-USD': 6221.812669040542,
  'SUSHI-USD': 12732.50545265789}
 
- Optimal Block-Length in Seconds for Stationary Block Bootstrap Estimated from Data Samples at 5m Intervals:
+ Optimal Block-Length in Seconds for Stationary Block Bootstrap Estimated from Data Samples at 15m Intervals:
  {'BTC-USD': 53805.20232678347,
  'ETH-USD': 25813.264459000082,
  'AAVE-USD': 2390.547686238729,
