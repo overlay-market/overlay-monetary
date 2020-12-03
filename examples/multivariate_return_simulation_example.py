@@ -26,7 +26,7 @@ from recombinator import (
 base_directory = os.path.join('..', 'notebooks')
 
 # use data sampled at 15 second intervals from FTX
-time_resolution = TimeResolution.FIFTEEN_MINUTES
+time_resolution = TimeResolution.FIFTEEN_SECONDS
 directory_path = os.path.join(base_directory, time_resolution.value)
 
 # Make the block size approximately 6 hours

@@ -1,7 +1,7 @@
 """
 Configure visualization elements and instantiate a server
 """
-
+import pandas as pd
 from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
@@ -27,11 +27,17 @@ chart_element = ChartModule([{"Label": "Gini",
                     data_collector_name='datacollector')
 
 # num_arbitrageurs, num_keepers, num_holders, sims, base_wealth
-sims = {
-    "OVLETH": [1.0],
-    "ETHUSD": [1.0],
-    "AAVEETH": [1.0],
-}
+
+# Load sims from csv files as arrays
+tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
+ovl_ticker = "YFI-USD" # for sim source, since OVL doesn't actually exist yet
+sims = {}
+for ticker in tickers:
+    f = pd.read_csv('./sims/sim-{}.csv'.format(ticker))
+    if ticker == ovl_ticker:
+        sims["OVL-USD"] = f.transpose().values.tolist()[0]
+    else:
+        sims[ticker] = f.transpose().values.tolist()[0]
 
 model_kwargs = {
     "sims": sims,
@@ -39,7 +45,7 @@ model_kwargs = {
     "num_keepers": len(sims.keys()),
     "num_holders": 0,
     "base_wealth": 100,
-    "sampling_interval": 1920, # 8h with 15s blocks
+    "sampling_interval": 1920, # 8h with 15s blocks (sim data is every 15s)
 }
 
 server = ModularServer(

@@ -184,8 +184,8 @@ class MonetaryKeeper(Agent):
     def update_markets(self):
         # Update px, py values from funding oracle fetch
         i = self.model.schedule.steps
-        ovleth_spot = self.model.sims['OVLETH'][i]
-        ethusd_spot = self.model.sims['ETHUSD'][i]
+        ovleth_spot = self.model.sims['OVL-ETH'][i]
+        ethusd_spot = self.model.sims['ETH-USD'][i]
 
         # always assume Y is ETH so py is ETH/OVL
         market = self.model.fmarkets[self.fmarket]
