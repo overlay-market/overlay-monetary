@@ -129,3 +129,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# data
+1m/
+5m/
+15m/
+15s/
+sims/

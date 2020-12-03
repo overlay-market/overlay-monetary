@@ -118,10 +118,11 @@ def main():
                                  series_names=series_names,
                                  title='Exchange Rates')
 
-    # output the first simulated path of the simulated ETH-USD series:
-    print(extract_single_cryptocurrency_path_from_simulated_data(simulated_prices,
-                                                                 series_names=series_names,
-                                                                 series_name='ETH-USD'))
+    # output simulated paths to csv files ...
+    for series in series_names:
+        pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
+            'sim-{}.csv'.format(series), index=False
+        )
 
 
 if __name__ == '__main__':
