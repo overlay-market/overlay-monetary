@@ -77,6 +77,14 @@ def convert_log_simulated_returns_to_prices(simulated_log_returns: np.ndarray,
     return np.exp(np.log(initial_prices.reshape((1, 1, -1))) + simulated_log_returns.cumsum(axis=1))
 
 
+def extract_single_cryptocurrency_path_from_simulated_data(
+        simulated_data: np.ndarray,
+        series_names: tp.Sequence[str],
+        series_name: str,
+        path: int = 0):
+    return simulated_data[path, :, series_names.index(series_name)]
+
+
 def main():
     log_return_df, closing_price_df, initial_prices = \
         load_log_returns(series_names=series_names,
@@ -109,6 +117,11 @@ def main():
     plot_multivariate_simulation(simulated_data=simulated_prices,
                                  series_names=series_names,
                                  title='Exchange Rates')
+
+    # output the first simulated path of the simulated ETH-USD series:
+    print(extract_single_cryptocurrency_path_from_simulated_data(simulated_prices,
+                                                                 series_names=series_names,
+                                                                 series_name='ETH-USD'))
 
 
 if __name__ == '__main__':
