@@ -18,6 +18,9 @@ def compute_gini(model):
 # TODO: Can simulate the OVLETH underlying spot with Uniswap x*y=k as a dynamic
 # market whereas other feeds like AAVEETH, etc. are pre-simulated
 
+# TODO: Make changes from -ETH base in sim to -USD base pair
+# TODO: Fetch and do bootstrap sim on ETH base pairs eventually
+
 
 class MonetaryPosition(object):
     def __init__(self, fmarket, lock_price=0.0, amount=0.0, long=True):
@@ -28,7 +31,7 @@ class MonetaryPosition(object):
 
 
 class MonetaryFMarket(object):
-    def __init__(self, unique_id, x, y, px, py, k, y_denom='ETH'):
+    def __init__(self, unique_id, x, y, px, py, k, y_denom='USD'):
         self.unique_id = unique_id
         self.x = x
         self.y = y
@@ -184,15 +187,14 @@ class MonetaryKeeper(Agent):
     def update_markets(self):
         # Update px, py values from funding oracle fetch
         i = self.model.schedule.steps
-        ovleth_spot = self.model.sims['OVL-ETH'][i]
-        ethusd_spot = self.model.sims['ETH-USD'][i]
+        ovlusd_spot = self.model.sims['OVL-USD'][i]
 
-        # always assume Y is ETH so py is ETH/OVL
+        # always assume Y is USD so py is USD/OVL (eventually go to ETH)
         market = self.model.fmarkets[self.fmarket]
         spot = self.model.sims[self.fmarket][i]
-        py = 1.0 / ovleth_spot  # assume y_denom == 'ETH' as standard
-        if market.y_denom == 'USD':
-            py /= ethusd_spot
+        py = 1.0 / ovlusd_spot  # assume y_denom == 'USD' as standard
+        if market.y_denom != 'USD':
+            raise Exception("Not supporting ETH denom yet ...")
 
         market.py = py  # special spot market OVLETH or OVLUSD
         market.px = spot * market.py  # spot = px/py
@@ -243,7 +245,7 @@ class MonetaryModel(Model):
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
-        # Markets: Assume OVLETH is in here ...
+        # Markets: Assume OVL-USD is in here ...
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 ticker,
