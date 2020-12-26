@@ -45,6 +45,7 @@ model_kwargs = {
     "num_keepers": len(sims.keys()),
     "num_holders": 0,
     "base_wealth": 100,
+    "liquidity": 100*100 * (len(sims.keys()) * 5 + len(sims.keys()) + 0), # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "sampling_interval": 240, # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
 }
 

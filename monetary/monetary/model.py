@@ -26,7 +26,6 @@ class MonetaryPosition(object):
         self.amount = amount
         self.long = long
 
-# TODO: ... this needs access to the model for sampling interval AND supply
 class MonetaryFMarket(object):
     def __init__(self, unique_id, x, y, k, model):
         self.unique_id = unique_id  # ticker
@@ -40,6 +39,9 @@ class MonetaryFMarket(object):
         self.cum_price_idx = 0
         self.last_cum_price = x / y
         self.last_cum_price_idx = 0
+        print("Init'ing FMarket {}".format(self.unique_id))
+        print("FMarket {} x".format(self.unique_id), x)
+        print("FMarket {} y".format(self.unique_id), y)
 
     def price(self):
         return self.x / self.y
@@ -258,6 +260,7 @@ class MonetaryModel(Model):
         num_holders,
         sims,
         base_wealth,
+        liquidity,
         sampling_interval
     ):
         super().__init__()
@@ -266,21 +269,24 @@ class MonetaryModel(Model):
         self.num_keepers = num_keepers
         self.num_holders = num_holders
         self.base_wealth = base_wealth
+        self.liquidity = liquidity
         self.sampling_interval = sampling_interval
-        self.supply = base_wealth * self.num_agents
+        self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
         # Markets: Assume OVL-USD is in here ...
+        # Spread liquidity from liquidity pool by 1/N for now ..
+        n = len(sims.keys())
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 ticker,
-                100000*15000,
-                100000*1,
-                (100000 * 15000) * (100000 * 1),
+                (self.liquidity/(2*n))*prices[0],
+                (self.liquidity/(2*n))*1,
+                (self.liquidity/(2*n))*prices[0] * (self.liquidity/(2*n))*1,
                 self,
             )  # TODO: remove hardcode of x,y,px,py,k for real vals
-            for ticker, _ in sims.items()
+            for ticker, prices in sims.items()
         }
 
         tickers = list(self.fmarkets.keys())
