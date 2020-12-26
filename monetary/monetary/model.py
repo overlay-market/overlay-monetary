@@ -1,3 +1,4 @@
+import numpy as np
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
@@ -11,15 +12,11 @@ def compute_gini(model):
     B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
     return (1 + (1/N) - 2*B)
 
-
 # NOTE: Assuming we have an already existing array of price values
 # to feed into the model. Make it is larger than expected number
 # of time steps, otherwise throw an error
 # TODO: Can simulate the OVLETH underlying spot with Uniswap x*y=k as a dynamic
 # market whereas other feeds like AAVEETH, etc. are pre-simulated
-
-# TODO: Make changes from -ETH base in sim to -USD base pair
-# TODO: Fetch and do bootstrap sim on ETH base pairs eventually
 
 
 class MonetaryPosition(object):
@@ -29,37 +26,103 @@ class MonetaryPosition(object):
         self.amount = amount
         self.long = long
 
-
+# TODO: ... this needs access to the model for sampling interval AND supply
 class MonetaryFMarket(object):
-    def __init__(self, unique_id, x, y, px, py, k, y_denom='USD'):
-        self.unique_id = unique_id
+    def __init__(self, unique_id, x, y, k, model):
+        self.unique_id = unique_id  # ticker
         self.x = x
         self.y = y
-        self.px = px
-        self.py = py
         self.k = k
-        self.y_denom = y_denom  # either 'ETH' or 'USD'
+        self.model = model
+        self.locked_long = 0.0  # Total OVL locked in long positions
+        self.locked_short = 0.0  # Total OVL locked in short positions
+        self.cum_price = x / y
+        self.cum_price_idx = 0
+        self.last_cum_price = x / y
+        self.last_cum_price_idx = 0
 
     def price(self):
         return self.x / self.y
 
+    def _update_cum_price(self):
+        # TODO: cum_price and time_elapsed setters
+        # TODO: Need to check that this is the last swap for given timestep ... (slightly different than Uniswap in practice)
+        idx = self.model.schedule.steps
+        if idx > self.cum_price_idx:  # and last swap for idx ...
+            self.cum_price += (idx - self.cum_price_idx) * self.price()
+            self.cum_price_idx = idx
+
     def swap(self, dn, buy=True):
-        # k = self.px * (nx + dnx) * self.py * (ny - dny)
-        # dny = ny - (k/(self.px * self.py))/(nx+dnx) .. mult by py ..
-        # dy = y - k/(x + dx)
+        # k = (x + dx) * (y - dy)
+        # dy = y - k/(x+dx)
+        # NOTE: Ignore px, py price sensitivity constants for now, and instead
+        # possibly include dynamic k (altered per funding payment)
+
+        # TODO: long/short and buy/sell ! ... this needs to be implemented properly
         if buy:
             print("dn = +dx")
-            dx = self.px*dn
+            dx = dn
             dy = self.y - self.k/(self.x + dx)
             self.x += dx
             self.y -= dy
         else:
             print("dn = -dx")
-            dy = self.py*dn
+            dy = dn
             dx = self.x - self.k/(self.y + dy)
             self.y += dy
             self.x -= dx
-        return (self.x/self.y)
+
+        self._update_cum_price()
+        return self.price()
+
+    def fund(self):
+        # Pay out funding to each respective pool based on underlying market
+        # oracle fetch
+        # Calculate the TWAP over previous sample
+        idx = self.model.schedule.steps
+        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0):
+            return
+
+        # Calculate twap of oracle feed ... each step is value 1 in time weight
+        cum_price_feed = np.sum(np.array(
+            self.model.sims[self.unique_id][idx-self.model.sampling_interval:idx]
+        ))
+        print("Paying out funding for {}".format(self.unique_id))
+        print("cum_price_feed", cum_price_feed)
+        print("sampling_interval", self.model.sampling_interval)
+        twap_feed = cum_price_feed / self.model.sampling_interval
+        print("twap_feed", twap_feed)
+
+        # Calculate twap of market ... update cum price value first
+        self._update_cum_price()
+        print("cum_price", self.cum_price)
+        print("last_cum_price", self.last_cum_price)
+        twap_market = (self.cum_price - self.last_cum_price) / self.model.sampling_interval
+        self.last_cum_price = self.cum_price
+        self.last_cum_price_idx = idx
+        print("twap_market", twap_market)
+
+        # Mint/burn funding
+        funding = (twap_market - twap_feed) / twap_feed
+        print("funding %: {}%".format(funding*100.0))
+        if funding == 0.0:
+            return
+        elif funding > 0.0:
+            funding = min(funding, 1.0)
+            print("Adding ds={} OVL to total supply".format(funding*(self.locked_short - self.locked_long)))
+            self.model.supply += funding*(self.locked_short - self.locked_long)
+            print("Adding ds={} OVL to longs".format(self.locked_long*(-funding)))
+            self.locked_long *= (1-funding)
+            print("Adding ds={} OVL to shorts".format(self.locked_short*(funding)))
+            self.locked_short *= (1+funding)
+        else:
+            funding = max(funding, -1.0)
+            print("Adding ds={} OVL to total supply".format(funding*(self.locked_long - self.locked_short)))
+            self.model.supply += funding*(self.locked_long - self.locked_short)
+            print("Adding ds={} OVL to longs".format(self.locked_long*(funding)))
+            self.locked_long *= (1+funding)
+            print("Adding ds={} OVL to shorts".format(self.locked_short*(-funding)))
+            self.locked_short *= (1-funding)
 
 
 class MonetarySMarket(object):
@@ -117,33 +180,6 @@ class MonetaryTrader(Agent):  # noqa
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
         # sims as off-chain price values(?)
 
-    def pay_funding(self):
-        # mint/burn funding for each outstanding position
-        # depending on
-        i = self.model.schedule.steps
-        if i % self.model.sampling_interval != 0:
-            return
-
-        ds = 0
-        for k, pos in self.positions.items():
-            spot = self.model.sims[k][i]
-            price = self.model.fmarkets[k].price()
-            if pos.amount > 0:
-                # TODO: use twap instead (won't make a huge diff for analysis tho)
-                funding = pos.amount * (price - spot) / spot
-                if not pos.long:
-                    funding *= -1
-
-                # So no debts in the sim ...
-                if funding > pos.amount:
-                    funding = pos.amount
-
-                pos.amount -= funding
-                self.positions.update({k: pos})
-                ds -= funding
-
-        self.model.supply += ds
-
     def trade(self):
         pass
 
@@ -152,7 +188,7 @@ class MonetaryTrader(Agent):  # noqa
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        print("Agent {} activated", self.unique_id)
+        # print("Trader agent {} activated".format(self.unique_id))
         if self.wealth > 0 and self.locked / self.wealth < self.deploy_max:
             # Assume only make one trade per step ...
             self.trade()
@@ -180,38 +216,28 @@ class MonetaryKeeper(Agent):
 
     def distribute_funding(self):
         # Figure out funding payments on each agent's positions
-        for agent in self.model.schedule.agents:
-            if type(agent) != type(self):
-                agent.pay_funding()
+        print("Keeper agent {} distributing funding".format(self.unique_id))
+        self.fmarket.fund()
 
-    def update_markets(self):
-        # Update px, py values from funding oracle fetch
+    def update_market_liquidity(self):
+        # Updates k value per funding payment to adjust slippage
         i = self.model.schedule.steps
-        ovlusd_spot = self.model.sims['OVL-USD'][i]
+        print("Keeper agent {} updating market liquidity".format(self.unique_id))
 
-        # always assume Y is USD so py is USD/OVL (eventually go to ETH)
-        market = self.model.fmarkets[self.fmarket]
-        spot = self.model.sims[self.fmarket][i]
-        py = 1.0 / ovlusd_spot  # assume y_denom == 'USD' as standard
-        if market.y_denom != 'USD':
-            raise Exception("Not supporting ETH denom yet ...")
-
-        market.py = py  # special spot market OVLETH or OVLUSD
-        market.px = spot * market.py  # spot = px/py
-        self.model.fmarkets.update({
-            self.fmarket: market
-        })
+        # TODO: Adjust slippage to ensure appropriate price sensitivity
+        # per OVL in x, y pools => Start with 1/N * OVLETH liquidity and then
+        # do a per market risk weighted avg
 
     def step(self):
         """
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        print("Agent {} activated", self.unique_id)
+        print("Keeper agent {} activated".format(self.unique_id))
         i = self.model.schedule.steps
         if i % self.model.sampling_interval == 0:
             self.distribute_funding()
-            self.update_markets()
+            self.update_market_liquidity()
 
 
 class MonetaryModel(Model):
@@ -249,11 +275,10 @@ class MonetaryModel(Model):
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 ticker,
-                100000,
-                100000,
-                15000,
-                1,
-                (100000 * 15000) * (100000 * 1)
+                100000*15000,
+                100000*1,
+                (100000 * 15000) * (100000 * 1),
+                self,
             )  # TODO: remove hardcode of x,y,px,py,k for real vals
             for ticker, _ in sims.items()
         }
@@ -261,7 +286,7 @@ class MonetaryModel(Model):
         tickers = list(self.fmarkets.keys())
         for i in range(self.num_agents):
             agent = None
-            fmarket = tickers[i % len(tickers)]
+            fmarket = self.fmarkets[tickers[i % len(tickers)]]
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(i, self, fmarket)
             elif i < self.num_arbitraguers + self.num_keepers:

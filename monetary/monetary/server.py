@@ -45,7 +45,7 @@ model_kwargs = {
     "num_keepers": len(sims.keys()),
     "num_holders": 0,
     "base_wealth": 100,
-    "sampling_interval": 1920, # 8h with 15s blocks (sim data is every 15s)
+    "sampling_interval": 240, # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
 }
 
 server = ModularServer(
