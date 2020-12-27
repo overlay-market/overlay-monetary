@@ -97,7 +97,7 @@ class MonetaryFMarket(object):
         # oracle fetch
         # Calculate the TWAP over previous sample
         idx = self.model.schedule.steps
-        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0):
+        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0) or (idx == self.last_cum_price_idx):
             return
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
@@ -234,13 +234,11 @@ class MonetaryHolder(MonetaryAgent):
 class MonetaryKeeper(MonetaryAgent):
     def distribute_funding(self):
         # Figure out funding payments on each agent's positions
-        print("Keeper agent {} distributing funding".format(self.unique_id))
         self.fmarket.fund()
 
     def update_market_liquidity(self):
         # Updates k value per funding payment to adjust slippage
         i = self.model.schedule.steps
-        print("Keeper agent {} updating market liquidity".format(self.unique_id))
 
         # TODO: Adjust slippage to ensure appropriate price sensitivity
         # per OVL in x, y pools => Start with 1/N * OVLETH liquidity and then
@@ -251,7 +249,6 @@ class MonetaryKeeper(MonetaryAgent):
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        print("Keeper agent {} activated".format(self.unique_id))
         i = self.model.schedule.steps
         if i % self.model.sampling_interval == 0:
             self.distribute_funding()
