@@ -1,4 +1,5 @@
 import numpy as np
+from functools import partial
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
@@ -11,6 +12,20 @@ def compute_gini(model):
     N = model.num_agents
     B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
     return (1 + (1/N) - 2*B)
+
+def compute_supply(model):
+    return model.supply
+
+def compute_liquidity(model):
+    return model.liquidity
+
+def compute_wealth(model, agent_type=None):
+    wealths = []
+    if not agent_type:
+        wealths = [ a.wealth for a in model.schedule.agents ]
+    else:
+        wealths = [ a.wealth for a in model.schedule.agents if type(a) == agent_type ]
+    return sum(wealths)
 
 # NOTE: Assuming we have an already existing array of price values
 # to feed into the model. Make it is larger than expected number
@@ -155,7 +170,7 @@ class MonetarySMarket(object):
         return self.price()
 
 
-class MonetaryTrader(Agent):  # noqa
+class MonetaryAgent(Agent):  # noqa
     """
     An agent ... these are the arbers with stop losses.
     Add in position hodlers as a different agent
@@ -196,26 +211,27 @@ class MonetaryTrader(Agent):  # noqa
             self.trade()
 
 
-class MonetaryArbitrageur(MonetaryTrader):
+class MonetaryArbitrageur(MonetaryAgent):
     def trade(self):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
-        i = self.model.schedule.steps
+        # i = self.model.schedule.steps
         for k, market in self.model.fmarkets.items():
             break
 
 
-class MonetaryKeeper(Agent):
-    def __init__(self, unique_id, model, fmarket):
-        """
-        Customize the agent
-        """
-        self.unique_id = unique_id
-        super().__init__(unique_id, model)
-        self.fmarket = fmarket
-        self.wealth = model.base_wealth
+class MonetaryTrader(MonetaryAgent):
+    def trade(self):
+        pass
 
+
+class MonetaryHolder(MonetaryAgent):
+    def trade(self):
+        pass
+
+
+class MonetaryKeeper(MonetaryAgent):
     def distribute_funding(self):
         # Figure out funding payments on each agent's positions
         print("Keeper agent {} distributing funding".format(self.unique_id))
@@ -257,6 +273,7 @@ class MonetaryModel(Model):
         self,
         num_arbitrageurs,
         num_keepers,
+        num_traders,
         num_holders,
         sims,
         base_wealth,
@@ -264,9 +281,10 @@ class MonetaryModel(Model):
         sampling_interval
     ):
         super().__init__()
-        self.num_agents = num_arbitrageurs + num_keepers + num_holders
+        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
+        self.num_traders = num_traders
         self.num_holders = num_holders
         self.base_wealth = base_wealth
         self.liquidity = liquidity
@@ -297,15 +315,28 @@ class MonetaryModel(Model):
                 agent = MonetaryArbitrageur(i, self, fmarket)
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(i, self, fmarket)
-            else:
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
+                agent = MonetaryHolder(i, self, fmarket)
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
                 agent = MonetaryTrader(i, self, fmarket)
+            else:
+                agent = MonetaryAgent(i, self, fmarket)
 
             self.schedule.add(agent)
 
         # data collector
         # TODO: Track how well futures price tracks spot AND currency supply over time
         self.datacollector = DataCollector(
-            model_reporters={"Gini": compute_gini},
+            model_reporters={
+                "Gini": compute_gini,
+                "Supply": compute_supply,
+                "Liquidity": compute_liquidity,
+                "Agent": partial(compute_wealth, agent_type=None),
+                "Arbitrageurs": partial(compute_wealth, agent_type=MonetaryArbitrageur),
+                "Keepers": partial(compute_wealth, agent_type=MonetaryKeeper),
+                "Traders": partial(compute_wealth, agent_type=MonetaryTrader),
+                "Holders": partial(compute_wealth, agent_type=MonetaryHolder),
+            },
             agent_reporters={"Wealth": "wealth"},
         )
 

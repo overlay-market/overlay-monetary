@@ -22,15 +22,24 @@ def circle_portrayal_example(agent):
     return portrayal
 
 
-chart_element = ChartModule([{"Label": "Gini",
-                      "Color": "Black"}],
-                    data_collector_name='datacollector')
-
-# num_arbitrageurs, num_keepers, num_holders, sims, base_wealth
+chart_elements = [
+    ChartModule([
+        {"Label": "Supply", "Color": "Black"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Arbitrageurs", "Color": "Red"},
+        {"Label": "Keepers", "Color": "Indigo"},
+        {"Label": "Traders", "Color": "Violet"},
+        {"Label": "Holders", "Color": "Black"},
+        {"Label": "Liquidity", "Color": "Blue"},
+    ], data_collector_name='datacollector'),
+    ChartModule([{"Label": "Gini", "Color": "Black"}],
+                data_collector_name='datacollector'),
+]
 
 # Load sims from csv files as arrays
 tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
-ovl_ticker = "YFI-USD" # for sim source, since OVL doesn't actually exist yet
+ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in tickers:
     f = pd.read_csv('./sims/sim-{}.csv'.format(ticker))
@@ -39,19 +48,33 @@ for ticker in tickers:
     else:
         sims[ticker] = f.transpose().values.tolist()[0]
 
+base_wealth = 1000  # OVL
+total_supply = 10000000  # OVL
+
+# TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
     "sims": sims,
-    "num_arbitrageurs": len(sims.keys()) * 5,
-    "num_keepers": len(sims.keys()),
-    "num_holders": 0,
-    "base_wealth": 100,
-    "liquidity": 100*100 * (len(sims.keys()) * 5 + len(sims.keys()) + 0), # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
-    "sampling_interval": 240, # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
+    "num_arbitrageurs": max(len(sims.keys()) * 5, int(total_supply*0.025/base_wealth)),
+    "num_keepers": max(len(sims.keys()), int(total_supply*0.025/base_wealth)),
+    "num_traders": int(total_supply*0.2/base_wealth),
+    "num_holders": int(total_supply*0.5/base_wealth),
+    "base_wealth": base_wealth,
+    # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
+    "liquidity": 0.25*total_supply,
+    # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
+    "sampling_interval": 240,
 }
+
+print("Model kwargs for initial conditions of sim:")
+print("num_arbitrageurs", model_kwargs["num_arbitrageurs"])
+print("num_keepers", model_kwargs["num_keepers"])
+print("num_traders", model_kwargs["num_traders"])
+print("num_holders", model_kwargs["num_holders"])
+print("base_wealth", model_kwargs["base_wealth"])
 
 server = ModularServer(
     MonetaryModel,
-    [chart_element],
+    chart_elements,
     "Monetary",
     model_kwargs,
 )
