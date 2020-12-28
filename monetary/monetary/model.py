@@ -110,13 +110,13 @@ class MonetaryFMarket(object):
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
         if (build and long) or (not build and not long):
             print("dn = +dx")
-            dx = dn
+            dx = dn*leverage
             dy = self.y - self.k/(self.x + dx)
             self.x += dx
             self.y -= dy
         else:
             print("dn = -dx")
-            dy = dn
+            dy = dn*leverage
             dx = self.x - self.k/(self.y + dy)
             self.y += dy
             self.x -= dx
@@ -131,6 +131,7 @@ class MonetaryFMarket(object):
         pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, leverage=leverage)
         self.positions[pos.id] = pos
 
+        # Lock into long/short pool last
         if long:
             self.locked_long += amount
             self._update_cum_locked_long()
@@ -144,9 +145,33 @@ class MonetaryFMarket(object):
         if pos is None:
             print("No position with pid {} exists on market {}".format(pid, self.unique_id))
             return
+        elif pos.amount < dn:
+            print("Unwind amount {} is too large for locked position with pid {} amount {}".format(dn, pid, pos.amount))
 
-        # TODO: unwind position with pid for dn OVL ...
-        return
+        # Unlock from long/short pool first
+        if pos.long:
+            self.locked_long -= dn
+            self._update_cum_locked_long()
+        else:
+            self.locked_short -= dn
+            self._update_cum_locked_short()
+
+        amount = self._impose_fees(dn, build=False, long=pos.long, leverage=pos.leverage)
+        price = self._swap(amount, build=False, long=pos.long, leverage=pos.leverage)
+        side = 1 if pos.long else -1
+
+        # Mint/burn from total supply the profits/losses
+        self.model.supply += amount * pos.leverage * side * (price - pos.lock_price)/pos.lock_price
+
+        # Adjust position amounts stored
+        if dn == pos.amount:
+            del self.positions[pid]
+            pos = None
+        else:
+            pos.amount -= amount
+            self.positions[pid] = pos
+
+        return pos
 
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
