@@ -50,10 +50,16 @@ class MonetaryFMarket(object):
         self.model = model
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
+        self.cum_locked_long = 0.0
+        self.cum_locked_long_idx = 0
+        self.cum_locked_short = 0.0 # Used for time-weighted open interest on a side within sampling period
+        self.cum_locked_short_idx = 0
+        self.last_cum_locked_long = 0.0
+        self.last_cum_locked_short = 0.0
         self.cum_price = x / y
         self.cum_price_idx = 0
         self.last_cum_price = x / y
-        self.last_cum_price_idx = 0
+        self.last_funding_idx = 0
         print("Init'ing FMarket {}".format(self.unique_id))
         print("FMarket {} x".format(self.unique_id), x)
         print("FMarket {} y".format(self.unique_id), y)
@@ -68,6 +74,18 @@ class MonetaryFMarket(object):
         if idx > self.cum_price_idx:  # and last swap for idx ...
             self.cum_price += (idx - self.cum_price_idx) * self.price()
             self.cum_price_idx = idx
+
+    def _update_cum_locked_long(self):
+        idx = self.model.schedule.steps
+        if idx > self.cum_locked_long_idx:
+            self.cum_locked_long += (idx - self.cum_locked_long_idx) * self.locked_long
+            self.cum_locked_long_idx = idx
+
+    def _update_cum_locked_short(self):
+        idx = self.model.schedule.steps
+        if idx > self.cum_locked_short_idx:
+            self.cum_locked_short += (idx - self.cum_locked_short_idx) * self.locked_short
+            self.cum_locked_short_idx = idx
 
     def swap(self, dn, buy=True):
         # k = (x + dx) * (y - dy)
@@ -90,6 +108,7 @@ class MonetaryFMarket(object):
             self.x -= dx
 
         self._update_cum_price()
+        # TODO: _update_cum_locked_long, _update_cum_locked_short
         return self.price()
 
     def fund(self):
@@ -97,7 +116,7 @@ class MonetaryFMarket(object):
         # oracle fetch
         # Calculate the TWAP over previous sample
         idx = self.model.schedule.steps
-        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0) or (idx == self.last_cum_price_idx):
+        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0) or (idx == self.last_funding_idx):
             return
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
@@ -116,8 +135,25 @@ class MonetaryFMarket(object):
         print("last_cum_price", self.last_cum_price)
         twap_market = (self.cum_price - self.last_cum_price) / self.model.sampling_interval
         self.last_cum_price = self.cum_price
-        self.last_cum_price_idx = idx
         print("twap_market", twap_market)
+
+        # Calculate twa open interest for each side over sampling interval
+        self._update_cum_locked_long()
+        print("cum_locked_long", self.cum_locked_long)
+        print("last_cum_locked_long", self.last_cum_locked_long)
+        twao_long = (self.cum_locked_long - self.last_cum_locked_long) / self.model.sampling_interval
+        print("twao_long", twao_long)
+        self.last_cum_locked_long = self.cum_locked_long
+
+        self._update_cum_locked_short()
+        print("cum_locked_short", self.cum_locked_short)
+        print("last_cum_locked_short", self.last_cum_locked_short)
+        twao_short = (self.cum_locked_short - self.last_cum_locked_short) / self.model.sampling_interval
+        print("twao_short", twao_short)
+        self.last_cum_locked_short = self.cum_locked_short
+
+        # Mark the last funding idx as now
+        self.last_funding_idx = idx
 
         # Mint/burn funding
         funding = (twap_market - twap_feed) / twap_feed
@@ -126,20 +162,20 @@ class MonetaryFMarket(object):
             return
         elif funding > 0.0:
             funding = min(funding, 1.0)
-            print("Adding ds={} OVL to total supply".format(funding*(self.locked_short - self.locked_long)))
-            self.model.supply += funding*(self.locked_short - self.locked_long)
-            print("Adding ds={} OVL to longs".format(self.locked_long*(-funding)))
-            self.locked_long *= (1-funding)
-            print("Adding ds={} OVL to shorts".format(self.locked_short*(funding)))
-            self.locked_short *= (1+funding)
+            print("Adding ds={} OVL to total supply".format(funding*(twao_short - twao_long)))
+            self.model.supply += funding*(twao_short - twao_long)
+            print("Adding ds={} OVL to longs".format(twao_long*(-funding)))
+            self.locked_long -= twao_long*funding
+            print("Adding ds={} OVL to shorts".format(twao_short*(funding)))
+            self.locked_short += twao_short*funding
         else:
             funding = max(funding, -1.0)
-            print("Adding ds={} OVL to total supply".format(funding*(self.locked_long - self.locked_short)))
-            self.model.supply += funding*(self.locked_long - self.locked_short)
-            print("Adding ds={} OVL to longs".format(self.locked_long*(funding)))
-            self.locked_long *= (1+funding)
-            print("Adding ds={} OVL to shorts".format(self.locked_short*(-funding)))
-            self.locked_short *= (1-funding)
+            print("Adding ds={} OVL to total supply".format(funding*(twao_long - twao_short)))
+            self.model.supply += funding*(twao_long - twao_short)
+            print("Adding ds={} OVL to longs".format(twao_long*(funding)))
+            self.locked_long += twao_long*funding
+            print("Adding ds={} OVL to shorts".format(twao_short*(-funding)))
+            self.locked_short -= twao_short*funding
 
 
 class MonetarySMarket(object):

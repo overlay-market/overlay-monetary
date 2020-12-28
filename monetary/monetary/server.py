@@ -48,19 +48,19 @@ for ticker in tickers:
     else:
         sims[ticker] = f.transpose().values.tolist()[0]
 
-base_wealth = 1000  # OVL
-total_supply = 10000000  # OVL
+total_supply = 100000  # OVL
+base_wealth = 0.0001*100000  # OVL
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
     "sims": sims,
-    "num_arbitrageurs": max(len(sims.keys()) * 5, int(total_supply*0.025/base_wealth)),
-    "num_keepers": max(len(sims.keys()), int(total_supply*0.025/base_wealth)),
+    "num_arbitrageurs": max(len(sims.keys()) * 5, int(total_supply*0.01/base_wealth)),
+    "num_keepers": max(len(sims.keys()), int(total_supply*0.005/base_wealth)),
     "num_traders": int(total_supply*0.2/base_wealth),
     "num_holders": int(total_supply*0.5/base_wealth),
     "base_wealth": base_wealth,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
-    "liquidity": 0.25*total_supply,
+    "liquidity": 0.285*total_supply,
     # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
     "sampling_interval": 240,
 }
