@@ -1,4 +1,5 @@
 import numpy as np
+import uuid
 from functools import partial
 from mesa import Agent, Model
 from mesa.time import RandomActivation
@@ -35,19 +36,23 @@ def compute_wealth(model, agent_type=None):
 
 
 class MonetaryPosition(object):
-    def __init__(self, fmarket, lock_price=0.0, amount=0.0, long=True):
-        self.fmarket = fmarket
+    def __init__(self, fmarket_ticker, lock_price=0.0, amount=0.0, long=True, leverage=1.0):
+        self.fmarket_ticker = fmarket_ticker
         self.lock_price = lock_price
         self.amount = amount
         self.long = long
+        self.leverage = leverage
+        self.id = uuid.uuid4()
 
 class MonetaryFMarket(object):
-    def __init__(self, unique_id, x, y, k, model):
+    def __init__(self, unique_id, x, y, k, base_fee, model):
         self.unique_id = unique_id  # ticker
         self.x = x
         self.y = y
         self.k = k
+        self.base_fee=base_fee
         self.model = model
+        self.positions = {} # { id: [MonetaryPosition] }
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
@@ -68,7 +73,7 @@ class MonetaryFMarket(object):
         return self.x / self.y
 
     def _update_cum_price(self):
-        # TODO: cum_price and time_elapsed setters
+        # TODO: cum_price and time_elapsed setters ...
         # TODO: Need to check that this is the last swap for given timestep ... (slightly different than Uniswap in practice)
         idx = self.model.schedule.steps
         if idx > self.cum_price_idx:  # and last swap for idx ...
@@ -87,14 +92,23 @@ class MonetaryFMarket(object):
             self.cum_locked_short += (idx - self.cum_locked_short_idx) * self.locked_short
             self.cum_locked_short_idx = idx
 
-    def swap(self, dn, buy=True):
+    def _impose_fees(self, dn, build, long, leverage):
+        # Impose fees, burns portion, and transfers rest to treasury
+        size = dn*leverage
+        fees = min(size*self.base_fee, dn)
+
+        # Burn 50% and other 50% send to treasury
+        print("Burning ds={} OVL from total supply".format(0.5*fees))
+        self.model.supply -= 0.5*fees
+        self.model.treasury += 0.5*fees
+
+        return dn - fees
+
+    def _swap(self, dn, build, long, leverage):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
-        # NOTE: Ignore px, py price sensitivity constants for now, and instead
-        # possibly include dynamic k (altered per funding payment)
-
-        # TODO: long/short and buy/sell ! ... this needs to be implemented properly
-        if buy:
+        # TODO: dynamic k upon funding based off OVLETH liquidity changes
+        if (build and long) or (not build and not long):
             print("dn = +dx")
             dx = dn
             dy = self.y - self.k/(self.x + dx)
@@ -108,8 +122,31 @@ class MonetaryFMarket(object):
             self.x -= dx
 
         self._update_cum_price()
-        # TODO: _update_cum_locked_long, _update_cum_locked_short
         return self.price()
+
+    def build(self, dn, long, leverage):
+        # TODO: Factor in shares of lock pools for funding payment portions to work
+        amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
+        price = self._swap(amount, build=True, long=long, leverage=leverage)
+        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, leverage=leverage)
+        self.positions[pos.id] = pos
+
+        if long:
+            self.locked_long += amount
+            self._update_cum_locked_long()
+        else:
+            self.locked_short += amount
+            self._update_cum_locked_short()
+        return pos
+
+    def unwind(self, dn, pid):
+        pos = self.positions.get(pid)
+        if pos is None:
+            print("No position with pid {} exists on market {}".format(pid, self.unique_id))
+            return
+
+        # TODO: unwind position with pid for dn OVL ...
+        return
 
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
@@ -253,8 +290,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
         # i = self.model.schedule.steps
-        for k, market in self.model.fmarkets.items():
-            break
+        # self.fmarket.swap()
+        pass
 
 
 class MonetaryTrader(MonetaryAgent):
@@ -310,7 +347,9 @@ class MonetaryModel(Model):
         num_holders,
         sims,
         base_wealth,
+        base_market_fee,
         liquidity,
+        treasury,
         sampling_interval
     ):
         super().__init__()
@@ -320,7 +359,9 @@ class MonetaryModel(Model):
         self.num_traders = num_traders
         self.num_holders = num_holders
         self.base_wealth = base_wealth
+        self.base_market_fee = base_market_fee
         self.liquidity = liquidity
+        self.treasury = treasury
         self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
@@ -335,6 +376,7 @@ class MonetaryModel(Model):
                 (self.liquidity/(2*n))*prices[0],
                 (self.liquidity/(2*n))*1,
                 (self.liquidity/(2*n))*prices[0] * (self.liquidity/(2*n))*1,
+                base_market_fee,
                 self,
             )  # TODO: remove hardcode of x,y,px,py,k for real vals
             for ticker, prices in sims.items()

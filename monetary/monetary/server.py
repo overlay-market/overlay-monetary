@@ -50,6 +50,7 @@ for ticker in tickers:
 
 total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
+base_market_fee = 0.0015
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
@@ -59,8 +60,10 @@ model_kwargs = {
     "num_traders": int(total_supply*0.2/base_wealth),
     "num_holders": int(total_supply*0.5/base_wealth),
     "base_wealth": base_wealth,
+    "base_market_fee": base_market_fee,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": 0.285*total_supply,
+    "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
     "sampling_interval": 240,
 }
