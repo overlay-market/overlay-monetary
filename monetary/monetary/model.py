@@ -45,12 +45,13 @@ class MonetaryPosition(object):
         self.id = uuid.uuid4()
 
 class MonetaryFMarket(object):
-    def __init__(self, unique_id, x, y, k, base_fee, model):
+    def __init__(self, unique_id, x, y, k, base_fee, max_leverage, model):
         self.unique_id = unique_id  # ticker
         self.x = x
         self.y = y
         self.k = k
-        self.base_fee=base_fee
+        self.base_fee = base_fee
+        self.max_leverage = max_leverage
         self.model = model
         self.positions = {} # { id: [MonetaryPosition] }
         self.locked_long = 0.0  # Total OVL locked in long positions
@@ -104,20 +105,40 @@ class MonetaryFMarket(object):
 
         return dn - fees
 
+    def _slippage(self, dn, build, long, leverage):
+        # k = (x + dx) * (y - dy)
+        # dy = y - k/(x+dx)
+        assert leverage < self.max_leverage, "_slippage: leverage exceeds max_leverage"
+        slippage = 0.0
+        if (build and long) or (not build and not long):
+            dx = dn*leverage
+            dy = self.y - self.k/(self.x + dx)
+            assert dy < self.y, "_slippage: Not enough liquidity in self.y for swap"
+            slippage = ((self.x + dx) / (self.y - dy) - self.price()) / self.price()
+        else:
+            dy = dn*leverage
+            dx = self.x - self.k/(self.y + dy)
+            assert dx < self.x, "_slippage: Not enough liquidity in self.x for swap"
+            slippage = ((self.x - dx) / (self.y + dy) - self.price()) / self.price()
+        return slippage
+
     def _swap(self, dn, build, long, leverage):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
+        assert leverage < self.max_leverage, "_swap: leverage exceeds max_leverage"
         if (build and long) or (not build and not long):
             print("dn = +dx")
             dx = dn*leverage
             dy = self.y - self.k/(self.x + dx)
+            assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
             self.x += dx
             self.y -= dy
         else:
             print("dn = -dx")
             dy = dn*leverage
             dx = self.x - self.k/(self.y + dy)
+            assert dx < self.x, "_slippage: Not enough liquidity in self.x for swap"
             self.y += dy
             self.x -= dx
 
@@ -373,6 +394,7 @@ class MonetaryModel(Model):
         sims,
         base_wealth,
         base_market_fee,
+        base_max_leverage,
         liquidity,
         treasury,
         sampling_interval
@@ -385,6 +407,7 @@ class MonetaryModel(Model):
         self.num_holders = num_holders
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
+        self.base_max_leverage = base_max_leverage
         self.liquidity = liquidity
         self.treasury = treasury
         self.sampling_interval = sampling_interval
@@ -402,6 +425,7 @@ class MonetaryModel(Model):
                 (self.liquidity/(2*n))*1,
                 (self.liquidity/(2*n))*prices[0] * (self.liquidity/(2*n))*1,
                 base_market_fee,
+                base_max_leverage,
                 self,
             )  # TODO: remove hardcode of x,y,px,py,k for real vals
             for ticker, prices in sims.items()
