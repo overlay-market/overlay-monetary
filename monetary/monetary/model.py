@@ -105,20 +105,20 @@ class MonetaryFMarket(object):
 
         return dn - fees
 
-    def _slippage(self, dn, build, long, leverage):
+    def slippage(self, dn, build, long, leverage):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
-        assert leverage < self.max_leverage, "_slippage: leverage exceeds max_leverage"
+        assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
         slippage = 0.0
         if (build and long) or (not build and not long):
             dx = dn*leverage
             dy = self.y - self.k/(self.x + dx)
-            assert dy < self.y, "_slippage: Not enough liquidity in self.y for swap"
+            assert dy < self.y, "slippage: Not enough liquidity in self.y for swap"
             slippage = ((self.x + dx) / (self.y - dy) - self.price()) / self.price()
         else:
             dy = dn*leverage
             dx = self.x - self.k/(self.y + dy)
-            assert dx < self.x, "_slippage: Not enough liquidity in self.x for swap"
+            assert dx < self.x, "slippage: Not enough liquidity in self.x for swap"
             slippage = ((self.x - dx) / (self.y + dy) - self.price()) / self.price()
         return slippage
 
