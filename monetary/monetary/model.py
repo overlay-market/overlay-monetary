@@ -20,6 +20,9 @@ def compute_supply(model):
 def compute_liquidity(model):
     return model.liquidity
 
+def compute_treasury(model):
+    return model.treasury
+
 def compute_wealth(model, agent_type=None):
     wealths = []
     if not agent_type:
@@ -454,6 +457,7 @@ class MonetaryModel(Model):
             model_reporters={
                 "Gini": compute_gini,
                 "Supply": compute_supply,
+                "Treasury": compute_treasury,
                 "Liquidity": compute_liquidity,
                 "Agent": partial(compute_wealth, agent_type=None),
                 "Arbitrageurs": partial(compute_wealth, agent_type=MonetaryArbitrageur),

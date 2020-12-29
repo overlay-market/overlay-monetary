@@ -33,6 +33,9 @@ chart_elements = [
         {"Label": "Holders", "Color": "Black"},
         {"Label": "Liquidity", "Color": "Blue"},
     ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Treasury", "Color": "Green"},
+    ], data_collector_name='datacollector'),
     ChartModule([{"Label": "Gini", "Color": "Black"}],
                 data_collector_name='datacollector'),
 ]
