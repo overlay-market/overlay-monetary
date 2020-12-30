@@ -14,6 +14,19 @@ def compute_gini(model):
     B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
     return (1 + (1/N) - 2*B)
 
+def compute_price_diff(model, ticker):
+    idx = model.schedule.steps
+    sprice = model.sims[ticker][idx]
+    fprice = model.fmarkets[ticker].price()
+    return (fprice - sprice) / sprice
+
+def compute_fprice(model, ticker):
+    return model.fmarkets[ticker].price()
+
+def compute_sprice(model, ticker):
+    idx = model.schedule.steps
+    return model.sims[ticker][idx]
+
 def compute_supply(model):
     return model.supply
 
@@ -344,7 +357,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
-        # Dumb for now: tries to enter a pos_max amount of position if it wouldn't
+        # Simple for now: tries to enter a pos_max amount of position if it wouldn't
         # breach the deploy_max threshold
         # TODO: make smarter, including thoughts on capturing funding (TWAP'ing it as well) => need to factor in slippage on spot (and have a spot market ...)
         # TODO: ALSO, when should arbitrageur exit their positions? For now, assume at funding they do (again, dumb) => Get dwasse comments here to make smarter
@@ -500,18 +513,31 @@ class MonetaryModel(Model):
 
         # data collector
         # TODO: Track how well futures price tracks spot AND currency supply over time
+        model_reporters = {
+            "{}-{}".format("d", ticker): partial(compute_price_diff, ticker=ticker)
+            for ticker in tickers
+        }
+        model_reporters.update({
+            "{}-{}".format("s", ticker): partial(compute_sprice, ticker=ticker)
+            for ticker in tickers
+        })
+        model_reporters.update({
+            "{}-{}".format("f", ticker): partial(compute_fprice, ticker=ticker)
+            for ticker in tickers
+        })
+        model_reporters.update({
+            "Gini": compute_gini,
+            "Supply": compute_supply,
+            "Treasury": compute_treasury,
+            "Liquidity": compute_liquidity,
+            "Agent": partial(compute_wealth, agent_type=None),
+            "Arbitrageurs": partial(compute_wealth, agent_type=MonetaryArbitrageur),
+            "Keepers": partial(compute_wealth, agent_type=MonetaryKeeper),
+            "Traders": partial(compute_wealth, agent_type=MonetaryTrader),
+            "Holders": partial(compute_wealth, agent_type=MonetaryHolder),
+        })
         self.datacollector = DataCollector(
-            model_reporters={
-                "Gini": compute_gini,
-                "Supply": compute_supply,
-                "Treasury": compute_treasury,
-                "Liquidity": compute_liquidity,
-                "Agent": partial(compute_wealth, agent_type=None),
-                "Arbitrageurs": partial(compute_wealth, agent_type=MonetaryArbitrageur),
-                "Keepers": partial(compute_wealth, agent_type=MonetaryKeeper),
-                "Traders": partial(compute_wealth, agent_type=MonetaryTrader),
-                "Holders": partial(compute_wealth, agent_type=MonetaryHolder),
-            },
+            model_reporters=model_reporters,
             agent_reporters={"Wealth": "wealth"},
         )
 

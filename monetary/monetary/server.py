@@ -2,6 +2,7 @@
 Configure visualization elements and instantiate a server
 """
 import pandas as pd
+import random
 from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
@@ -22,23 +23,9 @@ def circle_portrayal_example(agent):
     return portrayal
 
 
-chart_elements = [
-    ChartModule([
-        {"Label": "Supply", "Color": "Black"},
-    ], data_collector_name='datacollector'),
-    ChartModule([
-        {"Label": "Arbitrageurs", "Color": "Red"},
-        {"Label": "Keepers", "Color": "Indigo"},
-        {"Label": "Traders", "Color": "Violet"},
-        {"Label": "Holders", "Color": "Black"},
-        {"Label": "Liquidity", "Color": "Blue"},
-    ], data_collector_name='datacollector'),
-    ChartModule([
-        {"Label": "Treasury", "Color": "Green"},
-    ], data_collector_name='datacollector'),
-    ChartModule([{"Label": "Gini", "Color": "Black"}],
-                data_collector_name='datacollector'),
-]
+def random_color():
+    return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
 
 # Load sims from csv files as arrays
 tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
@@ -55,6 +42,36 @@ total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
 base_market_fee = 0.0015
 base_max_leverage = 10.0
+
+
+chart_elements = [
+    ChartModule([
+        {"Label": "Supply", "Color": "Black"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Arbitrageurs", "Color": "Red"},
+        {"Label": "Keepers", "Color": "Indigo"},
+        {"Label": "Traders", "Color": "Violet"},
+        {"Label": "Holders", "Color": "Black"},
+        {"Label": "Liquidity", "Color": "Blue"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Treasury", "Color": "Green"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "{}-{}".format("d", ticker), "Color": random_color()} for ticker in sims.keys()
+    ], data_collector_name='datacollector'),
+    ChartModule([{"Label": "Gini", "Color": "Black"}],
+                data_collector_name='datacollector'),
+]
+for ticker in sims.keys():
+    chart_elements.append(
+        ChartModule([
+            {"Label": "{}-{}".format("s", ticker), "Color": "Black"},
+            {"Label": "{}-{}".format("f", ticker), "Color": "Red"},
+        ], data_collector_name='datacollector')
+    )
+
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
