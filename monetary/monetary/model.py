@@ -108,6 +108,10 @@ class MonetaryFMarket(object):
 
         return dn - fees
 
+    def fees(self, dn, build, long, leverage):
+        size = dn*leverage
+        return min(size*self.base_fee, dn)
+
     def slippage(self, dn, build, long, leverage):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
@@ -299,7 +303,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.1, deploy_max=0.75):
+    def __init__(self, unique_id, model, fmarket, pos_max=0.05, deploy_max=0.75, slippage_max=0.02):
         """
         Customize the agent
         """
@@ -310,10 +314,8 @@ class MonetaryAgent(Agent):  # noqa
         self.locked = 0
         self.pos_max = pos_max
         self.deploy_max = deploy_max
-        self.positions = {
-            ticker: MonetaryPosition(ticker)
-            for ticker, _ in model.fmarkets.items()
-        }
+        self.slippage_max = slippage_max
+        self.positions = {} # { pos.id: MonetaryPosition }
         # TODO: store wealth in ETH and OVL, have feeds agent can trade on be
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
@@ -338,10 +340,55 @@ class MonetaryArbitrageur(MonetaryAgent):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
-        # i = self.model.schedule.steps
-        # self.fmarket.swap()
-        pass
+        idx = self.model.schedule.steps
+        sprice = self.model.sims[self.fmarket.unique_id][idx]
+        fprice = self.fmarket.price()
 
+        # Dumb for now: tries to enter a pos_max amount of position if it wouldn't
+        # breach the deploy_max threshold
+        # TODO: make smarter, including thoughts on capturing funding (TWAP'ing it as well) => need to factor in slippage on spot (and have a spot market ...)
+        # TODO: ALSO, when should arbitrageur exit their positions? For now, assume at funding they do (again, dumb) => Get dwasse comments here to make smarter
+        size = self.pos_max*self.wealth
+        if self.locked + size < self.deploy_max*self.wealth:
+            if sprice > fprice:
+                print("Arb.trade: Checking if long position is profitable after slippage ....")
+                fees = self.fmarket.fees(size, build=True, long=True, leverage=1.0)
+                slippage = self.fmarket.slippage(size-fees, build=True, long=True, leverage=1.0)
+                print("Arb.trade: fees -> {}".format(fees))
+                print("Arb.trade: slippage -> {}".format(slippage))
+                if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage):
+                    # enter the trade to arb
+                    pos = self.fmarket.build(size, long=True, leverage=1.0)
+                    print("Arb.trade: Entered long arb trade w pos params ...")
+                    print("Arb.trade: pos.amount -> {}".format(pos.amount))
+                    print("Arb.trade: pos.long -> {}".format(pos.long))
+                    print("Arb.trade: pos.leverage -> {}".format(pos.leverage))
+                    print("Arb.trade: pos.lock_price -> {}".format(pos.lock_price))
+                    self.positions[pos.id] = pos
+                    self.locked += pos.amount
+            elif sprice < fprice:
+                print("Arb.trade: Checking if short position is profitable after slippage ....")
+                fees = self.fmarket.fees(size, build=True, long=False, leverage=1.0)
+                slippage = self.fmarket.slippage(size-fees, build=True, long=False, leverage=1.0) # should be negative ...
+                print("Arb.trade: fees -> {}".format(fees))
+                print("Arb.trade: slippage -> {}".format(slippage))
+                if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage):
+                    # enter the trade to arb
+                    pos = self.fmarket.build(size, long=False, leverage=1.0)
+                    print("Arb.trade: Entered short arb trade w pos params ...")
+                    print("Arb.trade: pos.amount -> {}".format(pos.amount))
+                    print("Arb.trade: pos.long -> {}".format(pos.long))
+                    print("Arb.trade: pos.leverage -> {}".format(pos.leverage))
+                    print("Arb.trade: pos.lock_price -> {}".format(pos.lock_price))
+                    self.positions[pos.id] = pos
+                    self.locked += pos.amount
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        self.trade()
 
 class MonetaryTrader(MonetaryAgent):
     def trade(self):
