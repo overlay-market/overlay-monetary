@@ -83,8 +83,9 @@ class MonetaryFMarket(object):
         self.last_cum_price = x / y
         self.last_funding_idx = 0
         print("Init'ing FMarket {}".format(self.unique_id))
-        print("FMarket {} x".format(self.unique_id), x)
-        print("FMarket {} y".format(self.unique_id), y)
+        print("FMarket x has {} OVL".format(self.unique_id), x)
+        print("FMarket y has {} OVL".format(self.unique_id), y)
+        print("FMarket k (liquidity) is {} OVL".format(self.unique_id), k)
 
     def price(self):
         return self.x / self.y
@@ -134,12 +135,12 @@ class MonetaryFMarket(object):
             dx = dn*leverage
             dy = self.y - self.k/(self.x + dx)
             assert dy < self.y, "slippage: Not enough liquidity in self.y for swap"
-            slippage = ((self.x + dx) / (self.y - dy) - self.price()) / self.price()
+            slippage = ((self.x+dx)/(self.y-dy) - self.price()) / self.price()
         else:
             dy = dn*leverage
             dx = self.x - self.k/(self.y + dy)
             assert dx < self.x, "slippage: Not enough liquidity in self.x for swap"
-            slippage = ((self.x - dx) / (self.y + dy) - self.price()) / self.price()
+            slippage = ((self.x-dx)/(self.y+dy) - self.price()) / self.price()
         return slippage
 
     def _swap(self, dn, build, long, leverage):
@@ -147,21 +148,33 @@ class MonetaryFMarket(object):
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
         assert leverage < self.max_leverage, "_swap: leverage exceeds max_leverage"
+        avg_price = 0.0
         if (build and long) or (not build and not long):
             print("dn = +dx")
             dx = dn*leverage
             dy = self.y - self.k/(self.x + dx)
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
+            avg_price = self.k / (self.x * (self.x+dx))
             self.x += dx
             self.y -= dy
         else:
             print("dn = -dx")
             dy = dn*leverage
             dx = self.x - self.k/(self.y + dy)
-            assert dx < self.x, "_slippage: Not enough liquidity in self.x for swap"
+            assert dx < self.x, "_swap: Not enough liquidity in self.x for swap"
+            avg_price = self.k / (self.x * (self.x-dx))
             self.y += dy
             self.x -= dx
 
+        print("_swap: {} {} position on {} of size {} OVL at avg price of {}, with lock price {}".format(
+            "Built" if build else "Unwound",
+            "long" if long else "short",
+            self.unique_id,
+            dn*leverage,
+            1/avg_price,
+            self.price(),
+        ))
+        print("_swap: Percent diff bw avg and lock price is {}%".format(100*(1/avg_price - self.price())/self.price()))
         self._update_cum_price()
         return self.price()
 
@@ -316,7 +329,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.05, deploy_max=0.75, slippage_max=0.02):
+    def __init__(self, unique_id, model, fmarket, pos_max=0.01, deploy_max=0.75, slippage_max=0.02): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -357,6 +370,9 @@ class MonetaryArbitrageur(MonetaryAgent):
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
+        # TODO: Either wait for funding to unwind OR unwind once
+        # reach wealth deploy_max and funding looks to be dried up?
+
         # Simple for now: tries to enter a pos_max amount of position if it wouldn't
         # breach the deploy_max threshold
         # TODO: make smarter, including thoughts on capturing funding (TWAP'ing it as well) => need to factor in slippage on spot (and have a spot market ...)
@@ -364,7 +380,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         size = self.pos_max*self.wealth
         if self.locked + size < self.deploy_max*self.wealth:
             if sprice > fprice:
-                print("Arb.trade: Checking if long position is profitable after slippage ....")
+                print("Arb.trade: Checking if long position on {} is profitable after slippage ....".format(self.fmarket.unique_id))
                 fees = self.fmarket.fees(size, build=True, long=True, leverage=1.0)
                 slippage = self.fmarket.slippage(size-fees, build=True, long=True, leverage=1.0)
                 print("Arb.trade: fees -> {}".format(fees))
@@ -380,7 +396,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
             elif sprice < fprice:
-                print("Arb.trade: Checking if short position is profitable after slippage ....")
+                print("Arb.trade: Checking if short position on {} is profitable after slippage ....".format(self.fmarket.unique_id))
                 fees = self.fmarket.fees(size, build=True, long=False, leverage=1.0)
                 slippage = self.fmarket.slippage(size-fees, build=True, long=False, leverage=1.0) # should be negative ...
                 print("Arb.trade: fees -> {}".format(fees))
@@ -480,17 +496,18 @@ class MonetaryModel(Model):
 
         # Markets: Assume OVL-USD is in here ...
         # Spread liquidity from liquidity pool by 1/N for now ..
+        # if x + y = L/n and x/y = p; x = (L/n)*(p/(1+p)), y = (L/n)*(1/(1+p)), x*y = k = (L/n)**2 * (p/(1+p)^2)
         n = len(sims.keys())
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 ticker,
-                (self.liquidity/(2*n))*prices[0],
-                (self.liquidity/(2*n))*1,
-                (self.liquidity/(2*n))*prices[0] * (self.liquidity/(2*n))*1,
+                (self.liquidity/n)*(prices[0]/(1+prices[0])),
+                (self.liquidity/n)*(1/(1+prices[0])),
+                ((self.liquidity/n)**2)*(prices[0]/(1+prices[0])**2),
                 base_market_fee,
                 base_max_leverage,
                 self,
-            )  # TODO: remove hardcode of x,y,px,py,k for real vals
+            )
             for ticker, prices in sims.items()
         }
 
@@ -512,7 +529,8 @@ class MonetaryModel(Model):
             self.schedule.add(agent)
 
         # data collector
-        # TODO: Track how well futures price tracks spot AND currency supply over time
+        # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
+        # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
         model_reporters = {
             "{}-{}".format("d", ticker): partial(compute_price_diff, ticker=ticker)
             for ticker in tickers
