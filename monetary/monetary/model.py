@@ -87,9 +87,11 @@ class MonetaryFMarket(object):
         self.last_cum_price = self.x /self.y
         self.last_funding_idx = 0
         print("Init'ing FMarket {}".format(self.unique_id))
-        print("FMarket x has {} OVL".format(self.unique_id), self.x)
-        print("FMarket y has {} OVL".format(self.unique_id), self.y)
-        print("FMarket k is {} OVL".format(self.unique_id), self.k)
+        print("FMarket x has {}".format(self.unique_id), self.x)
+        print("FMarket nx has {} OVL".format(self.unique_id), self.nx)
+        print("FMarket y has {}".format(self.unique_id), self.y)
+        print("FMarket ny has {} OVL".format(self.unique_id), self.ny)
+        print("FMarket k is {}".format(self.unique_id), self.k)
 
     def price(self):
         return self.x / self.y
@@ -183,6 +185,12 @@ class MonetaryFMarket(object):
             self.price(),
         ))
         print("_swap: Percent diff bw avg and lock price is {}%".format(100*(1/avg_price - self.price())/self.price()))
+        print("_swap: locked_long -> {} OVL".format(self.locked_long))
+        print("_swap: nx -> {}".format(self.nx))
+        print("_swap: x -> {}".format(self.x))
+        print("_swap: locked_short -> {} OVL".format(self.locked_short))
+        print("_swap: ny -> {}".format(self.ny))
+        print("_swap: y -> {}".format(self.y))
         self._update_cum_price()
         return self.price()
 
@@ -248,33 +256,41 @@ class MonetaryFMarket(object):
         cum_price_feed = np.sum(np.array(
             self.model.sims[self.unique_id][idx-self.model.sampling_interval:idx]
         ))
-        print("Paying out funding for {}".format(self.unique_id))
-        print("cum_price_feed", cum_price_feed)
-        print("sampling_interval", self.model.sampling_interval)
+        print("fund: Paying out funding for {}".format(self.unique_id))
+        print("fund: cum_price_feed", cum_price_feed)
+        print("fund: sampling_interval", self.model.sampling_interval)
         twap_feed = cum_price_feed / self.model.sampling_interval
-        print("twap_feed", twap_feed)
+        print("fund: twap_feed", twap_feed)
 
         # Calculate twap of market ... update cum price value first
         self._update_cum_price()
-        print("cum_price", self.cum_price)
-        print("last_cum_price", self.last_cum_price)
+        print("fund: cum_price", self.cum_price)
+        print("fund: last_cum_price", self.last_cum_price)
         twap_market = (self.cum_price - self.last_cum_price) / self.model.sampling_interval
         self.last_cum_price = self.cum_price
-        print("twap_market", twap_market)
+        print("fund: twap_market", twap_market)
 
         # Calculate twa open interest for each side over sampling interval
         self._update_cum_locked_long()
-        print("cum_locked_long", self.cum_locked_long)
-        print("last_cum_locked_long", self.last_cum_locked_long)
+        print("fund: nx", self.nx)
+        print("fund: px", self.px)
+        print("fund: x", self.x)
+        print("fund: locked_long", self.locked_long)
+        print("fund: cum_locked_long", self.cum_locked_long)
+        print("fund: last_cum_locked_long", self.last_cum_locked_long)
         twao_long = (self.cum_locked_long - self.last_cum_locked_long) / self.model.sampling_interval
-        print("twao_long", twao_long)
+        print("fund: twao_long", twao_long)
         self.last_cum_locked_long = self.cum_locked_long
 
         self._update_cum_locked_short()
-        print("cum_locked_short", self.cum_locked_short)
-        print("last_cum_locked_short", self.last_cum_locked_short)
+        print("fund: ny", self.ny)
+        print("fund: py", self.py)
+        print("fund: y", self.y)
+        print("fund: locked_short", self.locked_short)
+        print("fund: cum_locked_short", self.cum_locked_short)
+        print("fund: last_cum_locked_short", self.last_cum_locked_short)
         twao_short = (self.cum_locked_short - self.last_cum_locked_short) / self.model.sampling_interval
-        print("twao_short", twao_short)
+        print("fund: twao_short", twao_short)
         self.last_cum_locked_short = self.cum_locked_short
 
         # Mark the last funding idx as now
@@ -282,24 +298,24 @@ class MonetaryFMarket(object):
 
         # Mint/burn funding
         funding = (twap_market - twap_feed) / twap_feed
-        print("funding %: {}%".format(funding*100.0))
+        print("fund: funding % -> {}%".format(funding*100.0))
         if funding == 0.0:
             return
         elif funding > 0.0:
             funding = min(funding, 1.0)
-            print("Adding ds={} OVL to total supply".format(funding*(twao_short - twao_long)))
+            print("fund: Adding ds={} OVL to total supply".format(funding*(twao_short - twao_long)))
             self.model.supply += funding*(twao_short - twao_long)
-            print("Adding ds={} OVL to longs".format(twao_long*(-funding)))
+            print("fund: Adding ds={} OVL to longs".format(twao_long*(-funding)))
             self.locked_long -= twao_long*funding
-            print("Adding ds={} OVL to shorts".format(twao_short*(funding)))
+            print("fund: Adding ds={} OVL to shorts".format(twao_short*(funding)))
             self.locked_short += twao_short*funding
         else:
             funding = max(funding, -1.0)
-            print("Adding ds={} OVL to total supply".format(funding*(twao_long - twao_short)))
+            print("fund: Adding ds={} OVL to total supply".format(funding*(twao_long - twao_short)))
             self.model.supply += funding*(twao_long - twao_short)
-            print("Adding ds={} OVL to longs".format(twao_long*(funding)))
+            print("fund: Adding ds={} OVL to longs".format(twao_long*(funding)))
             self.locked_long += twao_long*funding
-            print("Adding ds={} OVL to shorts".format(twao_short*(-funding)))
+            print("fund: Adding ds={} OVL to shorts".format(twao_short*(-funding)))
             self.locked_short -= twao_short*funding
 
 
@@ -338,7 +354,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.05, deploy_max=0.75, slippage_max=0.02): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.01, deploy_max=0.75, slippage_max=0.02): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
