@@ -218,6 +218,10 @@ class MonetaryFMarket(object):
         elif pos.amount < dn:
             print("Unwind amount {} is too large for locked position with pid {} amount {}".format(dn, pid, pos.amount))
 
+        # TODO: Account for pro-rata share of funding!
+        # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
+        # TODO: Locked long seems to go negative which is wrong. Why here?
+
         # Unlock from long/short pool first
         if pos.long:
             self.locked_long -= dn
@@ -231,7 +235,12 @@ class MonetaryFMarket(object):
         side = 1 if pos.long else -1
 
         # Mint/burn from total supply the profits/losses
-        self.model.supply += amount * pos.leverage * side * (price - pos.lock_price)/pos.lock_price
+        ds = amount * pos.leverage * side * (price - pos.lock_price)/pos.lock_price
+        print("unwind: {} ds={} OVL from total supply".format(
+            "Minting" if ds > 0 else "Burning",
+            ds,
+        ))
+        self.model.supply += ds
 
         # Adjust position amounts stored
         if dn == pos.amount:
@@ -318,6 +327,21 @@ class MonetaryFMarket(object):
             print("fund: Adding ds={} OVL to shorts".format(twao_short*(-funding)))
             self.locked_short -= twao_short*funding
 
+        # Calculate twap for ovlusd oracle feed to use in px, py adjustment
+        print("fund: Adjusting price sensitivity constants for {}".format(self.unique_id))
+        cum_ovlusd_feed = np.sum(np.array(
+            self.model.sims["OVL-USD"][idx-self.model.sampling_interval:idx]
+        ))
+        print("fund: cum_price_feed", cum_ovlusd_feed)
+        twap_ovlusd_feed = cum_ovlusd_feed / self.model.sampling_interval
+        print("fund: twap_ovlusd_feed", twap_ovlusd_feed)
+        self.px = twap_ovlusd_feed # px = n_usd/n_ovl
+        self.py = twap_ovlusd_feed/twap_feed # py = px/p
+        print("fund: px", self.px)
+        print("fund: py", self.py)
+
+        # TODO: Adjust liquidity as well ...
+
 
 class MonetarySMarket(object):
     def __init__(self, unique_id, x, y, k):
@@ -354,7 +378,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.01, deploy_max=0.75, slippage_max=0.02): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.025, deploy_max=0.75, slippage_max=0.02, trade_delay=0): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -366,7 +390,10 @@ class MonetaryAgent(Agent):  # noqa
         self.pos_max = pos_max
         self.deploy_max = deploy_max
         self.slippage_max = slippage_max
+        self.trade_delay = trade_delay
+        self.last_trade_idx = 0
         self.positions = {} # { pos.id: MonetaryPosition }
+        self.unwinding = False
         # TODO: store wealth in ETH and OVL, have feeds agent can trade on be
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
@@ -387,11 +414,26 @@ class MonetaryAgent(Agent):  # noqa
 
 
 class MonetaryArbitrageur(MonetaryAgent):
+    def _unwind_positions(self):
+        # For now just assume all positions unwound at once (even tho unrealistic)
+        for pid, pos in self.positions.items():
+            print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+            self.fmarket.unwind(pos.amount, pid)
+
+        self.positions = {}
+
     def trade(self):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
         idx = self.model.schedule.steps
+        #if self.fmarket.last_funding_idx == idx:
+            # Naively unwind all previous positions to free up capital (this is dumb but fine for now)
+        #    print(f"Arb.trade: Attempting to unwind positions after funding paid out")
+        #    self._unwind_positions()
+        #    return
+
+        # Get ready to arb current spreads
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
@@ -424,6 +466,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
+                    self.last_trade_idx = idx
             elif sprice < fprice:
                 print("Arb.trade: Checking if short position on {} is profitable after slippage ....".format(self.fmarket.unique_id))
                 fees = self.fmarket.fees(size, build=True, long=False, leverage=1.0)
@@ -440,13 +483,17 @@ class MonetaryArbitrageur(MonetaryAgent):
                     print("Arb.trade: pos.lock_price -> {}".format(pos.lock_price))
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
+                    self.last_trade_idx = idx
 
     def step(self):
         """
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        self.trade()
+        idx = self.model.schedule.steps
+        # Add in a trade delay to simulate cooldown due to gas
+        if (idx - self.last_trade_idx) > self.trade_delay:
+            self.trade()
 
 class MonetaryTrader(MonetaryAgent):
     def trade(self):
@@ -548,15 +595,15 @@ class MonetaryModel(Model):
             agent = None
             fmarket = self.fmarkets[tickers[i % len(tickers)]]
             if i < self.num_arbitraguers:
-                agent = MonetaryArbitrageur(i, self, fmarket)
+                agent = MonetaryArbitrageur(unique_id=i, model=self, fmarket=fmarket)
             elif i < self.num_arbitraguers + self.num_keepers:
-                agent = MonetaryKeeper(i, self, fmarket)
+                agent = MonetaryKeeper(unique_id=i, model=self, fmarket=fmarket)
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
-                agent = MonetaryHolder(i, self, fmarket)
+                agent = MonetaryHolder(unique_id=i, model=self, fmarket=fmarket)
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
-                agent = MonetaryTrader(i, self, fmarket)
+                agent = MonetaryTrader(unique_id=i, model=self, fmarket=fmarket)
             else:
-                agent = MonetaryAgent(i, self, fmarket)
+                agent = MonetaryAgent(unique_id=i, model=self, fmarket=fmarket)
 
             self.schedule.add(agent)
 
