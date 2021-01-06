@@ -1,5 +1,6 @@
 import typing as tp
 
+from contexttimer import Timer
 import numpy as np
 import os
 import pandas as pd
@@ -31,6 +32,9 @@ directory_path = os.path.join(base_directory, time_resolution.value)
 
 # Make the block size approximately 6 hours
 block_length = np.ceil(6 * 60 * 60 / time_resolution.in_seconds)
+
+# Number of paths to simulate
+number_of_paths = 1
 
 # Use ETH/USD exchange rate
 price_history_file_name = 'ETH-USD'
@@ -86,30 +90,36 @@ def extract_single_cryptocurrency_path_from_simulated_data(
 
 
 def main():
-    log_return_df, closing_price_df, initial_prices = \
-        load_log_returns(series_names=series_names,
-                         period_length_in_seconds=time_resolution.in_seconds,
-                         directory_path=directory_path)
+    with Timer() as timer:
+        log_return_df, closing_price_df, initial_prices = \
+            load_log_returns(series_names=series_names,
+                             period_length_in_seconds=time_resolution.in_seconds,
+                             directory_path=directory_path)
 
-    block_length = \
-        convert_block_length_from_seconds_to_blocks(
-            # block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
-            block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
-            period_length_in_seconds=time_resolution.in_seconds)
+        block_length = \
+            convert_block_length_from_seconds_to_blocks(
+                # block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
+                block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
+                period_length_in_seconds=time_resolution.in_seconds)
 
-    # resample returns
-    simulated_log_returns = \
-        stationary_bootstrap(
-            log_return_df.values,
-            block_length=block_length,
-            replications=1)
+    print(f'Time to load all price series: {timer.elapsed} seconds')
 
-    # convert to prices
-    simulated_prices = \
-        convert_log_simulated_returns_to_prices(simulated_log_returns=simulated_log_returns,
-                                                initial_prices=initial_prices.values)
+    with Timer() as timer:
+        # resample returns
+        simulated_log_returns = \
+            stationary_bootstrap(
+                log_return_df.values,
+                block_length=block_length,
+                replications=number_of_paths)
 
-    # # plot the first monte carlo replication of log returns and prices
+        # convert to prices
+        simulated_prices = \
+            convert_log_simulated_returns_to_prices(simulated_log_returns=simulated_log_returns,
+                                                    initial_prices=initial_prices.values)
+
+    print(f'Time to simulate {number_of_paths} paths of prices and returns: {timer.elapsed} seconds')
+
+    # plot the first monte carlo replication of log returns and prices
     plot_multivariate_simulation(simulated_data=simulated_log_returns,
                                  series_names=series_names,
                                  title='Log Returns')
@@ -121,7 +131,8 @@ def main():
     # output simulated paths to csv files ...
     for series in series_names:
         pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
-            'sim-{}.csv'.format(series), index=False
+            'sim-{}.csv'.format(series),
+            index=False
         )
 
 
