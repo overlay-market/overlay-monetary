@@ -406,7 +406,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.025, deploy_max=0.75, slippage_max=0.02, trade_delay=0): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.1, deploy_max=0.75, slippage_max=0.02, trade_delay=4*5): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -452,13 +452,28 @@ class MonetaryArbitrageur(MonetaryAgent):
 
         self.positions = {}
 
+    def _unwind_next_position(self):
+        # Get the next position from inventory to unwind for this timestep
+        if len(self.positions.keys()) == 0:
+            self.unwinding = False
+            return
+        print('Arb._unwind_next_position: positions (prior)', self.positions)
+        print('Arb._unwind_next_position: locked (prior)', self.locked)
+        pid = list(self.positions.keys())[0]
+        pos = self.positions[pid]
+        self.fmarket.unwind(pos.amount, pid)
+        self.locked -= pos.amount
+        self.last_trade_idx = self.model.schedule.steps
+        del self.positions[pid]
+        print('Arb._unwind_next_position: positions (updated)', self.positions)
+        print('Arb._unwind_next_position: locked (updated)', self.locked)
+
     def trade(self):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
-        idx = self.model.schedule.steps
-
         # Get ready to arb current spreads
+        idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
@@ -521,7 +536,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         """
         idx = self.model.schedule.steps
         # Add in a trade delay to simulate cooldown due to gas
-        if (idx - self.last_trade_idx) > self.trade_delay:
+        if self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay:
             self.trade()
 
 class MonetaryTrader(MonetaryAgent):
