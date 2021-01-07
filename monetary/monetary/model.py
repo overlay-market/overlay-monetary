@@ -406,7 +406,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.1, deploy_max=0.75, slippage_max=0.02, trade_delay=4*5): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.25, deploy_max=0.5, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -426,6 +426,10 @@ class MonetaryAgent(Agent):  # noqa
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
         # sims as off-chain price values(?)
+        # 
+        # NOTE: Have defaults for trader be pos max of 0.25 of wealth,
+        #       deploy_max of 0.5 of wealth so only two trades outstanding
+        #       at a time. With delay between trades of 10 min
 
     def trade(self):
         pass
