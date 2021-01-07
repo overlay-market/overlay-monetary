@@ -2,6 +2,7 @@
 Configure visualization elements and instantiate a server
 """
 import pandas as pd
+import numpy as np
 import random
 from .model import MonetaryModel  # noqa
 
@@ -27,6 +28,9 @@ def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
+# Constants
+STEPS_MONTH = 172800
+
 # Load sims from csv files as arrays
 tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
 ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
@@ -42,6 +46,11 @@ total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
 base_market_fee = 0.0015
 base_max_leverage = 10.0
+time_liquidity_mine = STEPS_MONTH
+liquidity_supply_emission = [
+    (0.51*total_supply/time_liquidity_mine)*i + 0.285*total_supply
+    for i in range(time_liquidity_mine)
+]  # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
 
 
 chart_elements = [
@@ -85,6 +94,7 @@ model_kwargs = {
     "base_max_leverage": base_max_leverage,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": 0.285*total_supply,
+    "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
     "sampling_interval": 240,

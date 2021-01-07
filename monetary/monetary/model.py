@@ -84,7 +84,8 @@ class MonetaryFMarket(object):
         self.last_cum_locked_short = 0.0
         self.cum_price = self.x / self.y
         self.cum_price_idx = 0
-        self.last_cum_price = self.x /self.y
+        self.last_cum_price = self.x / self.y
+        self.last_liquidity = model.liquidity # For liquidity adjustments
         self.last_funding_idx = 0
         print("Init'ing FMarket {}".format(self.unique_id))
         print("FMarket x has {}".format(self.unique_id), self.x)
@@ -327,6 +328,33 @@ class MonetaryFMarket(object):
             print("fund: Adding ds={} OVL to shorts".format(twao_short*(-funding)))
             self.locked_short -= twao_short*funding
 
+        # Update virtual liquidity reserves
+        # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
+        # n_y = (1/p_y)*(n_x*p_x)/(p_market) ... nx + n_x*(p_x/p_y)(1/p_market) = L/n
+        # n_x = L/n * (1/(1 + (p_x/p_y)*(1/p_market)))
+        print("fund: Adjusting virtual liquidity constants for {}".format(self.unique_id))
+        print("fund: nx (prior)", self.nx)
+        print("fund: ny (prior)", self.ny)
+        print("fund: x (prior)", self.x)
+        print("fund: y (prior)", self.y)
+        print("fund: price (prior)", self.price())
+        liquidity = self.model.liquidity # TODO: use liquidity_supply_emission ...
+        liq_scale_factor = liquidity/self.last_liquidity
+        print("fund: last_liquidity", self.last_liquidity)
+        print("fund: new liquidity", liquidity)
+        print("fund: liquidity scale factor", liq_scale_factor)
+        self.last_liquidity = liquidity
+        self.nx *= liq_scale_factor
+        self.ny *= liq_scale_factor
+        self.x = self.nx*self.px
+        self.y = self.ny*self.py
+        self.k = self.x * self.y
+        print("fund: nx (updated)", self.nx)
+        print("fund: ny (updated)", self.ny)
+        print("fund: x (updated)", self.x)
+        print("fund: y (updated)", self.y)
+        print("fund: price (updated... should be same)", self.price())
+
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
         print("fund: Adjusting price sensitivity constants for {}".format(self.unique_id))
         cum_ovlusd_feed = np.sum(np.array(
@@ -337,10 +365,10 @@ class MonetaryFMarket(object):
         print("fund: twap_ovlusd_feed", twap_ovlusd_feed)
         self.px = twap_ovlusd_feed # px = n_usd/n_ovl
         self.py = twap_ovlusd_feed/twap_feed # py = px/p
-        print("fund: px", self.px)
-        print("fund: py", self.py)
+        print("fund: px (updated)", self.px)
+        print("fund: py (updated)", self.py)
+        print("fund: price (updated... should be same)", self.price())
 
-        # TODO: Adjust liquidity as well ...
 
 
 class MonetarySMarket(object):
@@ -551,6 +579,7 @@ class MonetaryModel(Model):
         base_market_fee,
         base_max_leverage,
         liquidity,
+        liquidity_supply_emission,
         treasury,
         sampling_interval
     ):
@@ -576,11 +605,16 @@ class MonetaryModel(Model):
         n = len(sims.keys())
         prices_ovlusd = self.sims["OVL-USD"]
         print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
+        liquidity_weight = {
+            list(sims.keys())[i]: 1
+            for i in range(n)
+        }
+        print("liquidity_weight", liquidity_weight)
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
-                nx=(self.liquidity/(2*n)),
-                ny=(self.liquidity/(2*n)),
+                nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
+                ny=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 px=prices_ovlusd[0], # px = n_usd/n_ovl
                 py=prices_ovlusd[0]/prices[0], # py = px/p
                 base_fee=base_market_fee,
