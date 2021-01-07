@@ -447,6 +447,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         for pid, pos in self.positions.items():
             print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
             self.fmarket.unwind(pos.amount, pid)
+            self.locked -= pos.amount
+            self.last_trade_idx = self.model.schedule.steps
 
         self.positions = {}
 
@@ -455,11 +457,6 @@ class MonetaryArbitrageur(MonetaryAgent):
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
         idx = self.model.schedule.steps
-        #if self.fmarket.last_funding_idx == idx:
-            # Naively unwind all previous positions to free up capital (this is dumb but fine for now)
-        #    print(f"Arb.trade: Attempting to unwind positions after funding paid out")
-        #    self._unwind_positions()
-        #    return
 
         # Get ready to arb current spreads
         sprice = self.model.sims[self.fmarket.unique_id][idx]
@@ -512,6 +509,10 @@ class MonetaryArbitrageur(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
                     self.last_trade_idx = idx
+        else:
+            # TODO: remove but try this here => dumb logic but want to see
+            # what happens to currency supply if end up unwinding before each new trade (so only 1 pos per arb)
+            self._unwind_positions()
 
     def step(self):
         """
