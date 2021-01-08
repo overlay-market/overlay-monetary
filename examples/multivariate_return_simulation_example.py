@@ -48,6 +48,9 @@ series_names = \
      'COMP-USD',
      'LINK-USD']
 
+# specify numpy seed for simulations
+NUMPY_SEED = 42
+
 
 def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
@@ -90,6 +93,8 @@ def extract_single_cryptocurrency_path_from_simulated_data(
 
 
 def main():
+    np.random.seed(NUMPY_SEED)
+
     with Timer() as timer:
         log_return_df, closing_price_df, initial_prices = \
             load_log_returns(series_names=series_names,
@@ -128,10 +133,18 @@ def main():
                                  series_names=series_names,
                                  title='Exchange Rates')
 
+    # create output directory
+    simulation_output_directory = os.path.join(f'sims-{NUMPY_SEED}', str(time_resolution.value))
+    if not os.path.exists(simulation_output_directory):
+        os.makedirs(simulation_output_directory)
+
     # output simulated paths to csv files ...
     for series in series_names:
+        simulation_output_filepath = os.path.join(simulation_output_directory,
+                                                  f'sim-{series}.csv')
+
         pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
-            'sim-{}.csv'.format(series),
+            simulation_output_filepath,
             index=False
         )
 
