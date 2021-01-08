@@ -28,15 +28,26 @@ def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
+# Data freq in seconds
+data_freq = {
+    '15s': 15,
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+}
+
+DATA_FREQ_KEY = '15s'
+DATA_FREQ = data_freq[DATA_FREQ_KEY]
+
 # Constants
-STEPS_MONTH = 172800
+STEPS_MONTH = int((86400*30)/DATA_FREQ)
 
 # Load sims from csv files as arrays
 tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
 ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in tickers:
-    f = pd.read_csv('./sims/sim-{}.csv'.format(ticker))
+    f = pd.read_csv('./sims/{}/sim-{}.csv'.format(DATA_FREQ_KEY, ticker))
     if ticker == ovl_ticker:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
     else:
@@ -44,7 +55,7 @@ for ticker in tickers:
 
 total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
-base_market_fee = 0.0015
+base_market_fee = 0.0030
 base_max_leverage = 10.0
 time_liquidity_mine = STEPS_MONTH
 liquidity_supply_emission = [
