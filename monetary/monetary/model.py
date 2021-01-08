@@ -235,12 +235,14 @@ class MonetaryFMarket(object):
         print("unwind: locked_short", self.locked_short)
         # TODO: Fix for funding pro-rata logic .... for now just min it ...
         if pos.long:
+            dn = min(dn, self.locked_long)
             assert dn <= self.locked_long, "unwind: Not enough locked in self.locked_long for unwind"
-            self.locked_long -= min(dn, self.locked_long)
+            self.locked_long -= dn
             self._update_cum_locked_long()
         else:
+            dn = min(dn, self.locked_short)
             assert dn <= self.locked_short, "unwind: Not enough locked in self.locked_short for unwind"
-            self.locked_short -= min(dn, self.locked_short)
+            self.locked_short -= dn
             self._update_cum_locked_short()
 
         amount = self._impose_fees(dn, build=False, long=pos.long, leverage=pos.leverage)
