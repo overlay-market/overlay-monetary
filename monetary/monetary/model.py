@@ -409,7 +409,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self, unique_id, model, fmarket, pos_max=0.45, deploy_max=0.5, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.9, deploy_max=0.95, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
