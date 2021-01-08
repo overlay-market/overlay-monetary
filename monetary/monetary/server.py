@@ -37,7 +37,7 @@ data_freq = {
 }
 
 DATA_FREQ_KEY = '15s'
-DATA_SIM_RNG = 0
+DATA_SIM_RNG = 100
 DATA_FREQ = data_freq[DATA_FREQ_KEY]
 
 # Constants
@@ -48,10 +48,11 @@ tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
 ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in tickers:
-    f = pd.read_csv(
-        './sims/{}/sims-{}/sim-{}.csv'.format(
-            DATA_FREQ_KEY, DATA_SIM_RNG, ticker
-        ))
+    rpath = './sims/{}/sims-{}/sim-{}.csv'.format(
+        DATA_FREQ_KEY, DATA_SIM_RNG, ticker
+    )
+    print("Reading in sim data from", rpath)
+    f = pd.read_csv(rpath)
     if ticker == ovl_ticker:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
     else:

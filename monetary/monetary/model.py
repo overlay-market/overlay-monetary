@@ -162,6 +162,7 @@ class MonetaryFMarket(object):
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
+            assert dy/self.py < self.y, "_swap: Not enough liquidity in self.ny for swap"
             avg_price = self.k / (self.x * (self.x+dx))
             self.x += dx
             self.nx += dx/self.px
@@ -172,6 +173,7 @@ class MonetaryFMarket(object):
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
             assert dx < self.x, "_swap: Not enough liquidity in self.x for swap"
+            assert dx/self.px < self.nx, "_swap: Not enough liquidity in self.nx for swap"
             avg_price = self.k / (self.x * (self.x-dx))
             self.y += dy
             self.ny += dy/self.py
@@ -202,7 +204,7 @@ class MonetaryFMarket(object):
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount, build=True, long=long, leverage=leverage)
-        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, leverage=leverage)
+        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, long=long, leverage=leverage)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
@@ -227,11 +229,18 @@ class MonetaryFMarket(object):
         # TODO: Locked long seems to go negative which is wrong. Why here?
 
         # Unlock from long/short pool first
+        print("unwind: dn", dn)
+        print("unwind: pos", pos)
+        print("unwind: locked_long", self.locked_long)
+        print("unwind: locked_short", self.locked_short)
+        # TODO: Fix for funding pro-rata logic .... for now just min it ...
         if pos.long:
-            self.locked_long -= dn
+            assert dn <= self.locked_long, "unwind: Not enough locked in self.locked_long for unwind"
+            self.locked_long -= min(dn, self.locked_long)
             self._update_cum_locked_long()
         else:
-            self.locked_short -= dn
+            assert dn <= self.locked_short, "unwind: Not enough locked in self.locked_short for unwind"
+            self.locked_short -= min(dn, self.locked_short)
             self._update_cum_locked_short()
 
         amount = self._impose_fees(dn, build=False, long=pos.long, leverage=pos.leverage)
