@@ -37,7 +37,7 @@ data_freq = {
 }
 
 DATA_FREQ_KEY = '15s'
-DATA_SIM_RNG = 100
+DATA_SIM_RNG = 115
 DATA_FREQ = data_freq[DATA_FREQ_KEY]
 
 # Constants

@@ -327,20 +327,24 @@ class MonetaryFMarket(object):
             return
         elif funding > 0.0:
             funding = min(funding, 1.0)
-            print("fund: Adding ds={} OVL to total supply".format(funding*(twao_short - twao_long)))
-            self.model.supply += funding*(twao_short - twao_long)
-            print("fund: Adding ds={} OVL to longs".format(twao_long*(-funding)))
-            self.locked_long -= twao_long*funding
-            print("fund: Adding ds={} OVL to shorts".format(twao_short*(funding)))
-            self.locked_short += twao_short*funding
+            funding_long = min(twao_long*funding, self.locked_long) # can't have negative locked long
+            funding_short = twao_short*funding
+            print("fund: Adding ds={} OVL to total supply".format(funding_short - funding_long))
+            self.model.supply += funding_short - funding_long
+            print("fund: Adding ds={} OVL to longs".format(-funding_long))
+            self.locked_long -= funding_long
+            print("fund: Adding ds={} OVL to shorts".format(funding_short))
+            self.locked_short += funding_short
         else:
             funding = max(funding, -1.0)
-            print("fund: Adding ds={} OVL to total supply".format(funding*(twao_long - twao_short)))
-            self.model.supply += funding*(twao_long - twao_short)
-            print("fund: Adding ds={} OVL to longs".format(twao_long*(funding)))
-            self.locked_long += twao_long*funding
-            print("fund: Adding ds={} OVL to shorts".format(twao_short*(-funding)))
-            self.locked_short -= twao_short*funding
+            funding_long = abs(twao_long*funding)
+            funding_short = min(abs(twao_short*funding), self.locked_short) # can't have negative locked short
+            print("fund: Adding ds={} OVL to total supply".format(funding_long - funding_short))
+            self.model.supply += funding_long - funding_short
+            print("fund: Adding ds={} OVL to longs".format(funding_long))
+            self.locked_long += funding_long
+            print("fund: Adding ds={} OVL to shorts".format(-funding_short))
+            self.locked_short -= funding_short
 
         # Update virtual liquidity reserves
         # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
