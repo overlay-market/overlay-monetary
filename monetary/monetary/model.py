@@ -189,9 +189,7 @@ class MonetaryFMarket(object):
             self.x -= dx
             self.nx -= dx/self.px
 
-        print(f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position "
-              "on {self.unique_id} of size {dn*leverage} OVL at avg price of {1/avg_price}, "
-              "with lock price {self.price()}")
+        print(f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position on {self.unique_id} of size {dn*leverage} OVL at avg price of {1/avg_price}, with lock price {self.price()}")
         print(f"_swap: Percent diff bw avg and lock price is {100*(1/avg_price - self.price())/self.price()}%")
         print(f"_swap: locked_long -> {self.locked_long} OVL")
         print(f"_swap: nx -> {self.nx}")
@@ -266,7 +264,7 @@ class MonetaryFMarket(object):
             pos.amount -= amount
             self.positions[pid] = pos
 
-        return pos
+        return pos, ds
 
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
@@ -469,8 +467,10 @@ class MonetaryArbitrageur(MonetaryAgent):
         # For now just assume all positions unwound at once (even tho unrealistic)
         for pid, pos in self.positions.items():
             print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
-            self.fmarket.unwind(pos.amount, pid)
+            fees = self.fmarket.fees(pos.amount, build=False, long=(not pos.long), leverage=pos.leverage)
+            _, ds = self.fmarket.unwind(pos.amount, pid)
             self.locked -= pos.amount
+            self.wealth += ds - fees
             self.last_trade_idx = self.model.schedule.steps
 
         self.positions = {}
@@ -484,7 +484,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         print('Arb._unwind_next_position: locked (prior)', self.locked)
         pid = list(self.positions.keys())[0]
         pos = self.positions[pid]
-        self.fmarket.unwind(pos.amount, pid)
+        _, ds = self.fmarket.unwind(pos.amount, pid)
         self.locked -= pos.amount
         self.last_trade_idx = self.model.schedule.steps
         del self.positions[pid]
@@ -499,6 +499,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
+
+        # TODO: Check arbs are making money on the spot ....
 
         # TODO: Either wait for funding to unwind OR unwind once
         # reach wealth deploy_max and funding looks to be dried up?
@@ -531,6 +533,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
+                    self.wealth -= fees
                     self.last_trade_idx = idx
             elif sprice < fprice:
                 print(f"Arb.trade: Checking if short position on {self.fmarket.unique_id} "
@@ -550,6 +553,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
+                    self.wealth -= fees
                     self.last_trade_idx = idx
         else:
             # TODO: remove but try this here => dumb logic but want to see

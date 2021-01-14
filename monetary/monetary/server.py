@@ -68,23 +68,28 @@ liquidity_supply_emission = [
     for i in range(time_liquidity_mine)
 ]  # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
 
-
+# TODO: Have separate lines for each bot along with the aggregate!
 chart_elements = [
     ChartModule([
         {"Label": "Supply", "Color": "Black"},
-    ], data_collector_name='datacollector'),
-    ChartModule([
-        {"Label": "Arbitrageurs", "Color": "Red"},
-        {"Label": "Keepers", "Color": "Indigo"},
-        {"Label": "Traders", "Color": "Violet"},
-        {"Label": "Holders", "Color": "Black"},
-        {"Label": "Liquidity", "Color": "Blue"},
     ], data_collector_name='datacollector'),
     ChartModule([
         {"Label": "Treasury", "Color": "Green"},
     ], data_collector_name='datacollector'),
     ChartModule([
         {"Label": "{}-{}".format("d", ticker), "Color": random_color()} for ticker in sims.keys()
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Arbitrageurs", "Color": "Red"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Traders", "Color": "Violet"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Holders", "Color": "Black"},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Liquidity", "Color": "Blue"},
     ], data_collector_name='datacollector'),
     ChartModule([{"Label": "Gini", "Color": "Black"}],
                 data_collector_name='datacollector'),
