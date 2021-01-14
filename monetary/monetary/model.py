@@ -59,7 +59,7 @@ def compute_wealth(model, agent_type=None):
 # market whereas other feeds like AAVEETH, etc. are pre-simulated
 
 
-class MonetaryPosition(object):
+class MonetaryFPosition(object):
     def __init__(self, fmarket_ticker, lock_price=0.0, amount=0.0, long=True, leverage=1.0):
         self.fmarket_ticker = fmarket_ticker
         self.lock_price = lock_price
@@ -82,7 +82,7 @@ class MonetaryFMarket(object):
         self.base_fee = base_fee
         self.max_leverage = max_leverage
         self.model = model
-        self.positions = {} # { id: [MonetaryPosition] }
+        self.positions = {} # { id: [MonetaryFPosition] }
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
@@ -171,7 +171,7 @@ class MonetaryFMarket(object):
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
-            assert dy/self.py < self.y, "_swap: Not enough liquidity in self.ny for swap"
+            assert dy/self.py < self.ny, "_swap: Not enough liquidity in self.ny for swap"
             avg_price = self.k / (self.x * (self.x+dx))
             self.x += dx
             self.nx += dx/self.px
@@ -206,7 +206,7 @@ class MonetaryFMarket(object):
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount, build=True, long=long, leverage=leverage)
-        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, long=long, leverage=leverage)
+        pos = MonetaryFPosition(self.unique_id, lock_price=price, amount=amount, long=long, leverage=leverage)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
@@ -422,22 +422,22 @@ class MonetaryAgent(Agent):  # noqa
     Add in position hodlers as a different agent
     later (maybe also with stop losses)
     """
-
-    def __init__(self, unique_id, model, fmarket, pos_max=0.9, deploy_max=0.95, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, inventory, pos_max=0.9, deploy_max=0.95, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
         self.unique_id = unique_id
         super().__init__(unique_id, model)
         self.fmarket = fmarket  # each 'trader' focuses on one market for now
-        self.wealth = model.base_wealth
+        self.wealth = model.base_wealth # in ovl
+        self.inventory = inventory
         self.locked = 0
         self.pos_max = pos_max
         self.deploy_max = deploy_max
         self.slippage_max = slippage_max
         self.trade_delay = trade_delay
         self.last_trade_idx = 0
-        self.positions = {} # { pos.id: MonetaryPosition }
+        self.positions = {} # { pos.id: MonetaryFPosition }
         self.unwinding = False
         # TODO: store wealth in ETH and OVL, have feeds agent can trade on be
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
@@ -500,7 +500,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
-        # TODO: Check arbs are making money on the spot ....
+        # TODO: Check arbs are making money on the spot .... Implement spot USD basis
 
         # TODO: Either wait for funding to unwind OR unwind once
         # reach wealth deploy_max and funding looks to be dried up?
@@ -670,23 +670,41 @@ class MonetaryModel(Model):
                 max_leverage=base_max_leverage,
                 model=self,
             )
-            for ticker, prices in sims.items()
+            for ticker, prices in self.sims.items()
         }
 
         tickers = list(self.fmarkets.keys())
         for i in range(self.num_agents):
             agent = None
             fmarket = self.fmarkets[tickers[i % len(tickers)]]
-            if i < self.num_arbitraguers:
-                agent = MonetaryArbitrageur(unique_id=i, model=self, fmarket=fmarket)
-            elif i < self.num_arbitraguers + self.num_keepers:
-                agent = MonetaryKeeper(unique_id=i, model=self, fmarket=fmarket)
-            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
-                agent = MonetaryHolder(unique_id=i, model=self, fmarket=fmarket)
-            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
-                agent = MonetaryTrader(unique_id=i, model=self, fmarket=fmarket)
+            base_curr = fmarket.unique_id[:-len("-USD")]
+            base_quote_price = self.sims[fmarket.unique_id][0]
+            # print('base_curr', base_curr)
+            inventory = {}
+            if base_curr != 'OVL':
+                inventory = {
+                    'OVL': self.base_wealth,
+                    'USD': self.base_wealth*prices_ovlusd[0],
+                    base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
+                } # 50/50 inventory of base and quote curr
             else:
-                agent = MonetaryAgent(unique_id=i, model=self, fmarket=fmarket)
+                inventory = {
+                    'OVL': self.base_wealth,
+                    'USD': self.base_wealth*prices_ovlusd[0]
+                }
+
+            # print("inventory for agent {}".format(i), inventory)
+
+            if i < self.num_arbitraguers:
+                agent = MonetaryArbitrageur(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+            elif i < self.num_arbitraguers + self.num_keepers:
+                agent = MonetaryKeeper(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
+                agent = MonetaryHolder(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
+                agent = MonetaryTrader(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+            else:
+                agent = MonetaryAgent(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
 
             self.schedule.add(agent)
 

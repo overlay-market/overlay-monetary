@@ -7,7 +7,7 @@ import random
 from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import ChartModule
+from mesa.visualization.modules import BarChartModule, ChartModule
 
 
 def circle_portrayal_example(agent):
@@ -67,6 +67,12 @@ liquidity_supply_emission = [
     (0.51*total_supply/time_liquidity_mine)*i + 0.285*total_supply
     for i in range(time_liquidity_mine)
 ]  # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
+num_arbitrageurs = max(len(sims.keys()) * 5,
+                       int(total_supply*0.01/base_wealth))
+num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))
+num_traders = int(total_supply*0.2/base_wealth)
+num_holders = int(total_supply*0.5/base_wealth)
+num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 # TODO: Have separate lines for each bot along with the aggregate!
 chart_elements = [
@@ -106,10 +112,10 @@ for ticker in sims.keys():
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
     "sims": sims,
-    "num_arbitrageurs": max(len(sims.keys()) * 5, int(total_supply*0.01/base_wealth)),
-    "num_keepers": max(len(sims.keys()), int(total_supply*0.005/base_wealth)),
-    "num_traders": int(total_supply*0.2/base_wealth),
-    "num_holders": int(total_supply*0.5/base_wealth),
+    "num_arbitrageurs": num_arbitrageurs,
+    "num_keepers": num_keepers,
+    "num_traders": num_traders,
+    "num_holders": num_holders,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
