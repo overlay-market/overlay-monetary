@@ -134,14 +134,17 @@ def main():
                                  title='Exchange Rates')
 
     # create output directory
-    simulation_output_directory_path = f'sims-{NUMPY_SEED}'
-    if not os.path.exists(simulation_output_directory_path):
-        os.makedirs(simulation_output_directory_path)
+    simulation_output_directory = os.path.join(f'sims-{NUMPY_SEED}', str(time_resolution.value))
+    if not os.path.exists(simulation_output_directory):
+        os.makedirs(simulation_output_directory)
 
     # output simulated paths to csv files ...
     for series in series_names:
+        simulation_output_filepath = os.path.join(simulation_output_directory,
+                                                  f'sim-{series}.csv')
+
         pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
-            os.path.join(simulation_output_directory_path, f'sim-{series}.csv'),
+            simulation_output_filepath,
             index=False
         )
 

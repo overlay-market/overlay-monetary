@@ -2,6 +2,7 @@
 Configure visualization elements and instantiate a server
 """
 import pandas as pd
+import numpy as np
 import random
 from .model import MonetaryModel  # noqa
 
@@ -27,12 +28,31 @@ def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
+# Data freq in seconds
+data_freq = {
+    '15s': 15,
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+}
+
+DATA_FREQ_KEY = '15s'
+DATA_SIM_RNG = 115
+DATA_FREQ = data_freq[DATA_FREQ_KEY]
+
+# Constants
+STEPS_MONTH = int((86400*30)/DATA_FREQ)
+
 # Load sims from csv files as arrays
 tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
 ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in tickers:
-    f = pd.read_csv('./sims/sim-{}.csv'.format(ticker))
+    rpath = './sims/{}/sims-{}/sim-{}.csv'.format(
+        DATA_FREQ_KEY, DATA_SIM_RNG, ticker
+    )
+    print("Reading in sim data from", rpath)
+    f = pd.read_csv(rpath)
     if ticker == ovl_ticker:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
     else:
@@ -40,8 +60,13 @@ for ticker in tickers:
 
 total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
-base_market_fee = 0.0015
+base_market_fee = 0.0030
 base_max_leverage = 10.0
+time_liquidity_mine = STEPS_MONTH
+liquidity_supply_emission = [
+    (0.51*total_supply/time_liquidity_mine)*i + 0.285*total_supply
+    for i in range(time_liquidity_mine)
+]  # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
 
 
 chart_elements = [
@@ -85,6 +110,7 @@ model_kwargs = {
     "base_max_leverage": base_max_leverage,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": 0.285*total_supply,
+    "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
     "sampling_interval": 240,

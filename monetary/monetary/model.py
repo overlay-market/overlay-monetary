@@ -93,9 +93,11 @@ class MonetaryFMarket(object):
         self.last_cum_locked_short = 0.0
         self.cum_price = self.x / self.y
         self.cum_price_idx = 0
-        self.last_cum_price = self.x /self.y
+        self.last_cum_price = self.x / self.y
+        self.last_liquidity = model.liquidity # For liquidity adjustments
         self.last_funding_idx = 0
-        print(f"Init'ing FMarket {self.unique_id}")
+        self.last_trade_idx = 0
+        print("Init'ing FMarket {}".format(self.unique_id))
         print("FMarket x has {}".format(self.unique_id), self.x)
         print("FMarket nx has {} OVL".format(self.unique_id), self.nx)
         print("FMarket y has {}".format(self.unique_id), self.y)
@@ -169,6 +171,7 @@ class MonetaryFMarket(object):
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
+            assert dy/self.py < self.y, "_swap: Not enough liquidity in self.ny for swap"
             avg_price = self.k / (self.x * (self.x+dx))
             self.x += dx
             self.nx += dx/self.px
@@ -179,6 +182,7 @@ class MonetaryFMarket(object):
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
             assert dx < self.x, "_swap: Not enough liquidity in self.x for swap"
+            assert dx/self.px < self.nx, "_swap: Not enough liquidity in self.nx for swap"
             avg_price = self.k / (self.x * (self.x-dx))
             self.y += dy
             self.ny += dy/self.py
@@ -196,13 +200,15 @@ class MonetaryFMarket(object):
         print(f"_swap: ny -> {self.ny}")
         print(f"_swap: y -> {self.y}")
         self._update_cum_price()
+        idx = self.model.schedule.steps
+        self.last_trade_idx = idx
         return self.price()
 
     def build(self, dn, long, leverage):
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount, build=True, long=long, leverage=leverage)
-        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, leverage=leverage)
+        pos = MonetaryPosition(self.unique_id, lock_price=price, amount=amount, long=long, leverage=leverage)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
@@ -227,10 +233,19 @@ class MonetaryFMarket(object):
         # TODO: Locked long seems to go negative which is wrong. Why here?
 
         # Unlock from long/short pool first
+        print("unwind: dn", dn)
+        print("unwind: pos", pos)
+        print("unwind: locked_long", self.locked_long)
+        print("unwind: locked_short", self.locked_short)
+        # TODO: Fix for funding pro-rata logic .... for now just min it ...
         if pos.long:
+            dn = min(dn, self.locked_long)
+            assert dn <= self.locked_long, "unwind: Not enough locked in self.locked_long for unwind"
             self.locked_long -= dn
             self._update_cum_locked_long()
         else:
+            dn = min(dn, self.locked_short)
+            assert dn <= self.locked_short, "unwind: Not enough locked in self.locked_short for unwind"
             self.locked_short -= dn
             self._update_cum_locked_short()
 
@@ -313,20 +328,51 @@ class MonetaryFMarket(object):
             return
         elif funding > 0.0:
             funding = min(funding, 1.0)
-            print(f"fund: Adding ds={funding*(twao_short - twao_long)} OVL to total supply")
-            self.model.supply += funding*(twao_short - twao_long)
-            print(f"fund: Adding ds={twao_long*(-funding)} OVL to longs")
-            self.locked_long -= twao_long*funding
-            print(f"fund: Adding ds={twao_short*(funding)} OVL to shorts")
-            self.locked_short += twao_short*funding
+            funding_long = min(twao_long*funding, self.locked_long) # can't have negative locked long
+            funding_short = twao_short*funding
+            print("fund: Adding ds={} OVL to total supply".format(funding_short - funding_long))
+            self.model.supply += funding_short - funding_long
+            print("fund: Adding ds={} OVL to longs".format(-funding_long))
+            self.locked_long -= funding_long
+            print("fund: Adding ds={} OVL to shorts".format(funding_short))
+            self.locked_short += funding_short
         else:
             funding = max(funding, -1.0)
-            print(f"fund: Adding ds={funding*(twao_long - twao_short)} OVL to total supply")
-            self.model.supply += funding*(twao_long - twao_short)
-            print(f"fund: Adding ds={twao_long*(funding)} OVL to longs")
-            self.locked_long += twao_long*funding
-            print(f"fund: Adding ds={twao_short*(-funding)} OVL to shorts")
-            self.locked_short -= twao_short*funding
+            funding_long = abs(twao_long*funding)
+            funding_short = min(abs(twao_short*funding), self.locked_short) # can't have negative locked short
+            print("fund: Adding ds={} OVL to total supply".format(funding_long - funding_short))
+            self.model.supply += funding_long - funding_short
+            print("fund: Adding ds={} OVL to longs".format(funding_long))
+            self.locked_long += funding_long
+            print("fund: Adding ds={} OVL to shorts".format(-funding_short))
+            self.locked_short -= funding_short
+
+        # Update virtual liquidity reserves
+        # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
+        # n_y = (1/p_y)*(n_x*p_x)/(p_market) ... nx + n_x*(p_x/p_y)(1/p_market) = L/n
+        # n_x = L/n * (1/(1 + (p_x/p_y)*(1/p_market)))
+        print("fund: Adjusting virtual liquidity constants for {}".format(self.unique_id))
+        print("fund: nx (prior)", self.nx)
+        print("fund: ny (prior)", self.ny)
+        print("fund: x (prior)", self.x)
+        print("fund: y (prior)", self.y)
+        print("fund: price (prior)", self.price())
+        liquidity = self.model.liquidity # TODO: use liquidity_supply_emission ...
+        liq_scale_factor = liquidity/self.last_liquidity
+        print("fund: last_liquidity", self.last_liquidity)
+        print("fund: new liquidity", liquidity)
+        print("fund: liquidity scale factor", liq_scale_factor)
+        self.last_liquidity = liquidity
+        self.nx *= liq_scale_factor
+        self.ny *= liq_scale_factor
+        self.x = self.nx*self.px
+        self.y = self.ny*self.py
+        self.k = self.x * self.y
+        print("fund: nx (updated)", self.nx)
+        print("fund: ny (updated)", self.ny)
+        print("fund: x (updated)", self.x)
+        print("fund: y (updated)", self.y)
+        print("fund: price (updated... should be same)", self.price())
 
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
         print("fund: Adjusting price sensitivity constants for {self.unique_id}")
@@ -338,10 +384,10 @@ class MonetaryFMarket(object):
         print(f"fund: twap_ovlusd_feed = {twap_ovlusd_feed}")
         self.px = twap_ovlusd_feed # px = n_usd/n_ovl
         self.py = twap_ovlusd_feed/twap_feed # py = px/p
-        print(f"fund: px = {self.px}")
-        print(f"fund: py = {self.py}")
+        print("fund: px (updated)", self.px)
+        print("fund: py (updated)", self.py)
+        print("fund: price (updated... should be same)", self.price())
 
-        # TODO: Adjust liquidity as well ...
 
 
 class MonetarySMarket(object):
@@ -379,15 +425,7 @@ class MonetaryAgent(Agent):  # noqa
     later (maybe also with stop losses)
     """
 
-    def __init__(self,
-                 unique_id,
-                 model,
-                 fmarket,
-                 pos_max: float = 0.025,
-                 deploy_max: float = 0.75,
-                 slippage_max: float = 0.02,
-                 trade_delay = 0):
-        # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(self, unique_id, model, fmarket, pos_max=0.9, deploy_max=0.95, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -407,6 +445,10 @@ class MonetaryAgent(Agent):  # noqa
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
         # use sim values on underlying spot market. Then can do a buy/sell on spot as well if we want using
         # sims as off-chain price values(?)
+        #
+        # NOTE: Have defaults for trader be pos max of 0.25 of wealth,
+        #       deploy_max of 0.5 of wealth so only two trades outstanding
+        #       at a time. With delay between trades of 10 min
 
     def trade(self):
         pass
@@ -428,21 +470,33 @@ class MonetaryArbitrageur(MonetaryAgent):
         for pid, pos in self.positions.items():
             print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
             self.fmarket.unwind(pos.amount, pid)
+            self.locked -= pos.amount
+            self.last_trade_idx = self.model.schedule.steps
 
         self.positions = {}
+
+    def _unwind_next_position(self):
+        # Get the next position from inventory to unwind for this timestep
+        if len(self.positions.keys()) == 0:
+            self.unwinding = False
+            return
+        print('Arb._unwind_next_position: positions (prior)', self.positions)
+        print('Arb._unwind_next_position: locked (prior)', self.locked)
+        pid = list(self.positions.keys())[0]
+        pos = self.positions[pid]
+        self.fmarket.unwind(pos.amount, pid)
+        self.locked -= pos.amount
+        self.last_trade_idx = self.model.schedule.steps
+        del self.positions[pid]
+        print('Arb._unwind_next_position: positions (updated)', self.positions)
+        print('Arb._unwind_next_position: locked (updated)', self.locked)
 
     def trade(self):
         # If market futures price > spot then short, otherwise long
         # Calc the slippage first to see if worth it
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
-        idx = self.model.schedule.steps
-        #if self.fmarket.last_funding_idx == idx:
-            # Naively unwind all previous positions to free up capital (this is dumb but fine for now)
-        #    print(f"Arb.trade: Attempting to unwind positions after funding paid out")
-        #    self._unwind_positions()
-        #    return
-
         # Get ready to arb current spreads
+        idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         fprice = self.fmarket.price()
 
@@ -497,6 +551,10 @@ class MonetaryArbitrageur(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.locked += pos.amount
                     self.last_trade_idx = idx
+        else:
+            # TODO: remove but try this here => dumb logic but want to see
+            # what happens to currency supply if end up unwinding before each new trade (so only 1 pos per arb)
+            self._unwind_positions()
 
     def step(self):
         """
@@ -504,8 +562,9 @@ class MonetaryArbitrageur(MonetaryAgent):
         Can include logic based on neighbors states.
         """
         idx = self.model.schedule.steps
-        # Add in a trade delay to simulate cooldown due to gas
-        if (idx - self.last_trade_idx) > self.trade_delay:
+        # Allow only one trader to trade on a market per block.
+        # Add in a trade delay to simulate cooldown due to gas.
+        if self.fmarket.last_trade_idx != idx and (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
 
 
@@ -565,6 +624,7 @@ class MonetaryModel(Model):
         base_market_fee,
         base_max_leverage,
         liquidity,
+        liquidity_supply_emission,
         treasury,
         sampling_interval
     ):
@@ -590,11 +650,16 @@ class MonetaryModel(Model):
         n = len(sims.keys())
         prices_ovlusd = self.sims["OVL-USD"]
         print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
+        liquidity_weight = {
+            list(sims.keys())[i]: 1
+            for i in range(n)
+        }
+        print("liquidity_weight", liquidity_weight)
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
-                nx=(self.liquidity/(2*n)),
-                ny=(self.liquidity/(2*n)),
+                nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
+                ny=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 px=prices_ovlusd[0], # px = n_usd/n_ovl
                 py=prices_ovlusd[0]/prices[0], # py = px/p
                 base_fee=base_market_fee,
