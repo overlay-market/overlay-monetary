@@ -425,7 +425,18 @@ class MonetaryAgent(Agent):  # noqa
     Add in position hodlers as a different agent
     later (maybe also with stop losses)
     """
-    def __init__(self, unique_id, model, fmarket, inventory, pos_max=0.9, deploy_max=0.95, slippage_max=0.02, trade_delay=4*10): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
+    def __init__(
+        self,
+        unique_id,
+        model,
+        fmarket,
+        inventory,
+        pos_max=0.9,
+        deploy_max=0.95,
+        slippage_max=0.02,
+        leverage_max=1.0,
+        trade_delay=4*10
+    ): # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
         """
@@ -438,6 +449,7 @@ class MonetaryAgent(Agent):  # noqa
         self.pos_max = pos_max
         self.deploy_max = deploy_max
         self.slippage_max = slippage_max
+        self.leverage_max = leverage_max
         self.trade_delay = trade_delay
         self.last_trade_idx = 0
         self.positions = {} # { pos.id: MonetaryFPosition }
@@ -468,6 +480,7 @@ class MonetaryAgent(Agent):  # noqa
 class MonetaryArbitrageur(MonetaryAgent):
     def _unwind_positions(self):
         # For now just assume all positions unwound at once (even tho unrealistic)
+        # TODO: rebalance inventory on unwind!
         for pid, pos in self.positions.items():
             print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
             fees = self.fmarket.fees(pos.amount, build=False, long=(not pos.long), leverage=pos.leverage)
@@ -523,13 +536,13 @@ class MonetaryArbitrageur(MonetaryAgent):
                 print(f"Arb.trade: Checking if long position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
 
-                fees = self.fmarket.fees(size, build=True, long=True, leverage=1.0)
-                slippage = self.fmarket.slippage(size-fees, build=True, long=True, leverage=1.0)
+                fees = self.fmarket.fees(size, build=True, long=True, leverage=self.leverage_max)
+                slippage = self.fmarket.slippage(size-fees, build=True, long=True, leverage=self.leverage_max)
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
                 if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage):
                     # enter the trade to arb
-                    pos = self.fmarket.build(size, long=True, leverage=1.0)
+                    pos = self.fmarket.build(size, long=True, leverage=self.leverage_max)
                     print("Arb.trade: Entered long arb trade w pos params ...")
                     print(f"Arb.trade: pos.amount -> {pos.amount}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
@@ -567,13 +580,13 @@ class MonetaryArbitrageur(MonetaryAgent):
                 print(f"Arb.trade: Checking if short position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
 
-                fees = self.fmarket.fees(size, build=True, long=False, leverage=1.0)
-                slippage = self.fmarket.slippage(size-fees, build=True, long=False, leverage=1.0) # should be negative ...
+                fees = self.fmarket.fees(size, build=True, long=False, leverage=self.leverage_max)
+                slippage = self.fmarket.slippage(size-fees, build=True, long=False, leverage=self.leverage_max) # should be negative ...
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
                 if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage):
                     # enter the trade to arb
-                    pos = self.fmarket.build(size, long=False, leverage=1.0)
+                    pos = self.fmarket.build(size, long=False, leverage=self.leverage_max)
                     print("Arb.trade: Entered short arb trade w pos params ...")
                     print(f"Arb.trade: pos.amount -> {pos.amount}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
@@ -724,6 +737,9 @@ class MonetaryModel(Model):
             for ticker, prices in self.sims.items()
         }
 
+        # TODO: Calculate the vol for last X time period idxs to determine leverage
+        # to give each trader ... less volatile, the more leverage
+
         tickers = list(self.fmarkets.keys())
         for i in range(self.num_agents):
             agent = None
@@ -742,17 +758,26 @@ class MonetaryModel(Model):
                     'OVL': self.base_wealth*2, # 2x since using for both spot and futures
                     'USD': self.base_wealth*prices_ovlusd[0]
                 }
+            # For leverage max, pick number between 1.0, 2.0, 3.0 (vary by agent)
+            leverage_max = (i % 3.0) + 1.0
 
             if i < self.num_arbitraguers:
-                agent = MonetaryArbitrageur(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+                agent = MonetaryArbitrageur(unique_id=i, model=self, fmarket=fmarket, inventory=inventory, leverage_max=leverage_max)
             elif i < self.num_arbitraguers + self.num_keepers:
-                agent = MonetaryKeeper(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+                agent = MonetaryKeeper(unique_id=i, model=self, fmarket=fmarket, inventory=inventory, leverage_max=leverage_max)
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
-                agent = MonetaryHolder(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+                agent = MonetaryHolder(unique_id=i, model=self, fmarket=fmarket, inventory=inventory, leverage_max=leverage_max)
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
-                agent = MonetaryTrader(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+                agent = MonetaryTrader(unique_id=i, model=self, fmarket=fmarket, inventory=inventory, leverage_max=leverage_max)
             else:
-                agent = MonetaryAgent(unique_id=i, model=self, fmarket=fmarket, inventory=inventory)
+                agent = MonetaryAgent(unique_id=i, model=self, fmarket=fmarket, inventory=inventory, leverage_max=leverage_max)
+
+            print("MonetaryModel.init: Adding agent to schedule ...")
+            print("MonetaryModel.init: type", type(agent))
+            print("MonetaryModel.init: unique_id", agent.unique_id)
+            print("MonetaryModel.init: fmarket", agent.fmarket.unique_id)
+            print("MonetaryModel.init: leverage_max", agent.leverage_max)
+            print("MonetaryModel.init: inventory", agent.inventory)
 
             self.schedule.add(agent)
 
