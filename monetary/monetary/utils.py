@@ -34,13 +34,43 @@ def compute_treasury(model):
     return model.treasury
 
 
-def compute_wealth(model, agent_type=None, in_usd=False):
+def compute_wealth(model, agent_type=None):
     wealths = []
     if not agent_type:
         wealths = [a.wealth for a in model.schedule.agents]
     else:
         wealths = [
             a.wealth
+            for a in model.schedule.agents if type(a) == agent_type
+        ]
+
+    return sum(wealths)
+
+
+def calc_inventory_wealth(model, agent, in_usd=False):
+    idx = model.schedule.steps
+    sprice_ovlusd = model.sims["OVL-USD"][idx]
+    sprice = model.sims[agent.fmarket.unique_id][idx]
+    base_curr = agent.fmarket.base_currency
+
+    if not in_usd:
+        return agent.inventory["OVL"] + agent.inventory["USD"]/sprice_ovlusd \
+            + agent.inventory[base_curr]*sprice/sprice_ovlusd
+    else:
+        return agent.inventory["OVL"]*sprice_ovlusd + agent.inventory["USD"] \
+            + agent.inventory[base_curr]*sprice
+
+
+def compute_inventory_wealth(model, agent_type=None, in_usd=False):
+    wealths = []
+    if not agent_type:
+        wealths = [
+            calc_inventory_wealth(model, a, in_usd=in_usd)
+            for a in model.schedule.agents
+        ]
+    else:
+        wealths = [
+            calc_inventory_wealth(model, a, in_usd=in_usd)
             for a in model.schedule.agents if type(a) == agent_type
         ]
 

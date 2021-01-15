@@ -86,13 +86,22 @@ chart_elements = [
         {"Label": "{}-{}".format("d", ticker), "Color": random_color()} for ticker in sims.keys()
     ], data_collector_name='datacollector'),
     ChartModule([
-        {"Label": "Arbitrageurs", "Color": "Red"},
+        {"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()},
     ], data_collector_name='datacollector'),
     ChartModule([
-        {"Label": "Traders", "Color": "Violet"},
+        {"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()},
     ], data_collector_name='datacollector'),
     ChartModule([
-        {"Label": "Holders", "Color": "Black"},
+        {"Label": "Traders Inventory (OVL)", "Color": random_color()},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Traders Inventory (USD)", "Color": random_color()},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Holders Inventory (OVL)", "Color": random_color()},
+    ], data_collector_name='datacollector'),
+    ChartModule([
+        {"Label": "Holders Inventory (USD)", "Color": random_color()},
     ], data_collector_name='datacollector'),
     ChartModule([
         {"Label": "Liquidity", "Color": "Blue"},

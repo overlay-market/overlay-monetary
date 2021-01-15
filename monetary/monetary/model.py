@@ -10,7 +10,8 @@ from .agents import (
 from .markets import MonetaryFMarket
 from .utils import (
     compute_gini, compute_price_diff, compute_fprice, compute_sprice,
-    compute_supply, compute_liquidity, compute_treasury, compute_wealth
+    compute_supply, compute_liquidity, compute_treasury, compute_wealth,
+    compute_inventory_wealth,
 )
 
 
@@ -173,10 +174,18 @@ class MonetaryModel(Model):
             "Treasury": compute_treasury,
             "Liquidity": compute_liquidity,
             "Agent": partial(compute_wealth, agent_type=None),
-            "Arbitrageurs": partial(compute_wealth, agent_type=MonetaryArbitrageur),
-            "Keepers": partial(compute_wealth, agent_type=MonetaryKeeper),
-            "Traders": partial(compute_wealth, agent_type=MonetaryTrader),
-            "Holders": partial(compute_wealth, agent_type=MonetaryHolder),
+            "Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
+            "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
+            "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
+            "Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
+            "Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            "Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            "Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
+            "Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            "Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            "Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
+            "Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
+            "Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
         })
         self.datacollector = DataCollector(
             model_reporters=model_reporters,
