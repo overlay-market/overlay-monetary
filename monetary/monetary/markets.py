@@ -176,7 +176,7 @@ class MonetaryFMarket(object):
 
         # Unlock from long/short pool first
         print("unwind: dn", dn)
-        print("unwind: pos", pos)
+        print("unwind: pos", pos.id)
         print("unwind: locked_long", self.locked_long)
         print("unwind: locked_short", self.locked_short)
         # TODO: Fix for funding pro-rata logic .... for now just min it ...

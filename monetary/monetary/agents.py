@@ -98,6 +98,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 print(
                     f"Arb._unwind_positions: spot sell received (USD) -> {spot_sell_received}"
                 )
+                # TODO: this is wrong because of the leverage! fix
                 self.inventory[self.fmarket.base_currency] -= spot_sell_amount
                 self.inventory["USD"] += spot_sell_received
                 print(f"Arb._unwind_positions: inventory -> {self.inventory}")
@@ -219,7 +220,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           = pos.amount * price_t * [ 1/lock_price - 1/s_price ]
                     # But s_price > lock_price, so PnL (approx) > 0
                     locked_in_approx = pos.amount * \
-                        (sprice/pos.lock_price - 1.0) - 2*spot_sell_fees
+                        (sprice/pos.lock_price - 1.0)
+                    # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL)",
                           locked_in_approx)
                     print(f"Arb.trade: arb profit locked in (USD)",
@@ -279,7 +281,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           = pos.amount * price_t * [ 1/s_price - 1/lock_price ]
                     # But s_price < lock_price, so PnL (approx) > 0
                     locked_in_approx = pos.amount * \
-                        (1.0 - sprice/pos.lock_price) - 2*spot_buy_fees
+                        (1.0 - sprice/pos.lock_price)
+                    # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL)",
                           locked_in_approx)
                     print(f"Arb.trade: arb profit locked in (USD)",
