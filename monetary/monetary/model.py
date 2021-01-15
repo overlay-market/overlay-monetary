@@ -100,7 +100,7 @@ class MonetaryModel(Model):
                     'OVL': self.base_wealth*2,  # 2x since using for both spot and futures
                     'USD': self.base_wealth*prices_ovlusd[0]
                 }
-            # For leverage max, pick number between 1.0, 2.0, 3.0 (vary by agent)
+            # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 3.0) + 1.0
 
             if i < self.num_arbitraguers:

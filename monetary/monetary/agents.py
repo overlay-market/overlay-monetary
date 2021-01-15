@@ -61,6 +61,8 @@ class MonetaryAgent(Agent):  # noqa
 
 
 class MonetaryArbitrageur(MonetaryAgent):
+    # TODO: super().__init__() with an arb min for padding, so doesn't trade if can't make X% locked in
+
     def _unwind_positions(self):
         # For now just assume all positions unwound at once (even tho unrealistic)
         # TODO: rebalance inventory on unwind!
@@ -161,24 +163,26 @@ class MonetaryArbitrageur(MonetaryAgent):
         # TODO: Add in slippage bounds for an order
         # TODO: Have arb bot determine position size dynamically needed to get price close to spot value (scale down size ...)
         # TODO: Have arb bot unwind all prior positions once deploys certain amount (or out of wealth)
-        size = self.pos_max*self.wealth
+        amount = self.pos_max*self.wealth
         print(
             f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
-        if self.locked + size < self.deploy_max*self.wealth:
+        if self.locked + amount < self.deploy_max*self.wealth:
             if sprice > fprice:
                 print(f"Arb.trade: Checking if long position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
 
                 fees = self.fmarket.fees(
-                    size, build=True, long=True, leverage=self.leverage_max)
+                    amount, build=True, long=True, leverage=self.leverage_max)
                 slippage = self.fmarket.slippage(
-                    size-fees, build=True, long=True, leverage=self.leverage_max)
+                    amount-fees, build=True, long=True, leverage=self.leverage_max)
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
-                if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage):
+                print(f"Arb.trade: arb profit opp % -> {sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee}")
+                if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
+                    and sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
                     pos = self.fmarket.build(
-                        size, long=True, leverage=self.leverage_max)
+                        amount, long=True, leverage=self.leverage_max)
                     print("Arb.trade: Entered long arb trade w pos params ...")
                     print(f"Arb.trade: pos.amount -> {pos.amount}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
@@ -192,7 +196,7 @@ class MonetaryArbitrageur(MonetaryAgent):
 
                     # Counter the futures trade on spot with sell to lock in the arb
                     # TODO: Check never goes negative and eventually implement with a spot CFMM
-                    # TODO: send fees to spot market CFMM ... (size - fees)
+                    # TODO: send fees to spot market CFMM ... (amount - fees)
                     spot_sell_amount = pos.amount*pos.leverage*sprice_ovlusd/sprice
                     # assume same as futures fees
                     spot_sell_fees = min(
@@ -219,7 +223,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           ~ pos.amount * [ - price_t/s_price + price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
                     #           = pos.amount * price_t * [ 1/lock_price - 1/s_price ]
                     # But s_price > lock_price, so PnL (approx) > 0
-                    locked_in_approx = pos.amount * \
+                    locked_in_approx = pos.amount * pos.leverage * \
                         (sprice/pos.lock_price - 1.0)
                     # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL)",
@@ -232,16 +236,18 @@ class MonetaryArbitrageur(MonetaryAgent):
                       f"is profitable after slippage ....")
 
                 fees = self.fmarket.fees(
-                    size, build=True, long=False, leverage=self.leverage_max)
+                    amount, build=True, long=False, leverage=self.leverage_max)
                 # should be negative ...
                 slippage = self.fmarket.slippage(
-                    size-fees, build=True, long=False, leverage=self.leverage_max)
+                    amount-fees, build=True, long=False, leverage=self.leverage_max)
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
-                if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage):
+                print(f"Arb.trade: arb profit opp % -> {1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee}")
+                if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
+                    and 1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
                     pos = self.fmarket.build(
-                        size, long=False, leverage=self.leverage_max)
+                        amount, long=False, leverage=self.leverage_max)
                     print("Arb.trade: Entered short arb trade w pos params ...")
                     print(f"Arb.trade: pos.amount -> {pos.amount}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
@@ -280,7 +286,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           ~ pos.amount * [ price_t/s_price - price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
                     #           = pos.amount * price_t * [ 1/s_price - 1/lock_price ]
                     # But s_price < lock_price, so PnL (approx) > 0
-                    locked_in_approx = pos.amount * \
+                    locked_in_approx = pos.amount * pos.leverage * \
                         (1.0 - sprice/pos.lock_price)
                     # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL)",
