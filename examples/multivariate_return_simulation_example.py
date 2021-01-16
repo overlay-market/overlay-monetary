@@ -17,6 +17,8 @@ from ovm.historical.data_io import (
     compute_log_return_df
 )
 
+from ovm.paths import historical_data_directory
+
 from ovm.utils import TimeResolution
 
 from recombinator import (
@@ -24,7 +26,8 @@ from recombinator import (
 )
 
 # specify base directory for data files
-base_directory = os.path.join('..', 'notebooks')
+# base_directory = os.path.join('..', 'notebooks')
+base_directory = historical_data_directory()
 
 # use data sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
