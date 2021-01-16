@@ -6,24 +6,33 @@ import uuid
 # nx, ny: OVL locked in x and y token
 # dn: amount added to either bucket for the long/short position
 
-# ToDo: make this a dataclass!
+# ToDo: frozen=True if it turns out that the instance variables never need to change
+@dataclass(frozen=False)
 class MonetaryFPosition:
-    def __init__(self,
-                 fmarket_ticker: str,
-                 lock_price: float = 0.0,
-                 amount: float = 0.0,
-                 long: bool = True,
-                 leverage: float = 1.0):
-        self.fmarket_ticker = fmarket_ticker
-        self.lock_price = lock_price
-        self.amount = amount
-        self.long = long
-        self.leverage = leverage
-        self.id = uuid.uuid4()
+    fmarket_ticker: str
+    lock_price: float = 0.0
+    amount: float = 0.0
+    long: bool = True
+    leverage: float = 1.0
+    id = uuid.uuid4()
+
+    # def __init__(self,
+    #              fmarket_ticker: str,
+    #              lock_price: float = 0.0,
+    #              amount: float = 0.0,
+    #              long: bool = True,
+    #              leverage: float = 1.0):
+    #     self.fmarket_ticker = fmarket_ticker
+    #     self.lock_price = lock_price
+    #     self.amount = amount
+    #     self.long = long
+    #     self.leverage = leverage
+    #     self.id = uuid.uuid4()
 
 
 class MonetaryFMarket:
     from .model import MonetaryModel
+
     def __init__(self,
                  unique_id: str,
                  nx: float,

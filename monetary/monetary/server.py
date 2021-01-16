@@ -7,7 +7,7 @@ import random
 from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import BarChartModule, ChartModule
+from mesa.visualization.modules import ChartModule
 
 
 # def circle_portrayal_example(agent):
@@ -80,43 +80,43 @@ num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 chart_elements = [
     ChartModule([
         {"Label": "Supply", "Color": "Black"},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Treasury", "Color": "Green"},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "{}-{}".format("d", ticker), "Color": random_color()} for ticker in sims.keys()
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Traders Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Traders Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Holders Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Holders Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Liquidity", "Color": "Blue"},
-    ], data_collector_name='datacollector'),
+    ], data_collector_name='data_collector'),
     ChartModule([{"Label": "Gini", "Color": "Black"}],
-                data_collector_name='datacollector'),
+                data_collector_name='data_collector'),
 ]
 for ticker in sims.keys():
     chart_elements.append(
         ChartModule([
             {"Label": "{}-{}".format("s", ticker), "Color": "Black"},
             {"Label": "{}-{}".format("f", ticker), "Color": "Red"},
-        ], data_collector_name='datacollector')
+        ], data_collector_name='data_collector')
     )
 
 

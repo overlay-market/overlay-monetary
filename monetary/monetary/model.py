@@ -158,11 +158,11 @@ class MonetaryModel(Model):
                 )
 
             print("MonetaryModel.init: Adding agent to schedule ...")
-            print("MonetaryModel.init: type", type(agent))
-            print("MonetaryModel.init: unique_id", agent.unique_id)
-            print("MonetaryModel.init: fmarket", agent.fmarket.unique_id)
-            print("MonetaryModel.init: leverage_max", agent.leverage_max)
-            print("MonetaryModel.init: inventory", agent.inventory)
+            print(f"MonetaryModel.init: agent type={type(agent)}")
+            print(f"MonetaryModel.init: unique_id={agent.unique_id}")
+            print(f"MonetaryModel.init: fmarket", agent.fmarket.unique_id)
+            print(f"MonetaryModel.init: leverage_max", agent.leverage_max)
+            print(f"MonetaryModel.init: inventory", agent.inventory)
 
             self.schedule.add(agent)
 
@@ -200,17 +200,17 @@ class MonetaryModel(Model):
             "Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
             "Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
         })
-        self.datacollector = DataCollector(
+        self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters={"Wealth": "wealth"},
         )
 
         self.running = True
-        self.datacollector.collect(self)
+        self.data_collector.collect(self)
 
     def step(self):
         """
         A model step. Used for collecting data and advancing the schedule
         """
-        self.datacollector.collect(self)
+        self.data_collector.collect(self)
         self.schedule.step()

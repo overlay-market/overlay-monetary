@@ -11,18 +11,21 @@ def compute_gini(model):
     return 1.0 + (1.0 / N) - 2.0*B
 
 
-def compute_price_diff(model, ticker):
+def compute_price_diff(model,
+                       ticker: str):
     idx = model.schedule.steps
     sprice = model.sims[ticker][idx]
     fprice = model.fmarkets[ticker].price()
     return (fprice - sprice) / sprice
 
 
-def compute_fprice(model, ticker):
+def compute_fprice(model,
+                   ticker: str):
     return model.fmarkets[ticker].price()
 
 
-def compute_sprice(model, ticker):
+def compute_sprice(model,
+                   ticker: str):
     idx = model.schedule.steps
     return model.sims[ticker][idx]
 
