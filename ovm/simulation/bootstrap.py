@@ -10,7 +10,7 @@ from recombinator.optimal_block_length import (
 
 from tqdm import tqdm
 
-from .historical_data_io import PriceHistory
+from ovm.historical.data_io import PriceHistory
 
 
 def estimate_optimal_block_lengths_for_multiple_price_series(

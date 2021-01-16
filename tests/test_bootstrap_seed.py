@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ovm.bootstrap import convert_block_length_from_seconds_to_blocks
+from ovm.simulation.bootstrap import convert_block_length_from_seconds_to_blocks
 
-from ovm.historical_data_io import (
+from ovm.historical.data_io import (
     load_price_histories,
     construct_series_name_to_closing_price_map,
     construct_closing_price_df,

@@ -5,12 +5,12 @@ import numpy as np
 import os
 import pandas as pd
 
-from ovm.bootstrap import (
+from ovm.simulation.bootstrap import (
     convert_block_length_from_seconds_to_blocks,
     plot_multivariate_simulation
 )
 
-from ovm.historical_data_io import (
+from ovm.historical.data_io import (
     load_price_histories,
     construct_series_name_to_closing_price_map,
     construct_closing_price_df,
