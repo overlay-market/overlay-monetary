@@ -1,4 +1,4 @@
-name: overlay-monetary
+name: overlay-agent_based_model
 channels:
   - defaults
 dependencies:
@@ -188,4 +188,4 @@ dependencies:
     - typing-extensions==3.7.4.3
     - urllib3==1.26.2
     - yarl==1.1.0
-prefix: /Users/michaelnowotny/anaconda3/envs/overlay-monetary
+prefix: /Users/michaelnowotny/anaconda3/envs/overlay-agent_based_model
