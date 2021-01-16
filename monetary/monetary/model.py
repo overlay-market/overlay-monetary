@@ -170,15 +170,15 @@ class MonetaryModel(Model):
         # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
         # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
         model_reporters = {
-            "{}-{}".format("d", ticker): partial(compute_price_diff, ticker=ticker)
+            f"d-{ticker}": partial(compute_price_diff, ticker=ticker)
             for ticker in tickers
         }
         model_reporters.update({
-            "{}-{}".format("s", ticker): partial(compute_sprice, ticker=ticker)
+            f"s-{ticker}": partial(compute_sprice, ticker=ticker)
             for ticker in tickers
         })
         model_reporters.update({
-            "{}-{}".format("f", ticker): partial(compute_fprice, ticker=ticker)
+            f"f-{ticker}": partial(compute_fprice, ticker=ticker)
             for ticker in tickers
         })
         model_reporters.update({
