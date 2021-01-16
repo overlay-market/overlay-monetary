@@ -185,7 +185,7 @@ class MonetaryModel(Model):
             for ticker in tickers
         })
         model_reporters.update({
-            f"positional imbalance {ticker}": partial(compute_positional_imbalance_by_market, ticker=ticker)
+            f"Skew {ticker}": partial(compute_positional_imbalance_by_market, ticker=ticker)
             for ticker in tickers
         })
 
