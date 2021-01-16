@@ -1,6 +1,7 @@
 """
 Configure visualization elements and instantiate a server
 """
+import os
 import random
 import typing as tp
 
@@ -9,6 +10,8 @@ from mesa.visualization.modules import ChartModule
 import pandas as pd
 
 from .model import MonetaryModel  # noqa
+
+from ovm.paths import simulated_data_directory
 
 
 def random_color():
@@ -40,9 +43,12 @@ TICKERS = ["ETH-USD",
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in TICKERS:
-    rpath = './sims/{}/sims-{}/sim-{}.csv'.format(
-        DATA_FREQ_KEY, DATA_SIM_RNG, ticker
-    )
+    rpath = os.path.join(simulated_data_directory(),
+                         str(DATA_FREQ_KEY),
+                         f'sims-{DATA_SIM_RNG}',
+                         f'sim-{ticker}.csv')
+
+    # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
     print(f"Reading in sim data from {rpath}")
     f = pd.read_csv(rpath)
     if ticker == OVL_TICKER:
