@@ -41,7 +41,7 @@ class MonetaryModel(Model):
 
         from .markets import MonetaryFMarket
 
-        from .model_reporter import (
+        from .reporters import (
             compute_gini,
             compute_price_diff,
             compute_fprice,

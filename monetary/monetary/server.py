@@ -4,14 +4,12 @@ Configure visualization elements and instantiate a server
 import os
 import random
 import typing as tp
-
+from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 import pandas as pd
 
-from ovm.agent_based_model.model import MonetaryModel
-
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from .model import MonetaryModel
 
 
 def random_color():
@@ -32,12 +30,22 @@ DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
 STEPS_MONTH = int((86400*30)/DATA_FREQ)
+BASE_DIRECTORY = Path(__file__).resolve().parents[1]
+HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'historical/data')
+SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'simulation/data')
+
+print('BASE_DIRECTORY', BASE_DIRECTORY)
+print("HISTORICAL_DATA_DIRECTORY", HISTORICAL_DATA_DIRECTORY)
+print("SIMULATED_DATA_DIRECTORY", SIMULATED_DATA_DIRECTORY)
 
 # Load sims from csv files as arrays
 TICKERS = ["ETH-USD",
-           "COMP-USD",  # not a long history of data (can we use a different token instead)
-           "LINK-USD",  # not a long history of data (can we use a different token instead)
-           "YFI-USD"  # less than half a year of data (can we use a different token instead)
+           # not a long history of data (can we use a different token instead)
+           "COMP-USD",
+           # not a long history of data (can we use a different token instead)
+           "LINK-USD",
+           # less than half a year of data (can we use a different token instead)
+           "YFI-USD"
            ]
 
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
@@ -144,21 +152,18 @@ MODEL_KWARGS = {
 }
 
 
-def construct_modular_server():
-    print("Model kwargs for initial conditions of sim:")
-    print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
-    print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
-    print(f"num_traders = {MODEL_KWARGS['num_traders']}")
-    print(f"num_holders = {MODEL_KWARGS['num_holders']}")
-    print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
+print("Model kwargs for initial conditions of sim:")
+print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
+print(f"num_traders = {MODEL_KWARGS['num_traders']}")
+print(f"num_holders = {MODEL_KWARGS['num_holders']}")
+print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
-    chart_elements = construct_chart_elements(sims.keys())
+chart_elements = construct_chart_elements(sims.keys())
 
-    server = ModularServer(
-        MonetaryModel,
-        chart_elements,
-        "Monetary",
-        MODEL_KWARGS,
-    )
-
-    return server
+server = ModularServer(
+    MonetaryModel,
+    chart_elements,
+    "Monetary",
+    MODEL_KWARGS,
+)

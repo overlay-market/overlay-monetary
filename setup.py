@@ -12,11 +12,11 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'overlay-agent_based_model'
+NAME = 'overlay-monetary'
 DESCRIPTION = 'Agent Based Simulation of Overlay Protocol'
 URL = 'https://github.com/overlay-market/overlay-monetary'
 EMAIL = ''
-AUTHOR = 'Adam Kay, Michael Feldman, Michael Nowotny'
+AUTHOR = ''
 REQUIRES_PYTHON = '>=3.7.0'
 VERSION = "0.1.0"
 

@@ -1,4 +1,4 @@
-name: overlay-agent_based_model
+name: overlay-monetary
 channels:
   - defaults
 dependencies:

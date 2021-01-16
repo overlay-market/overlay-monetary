@@ -1,6 +1,6 @@
 # Overlay Monetary
 
-## Fetching Data for Estimation and Simulation 
+## Fetching Data for Estimation and Simulation
 
 ```
 from ovm.utils import fetch_data
@@ -25,10 +25,11 @@ The seed can be controlled by setting the constant `NUMPY_SEED` in the script. I
 
 ## Running sims
 
-Make sure you've generated needed simulated price paths above and stored them in a directory 'abm_input_data'. 
-Then run
+Make sure you've generated needed simulated price paths above and stored them in a directory 'monetary/simulation/data'.
 
+Then run
 ```
+$ cd monetary
 $ mesa runserver
 ```
 
