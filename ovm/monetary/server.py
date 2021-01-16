@@ -45,20 +45,19 @@ TICKERS = ["ETH-USD",
            ]
 
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
-sims = {}
+ticker_to_time_series_of_prices_map = {}
 for ticker in TICKERS:
     rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
                          str(DATA_FREQ_KEY),
                          f'sims-{DATA_SIM_RNG}',
                          f'sim-{ticker}.csv')
 
-    # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
     print(f"Reading in sim simulation from {rpath}")
     f = pd.read_csv(rpath)
     if ticker == OVL_TICKER:
-        sims["OVL-USD"] = f.transpose().values.tolist()[0]
+        ticker_to_time_series_of_prices_map["OVL-USD"] = f.transpose().values.tolist()[0]
     else:
-        sims[ticker] = f.transpose().values.tolist()[0]
+        ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.tolist()[0]
 
 total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL
@@ -71,9 +70,9 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
                              for i
                              in range(time_liquidity_mine)]
 
-num_arbitrageurs = max(len(sims.keys()) * 5,
+num_arbitrageurs = max(len(ticker_to_time_series_of_prices_map.keys()) * 5,
                        int(total_supply*0.01/base_wealth))
-num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))
+num_keepers = max(len(ticker_to_time_series_of_prices_map.keys()), int(total_supply * 0.005 / base_wealth))
 num_traders = int(total_supply*0.2/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
@@ -90,7 +89,7 @@ def construct_chart_elements(tickers) -> tp.List:
         ChartModule([{"Label": "Treasury", "Color": "Green"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()],
+        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
         ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
@@ -133,7 +132,7 @@ def construct_chart_elements(tickers) -> tp.List:
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 MODEL_KWARGS = {
-    "sims": sims,
+    "ticker_to_time_series_of_prices_map": ticker_to_time_series_of_prices_map,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,
@@ -157,7 +156,7 @@ print(f"num_traders = {MODEL_KWARGS['num_traders']}")
 print(f"num_holders = {MODEL_KWARGS['num_holders']}")
 print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
-chart_elements = construct_chart_elements(sims.keys())
+chart_elements = construct_chart_elements(ticker_to_time_series_of_prices_map.keys())
 
 server = ModularServer(
     MonetaryModel,

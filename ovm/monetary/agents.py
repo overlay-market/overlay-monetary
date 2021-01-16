@@ -71,28 +71,28 @@ class MonetaryArbitrageur(MonetaryAgent):
         # For now just assume all positions unwound at once (even tho unrealistic)
         # TODO: rebalance inventory on unwind!
         idx = self.model.schedule.steps
-        sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice = self.model.ticker_to_time_series_of_prices_map[self.fmarket.unique_id][idx]
+        sprice_ovlusd = self.model.ticker_to_time_series_of_prices_map["OVL-USD"][idx]
         for pid, pos in self.positions.items():
             print(
                 f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
-            fees = self.fmarket.fees(pos.amount, build=False, long=(
+            fees = self.fmarket.fees(pos.amount_of_ovl_locked, build=False, long=(
                 not pos.long), leverage=pos.leverage)
-            _, ds = self.fmarket.unwind(pos.amount, pid)
-            self.inventory["OVL"] += pos.amount + ds - fees
-            self.locked -= pos.amount
+            _, ds = self.fmarket.unwind(pos.amount_of_ovl_locked, pid)
+            self.inventory["OVL"] += pos.amount_of_ovl_locked + ds - fees
+            self.locked -= pos.amount_of_ovl_locked
             self.wealth += ds - fees
             self.last_trade_idx = self.model.schedule.steps
 
             # Counter the futures trade on spot to unwind the arb
             # TODO: Have the spot market counter trades wrapped in SMarket class properly (clean this up)
             if pos.long is not True:
-                spot_sell_amount = pos.amount*pos.leverage*sprice_ovlusd/sprice
+                spot_sell_amount = pos.amount_of_ovl_locked * pos.leverage * sprice_ovlusd / sprice
                 spot_sell_fees = min(
-                    spot_sell_amount*self.fmarket.base_fee, pos.amount)
+                    spot_sell_amount*self.fmarket.base_fee, pos.amount_of_ovl_locked)
                 spot_sell_received = (spot_sell_amount - spot_sell_fees)*sprice
                 print("Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
-                print(f"Arb._unwind_positions: spot sell amount (OVL) -> {pos.amount}")
+                print(f"Arb._unwind_positions: spot sell amount (OVL) -> {pos.amount_of_ovl_locked}")
                 print(f"Arb._unwind_positions: spot sell amount ({self.fmarket.base_currency})"
                       f" -> {spot_sell_amount}")
 
@@ -105,12 +105,12 @@ class MonetaryArbitrageur(MonetaryAgent):
                 self.inventory["USD"] += spot_sell_received
                 print(f"Arb._unwind_positions: inventory -> {self.inventory}")
             else:
-                spot_buy_amount = pos.amount*pos.leverage*sprice_ovlusd
+                spot_buy_amount = pos.amount_of_ovl_locked * pos.leverage * sprice_ovlusd
                 spot_buy_fees = min(
-                    spot_buy_amount*self.fmarket.base_fee, pos.amount)
+                    spot_buy_amount*self.fmarket.base_fee, pos.amount_of_ovl_locked)
                 spot_buy_received = (spot_buy_amount - spot_buy_fees)/sprice
                 print("Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
-                print(f"Arb._unwind_positions: spot buy amount (OVL) -> {pos.amount}")
+                print(f"Arb._unwind_positions: spot buy amount (OVL) -> {pos.amount_of_ovl_locked}")
                 print(f"Arb._unwind_positions: spot buy amount (USD) -> {spot_buy_amount}")
                 print(f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
                 print(f"Arb._unwind_positions: spot buy received ({self.fmarket.base_currency})"
@@ -131,8 +131,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         print('Arb._unwind_next_position: locked (prior)', self.locked)
         pid = list(self.positions.keys())[0]
         pos = self.positions[pid]
-        _, ds = self.fmarket.unwind(pos.amount, pid)
-        self.locked -= pos.amount
+        _, ds = self.fmarket.unwind(pos.amount_of_ovl_locked, pid)
+        self.locked -= pos.amount_of_ovl_locked
         self.last_trade_idx = self.model.schedule.steps
         del self.positions[pid]
         print('Arb._unwind_next_position: positions (updated)', self.positions)
@@ -144,8 +144,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
         # Get ready to arb current spreads
         idx = self.model.schedule.steps
-        sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice = self.model.ticker_to_time_series_of_prices_map[self.fmarket.unique_id][idx]
+        sprice_ovlusd = self.model.ticker_to_time_series_of_prices_map["OVL-USD"][idx]
         fprice = self.fmarket.price
 
         # TODO: Check arbs are making money on the spot .... Implement spot USD basis
@@ -183,27 +183,27 @@ class MonetaryArbitrageur(MonetaryAgent):
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
                     print("Arb.trade: Entered long arb trade w pos params ...")
-                    print(f"Arb.trade: pos.amount -> {pos.amount}")
+                    print(f"Arb.trade: pos.amount -> {pos.amount_of_ovl_locked}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
                     print(f"Arb.trade: pos.leverage -> {pos.leverage}")
                     print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
-                    self.locked += pos.amount
+                    self.inventory["OVL"] -= pos.amount_of_ovl_locked + fees
+                    self.locked += pos.amount_of_ovl_locked
                     self.wealth -= fees
                     self.last_trade_idx = idx
 
                     # Counter the futures trade on spot with sell to lock in the arb
                     # TODO: Check never goes negative and eventually implement with a spot CFMM
                     # TODO: send fees to spot market CFMM ... (amount - fees)
-                    spot_sell_amount = pos.amount*pos.leverage*sprice_ovlusd/sprice
+                    spot_sell_amount = pos.amount_of_ovl_locked * pos.leverage * sprice_ovlusd / sprice
                     # assume same as futures fees
                     spot_sell_fees = min(
-                        spot_sell_amount*self.fmarket.base_fee, pos.amount)
+                        spot_sell_amount*self.fmarket.base_fee, pos.amount_of_ovl_locked)
                     spot_sell_received = (
                         spot_sell_amount - spot_sell_fees)*sprice
                     print("Arb.trade: Selling base curr on spot to lock in arb ...")
-                    print(f"Arb.trade: spot sell amount (OVL) -> {pos.amount}")
+                    print(f"Arb.trade: spot sell amount (OVL) -> {pos.amount_of_ovl_locked}")
                     print(f"Arb.trade: spot sell amount ({self.fmarket.base_currency})"
                           f" -> {spot_sell_amount}")
                     print(f"Arb.trade: spot sell fees ({self.fmarket.base_currency})"
@@ -220,8 +220,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           ~ pos.amount * [ - price_t/s_price + price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
                     #           = pos.amount * price_t * [ 1/lock_price - 1/s_price ]
                     # But s_price > lock_price, so PnL (approx) > 0
-                    locked_in_approx = pos.amount * pos.leverage * \
-                        (sprice/pos.lock_price - 1.0)
+                    locked_in_approx = pos.amount_of_ovl_locked * pos.leverage * \
+                                       (sprice/pos.lock_price - 1.0)
                     # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
                     print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
@@ -245,13 +245,13 @@ class MonetaryArbitrageur(MonetaryAgent):
                     pos = self.fmarket.build(
                         amount, long=False, leverage=self.leverage_max)
                     print("Arb.trade: Entered short arb trade w pos params ...")
-                    print(f"Arb.trade: pos.amount -> {pos.amount}")
+                    print(f"Arb.trade: pos.amount -> {pos.amount_of_ovl_locked}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
                     print(f"Arb.trade: pos.leverage -> {pos.leverage}")
                     print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
-                    self.locked += pos.amount
+                    self.inventory["OVL"] -= pos.amount_of_ovl_locked + fees
+                    self.locked += pos.amount_of_ovl_locked
                     self.wealth -= fees
                     self.last_trade_idx = idx
 
@@ -259,13 +259,13 @@ class MonetaryArbitrageur(MonetaryAgent):
                     # TODO: Check never goes negative and eventually implement with a spot CFMM
                     # TODO: send fees to spot market CFMM ...
                     # TODO: FIX THIS FOR LEVERAGE SINCE OWING DEBT ON SPOT (and not accounting for it properly) -> Fine with counter unwind ultimately in long run
-                    spot_buy_amount = pos.amount*pos.leverage*sprice_ovlusd
+                    spot_buy_amount = pos.amount_of_ovl_locked * pos.leverage * sprice_ovlusd
                     spot_buy_fees = min(
-                        spot_buy_amount*self.fmarket.base_fee, pos.amount)
+                        spot_buy_amount*self.fmarket.base_fee, pos.amount_of_ovl_locked)
                     spot_buy_received = (
                         spot_buy_amount - spot_buy_fees)/sprice
                     print("Arb.trade: Buying base curr on spot to lock in arb ...")
-                    print(f"Arb.trade: spot buy amount (OVL) -> {pos.amount}")
+                    print(f"Arb.trade: spot buy amount (OVL) -> {pos.amount_of_ovl_locked}")
                     print(f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
                     print(f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
                     print(f"Arb.trade: spot buy received ({self.fmarket.base_currency})"
@@ -280,8 +280,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     #           ~ pos.amount * [ price_t/s_price - price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
                     #           = pos.amount * price_t * [ 1/s_price - 1/lock_price ]
                     # But s_price < lock_price, so PnL (approx) > 0
-                    locked_in_approx = pos.amount * pos.leverage * \
-                        (1.0 - sprice/pos.lock_price)
+                    locked_in_approx = pos.amount_of_ovl_locked * pos.leverage * \
+                                       (1.0 - sprice/pos.lock_price)
                     # TODO: incorporate fee structure!
                     print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
                     print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
