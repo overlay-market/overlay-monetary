@@ -54,7 +54,7 @@ class MonetaryModel(Model):
         )
 
         super().__init__()
-        self.num_agents: int = num_arbitrageurs + num_keepers + num_traders + num_holders
+        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
