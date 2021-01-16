@@ -14,18 +14,17 @@ from ovm.historical.data_io import (
     compute_log_return_df
 )
 
+from ovm.paths import HISTORICAL_DATA_DIRECTORY
+
 from ovm.utils import TimeResolution
 
 from recombinator import (
     stationary_bootstrap
 )
 
-# specify base directory for data files
-base_directory = os.path.join('..', 'notebooks')
-
 # use data sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(base_directory, time_resolution.value)
+directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
 
 # Number of paths to simulate
 number_of_paths = 1

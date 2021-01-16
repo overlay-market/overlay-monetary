@@ -11,7 +11,7 @@ import pandas as pd
 
 from ovm.agent_based_model.model import MonetaryModel
 
-from ovm.paths import simulated_data_directory
+from ovm.paths import SIMULATED_DATA_DIRECTORY
 
 
 def random_color():
@@ -43,7 +43,7 @@ TICKERS = ["ETH-USD",
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
 for ticker in TICKERS:
-    rpath = os.path.join(simulated_data_directory(),
+    rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
                          str(DATA_FREQ_KEY),
                          f'sims-{DATA_SIM_RNG}',
                          f'sim-{ticker}.csv')
