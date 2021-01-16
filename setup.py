@@ -11,7 +11,7 @@ from shutil import rmtree
 
 from setuptools import find_packages, setup, Command
 
-# Package meta-data.
+# Package meta-simulation.
 NAME = 'overlay-monetary'
 DESCRIPTION = 'Agent Based Simulation of Overlay Protocol'
 URL = 'https://github.com/overlay-market/overlay-monetary'

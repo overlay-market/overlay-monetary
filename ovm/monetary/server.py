@@ -11,6 +11,8 @@ import pandas as pd
 
 from model import MonetaryModel
 
+from ovm.paths import HISTORICAL_DATA_DIRECTORY, SIMULATED_DATA_DIRECTORY
+
 
 def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -31,20 +33,20 @@ DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 # Constants
 STEPS_MONTH = int((86400*30)/DATA_FREQ)
 BASE_DIRECTORY = Path(__file__).resolve().parents[1]
-HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'historical/data')
-SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'simulation/data')
+# HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'historical')
+# SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'simulation')
 
-print('BASE_DIRECTORY', BASE_DIRECTORY)
-print("HISTORICAL_DATA_DIRECTORY", HISTORICAL_DATA_DIRECTORY)
-print("SIMULATED_DATA_DIRECTORY", SIMULATED_DATA_DIRECTORY)
+print(f'{BASE_DIRECTORY=}')
+print(f"{HISTORICAL_DATA_DIRECTORY=}")
+print(f"{SIMULATED_DATA_DIRECTORY=}")
 
 # Load sims from csv files as arrays
 TICKERS = ["ETH-USD",
-           # not a long history of data (can we use a different token instead)
+           # not a long history of simulation (can we use a different token instead)
            "COMP-USD",
-           # not a long history of data (can we use a different token instead)
+           # not a long history of simulation (can we use a different token instead)
            "LINK-USD",
-           # less than half a year of data (can we use a different token instead)
+           # less than half a year of simulation (can we use a different token instead)
            "YFI-USD"
            ]
 
@@ -57,7 +59,7 @@ for ticker in TICKERS:
                          f'sim-{ticker}.csv')
 
     # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
-    print(f"Reading in sim data from {rpath}")
+    print(f"Reading in sim simulation from {rpath}")
     f = pd.read_csv(rpath)
     if ticker == OVL_TICKER:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
@@ -149,7 +151,7 @@ MODEL_KWARGS = {
     "liquidity": 0.285*total_supply,
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
-    # TODO: 1920 ... 8h with 15s blocks (sim data is every 15s)
+    # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
     "sampling_interval": 240,
 }
 

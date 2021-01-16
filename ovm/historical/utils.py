@@ -65,7 +65,7 @@ def fetch_data(symbols: tp.Sequence[str],
     # n = int((until-since) / (limit * ms))
     # sinces = [ since + i*limit*ms for i in range(n) ]
     #
-    # data = {
+    # simulation = {
     #     symbol: list(itertools.chain.from_iterable([
     #         exchange.fetch_ohlcv(symbol, timeframe, since, limit, params)
     #         for since in sinces
@@ -73,7 +73,7 @@ def fetch_data(symbols: tp.Sequence[str],
     #     for symbol in symbols
     # }
     #
-    # return data
+    # return simulation
 
     if symbol_to_data_map is None:
         symbol_to_data_map = {}

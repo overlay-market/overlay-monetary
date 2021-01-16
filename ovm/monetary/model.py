@@ -166,7 +166,7 @@ class MonetaryModel(Model):
 
             self.schedule.add(agent)
 
-        # data collector
+        # simulation collector
         # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
         # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
         model_reporters = {
@@ -211,7 +211,7 @@ class MonetaryModel(Model):
 
     def step(self):
         """
-        A model step. Used for collecting data and advancing the schedule
+        A model step. Used for collecting simulation and advancing the schedule
         """
         self.data_collector.collect(self)
         self.schedule.step()

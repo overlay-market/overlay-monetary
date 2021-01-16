@@ -10,7 +10,7 @@ from ovm.paths import HISTORICAL_DATA_DIRECTORY
 
 from ovm.utils import TimeResolution
 
-# use data sampled at 15 second intervals from FTX
+# use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
 directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
 
@@ -22,7 +22,7 @@ price_history_file_name = 'ETH-USD'
 
 
 def main():
-    # load price data
+    # load price simulation
     price_history = \
         load_price_history(filename=price_history_file_name,
                            series_name=price_history_file_name,

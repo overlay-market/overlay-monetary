@@ -22,7 +22,7 @@ from recombinator import (
     stationary_bootstrap
 )
 
-# use data sampled at 15 second intervals from FTX
+# use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
 directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
 
@@ -49,7 +49,7 @@ def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
                      directory_path: tp.Optional[str] = None) \
         -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    # load price data
+    # load price simulation
     series_name_to_price_history_map = \
         load_price_histories(series_names=series_names,
                              period_length_in_seconds=period_length_in_seconds,
