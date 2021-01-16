@@ -2,6 +2,7 @@
 Configure visualization elements and instantiate a server
 """
 import random
+import typing as tp
 
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
@@ -14,8 +15,8 @@ def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-# Data freq in seconds
-data_freq = {
+# Data frequencies in seconds
+DATA_FREQUENCIES = {
     '15s': 15,
     '1m': 60,
     '5m': 300,
@@ -24,22 +25,27 @@ data_freq = {
 
 DATA_FREQ_KEY = '15s'
 DATA_SIM_RNG = 115
-DATA_FREQ = data_freq[DATA_FREQ_KEY]
+DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
 STEPS_MONTH = int((86400*30)/DATA_FREQ)
 
 # Load sims from csv files as arrays
-tickers = ["ETH-USD", "COMP-USD", "LINK-USD", "YFI-USD"]
-ovl_ticker = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
+TICKERS = ["ETH-USD",
+           "COMP-USD",  # not a long history of data (can we use a different token instead)
+           "LINK-USD",  # not a long history of data (can we use a different token instead)
+           "YFI-USD"  # less than half a year of data (can we use a different token instead)
+           ]
+
+OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = {}
-for ticker in tickers:
+for ticker in TICKERS:
     rpath = './sims/{}/sims-{}/sim-{}.csv'.format(
         DATA_FREQ_KEY, DATA_SIM_RNG, ticker
     )
     print(f"Reading in sim data from {rpath}")
     f = pd.read_csv(rpath)
-    if ticker == ovl_ticker:
+    if ticker == OVL_TICKER:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
     else:
         sims[ticker] = f.transpose().values.tolist()[0]
@@ -62,52 +68,59 @@ num_traders = int(total_supply*0.2/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
+DATA_COLLECTOR_NAME = 'data_collector'
+
+
 # TODO: Have separate lines for each bot along with the aggregate!
-chart_elements = [
-    ChartModule([
-        {"Label": "Supply", "Color": "Black"},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Treasury", "Color": "Green"},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Traders Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Traders Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Holders Inventory (OVL)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Holders Inventory (USD)", "Color": random_color()},
-    ], data_collector_name='data_collector'),
-    ChartModule([
-        {"Label": "Liquidity", "Color": "Blue"},
-    ], data_collector_name='data_collector'),
-    ChartModule([{"Label": "Gini", "Color": "Black"}],
-                data_collector_name='data_collector'),
-]
-for ticker in sims.keys():
-    chart_elements.append(
-        ChartModule([
-            {"Label": f"s-{ticker}", "Color": "Black"},
-            {"Label": f"f-{ticker}", "Color": "Red"},
-        ], data_collector_name='data_collector')
-    )
+def construct_chart_elements(tickers) -> tp.List:
+    chart_elements = [
+        ChartModule([{"Label": "Supply", "Color": "Black"}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Treasury", "Color": "Green"}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Gini", "Color": "Black"}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+    ]
+
+    for ticker in tickers:
+        chart_elements.append(
+            ChartModule([
+                {"Label": f"s-{ticker}", "Color": "Black"},
+                {"Label": f"f-{ticker}", "Color": "Red"},
+            ], data_collector_name='data_collector')
+        )
+
+    return chart_elements
 
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
-model_kwargs = {
+MODEL_KWARGS = {
     "sims": sims,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
@@ -124,16 +137,22 @@ model_kwargs = {
     "sampling_interval": 240,
 }
 
-print("Model kwargs for initial conditions of sim:")
-print(f"num_arbitrageurs = {model_kwargs['num_arbitrageurs']}")
-print(f"num_keepers = {model_kwargs['num_keepers']}")
-print(f"num_traders = {model_kwargs['num_traders']}")
-print(f"num_holders = {model_kwargs['num_holders']}")
-print(f"base_wealth = {model_kwargs['base_wealth']}")
 
-server = ModularServer(
-    MonetaryModel,
-    chart_elements,
-    "Monetary",
-    model_kwargs,
-)
+def construct_modular_server():
+    print("Model kwargs for initial conditions of sim:")
+    print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+    print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
+    print(f"num_traders = {MODEL_KWARGS['num_traders']}")
+    print(f"num_holders = {MODEL_KWARGS['num_holders']}")
+    print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
+
+    chart_elements = construct_chart_elements(sims.keys())
+
+    server = ModularServer(
+        MonetaryModel,
+        chart_elements,
+        "Monetary",
+        MODEL_KWARGS,
+    )
+
+    return server

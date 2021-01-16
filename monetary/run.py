@@ -1,3 +1,3 @@
-from monetary.server import server  # noqa
+from monetary.server import construct_modular_server  # noqa
 
-server.launch()
+construct_modular_server().launch()
