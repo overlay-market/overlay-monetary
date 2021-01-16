@@ -92,6 +92,9 @@ def construct_chart_elements(tickers) -> tp.List:
         ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
+        ChartModule([{"Label": f"Skew {ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
         ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
