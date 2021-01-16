@@ -1,9 +1,9 @@
 # Overlay Monetary
 
-## Fetching data for fits
+## Fetching Data for Estimation and Simulation
 
 ```
-from ovm.utils import fetch_data
+from ovm.historical.utils import fetch_data
 from datetime import datetime
 
 symbols = [ 'BTC/USD', 'ETH/USD', 'AAVE/USD', 'YFI/USD', 'UNI/USD', 'BAL/USD', 'COMP/USD', 'LINK/USD', 'CREAM/USD', 'SUSHI/USD' ]
@@ -14,10 +14,10 @@ since = until - dur
 data = fetch_data(symbols, since=since, until=until)
 ```
 
-## Simulating resampled prices output as CSV files
+## Simulating Resampled Prices Output as CSV Files
 
 ```
-python -m multivariate_return_simulation_example.py
+python -m examples/multivariate_return_simulation_example.py
 ```
 
 The seed can be controlled by setting the constant `NUMPY_SEED` in the script. It will save the csv files for that seed in folder named `f'sims-{NUMPY_SEED}'`.
@@ -25,9 +25,10 @@ The seed can be controlled by setting the constant `NUMPY_SEED` in the script. I
 
 ## Running sims
 
-Make sure you've generated needed simulated price paths above. Then,
+Make sure you've generated needed simulated price paths above and stored them in a directory 'monetary/simulation/data/{DATA_FREQUENCY}' (e.g. 'monetary/simulation/data/15s/sims-42/sim-ETH-USD.csv').
 
+Then run
 ```
-$ cd monetary
+$ cd ovm/monetary
 $ mesa runserver
 ```

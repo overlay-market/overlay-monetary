@@ -1,18 +1,9 @@
 from functools import partial
+import typing as tp
+
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
-
-from .agents import (
-    MonetaryAgent, MonetaryArbitrageur, MonetaryKeeper, MonetaryHolder,
-    MonetaryTrader,
-)
-from .markets import MonetaryFMarket
-from .utils import (
-    compute_gini, compute_price_diff, compute_fprice, compute_sprice,
-    compute_supply, compute_liquidity, compute_treasury, compute_wealth,
-    compute_inventory_wealth,
-)
 
 
 class MonetaryModel(Model):
@@ -28,19 +19,40 @@ class MonetaryModel(Model):
 
     def __init__(
         self,
-        num_arbitrageurs,
-        num_keepers,
-        num_traders,
-        num_holders,
-        sims,
-        base_wealth,
-        base_market_fee,
-        base_max_leverage,
-        liquidity,
-        liquidity_supply_emission,
-        treasury,
-        sampling_interval
+        num_arbitrageurs: int,
+        num_keepers: int,
+        num_traders: int,
+        num_holders: int,
+        sims: tp.Dict[str, tp.List[float]],
+        base_wealth: float,
+        base_market_fee: float,
+        base_max_leverage: float,
+        liquidity: float,
+        liquidity_supply_emission: tp.List[float],
+        treasury: float,
+        sampling_interval: int
     ):
+        from agents import (
+            MonetaryArbitrageur,
+            MonetaryKeeper,
+            MonetaryHolder,
+            MonetaryTrader
+        )
+
+        from markets import MonetaryFMarket
+
+        from reporters import (
+            compute_gini,
+            compute_price_diff,
+            compute_fprice,
+            compute_sprice,
+            compute_supply,
+            compute_liquidity,
+            compute_treasury,
+            compute_wealth,
+            compute_inventory_wealth,
+        )
+
         super().__init__()
         self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
         self.num_arbitraguers = num_arbitrageurs
@@ -67,7 +79,7 @@ class MonetaryModel(Model):
             list(sims.keys())[i]: 1
             for i in range(n)
         }
-        print("liquidity_weight", liquidity_weight)
+        print(f"liquidity_weight = {liquidity_weight}")
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
@@ -88,7 +100,7 @@ class MonetaryModel(Model):
             fmarket = self.fmarkets[tickers[i % len(tickers)]]
             base_curr = fmarket.unique_id[:-len("-USD")]
             base_quote_price = self.sims[fmarket.unique_id][0]
-            inventory = {}
+            inventory: tp.Dict[str, float] = {}
             if base_curr != 'OVL':
                 inventory = {
                     'OVL': self.base_wealth,
@@ -136,6 +148,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             else:
+                from .agents import MonetaryAgent
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,
@@ -145,31 +158,32 @@ class MonetaryModel(Model):
                 )
 
             print("MonetaryModel.init: Adding agent to schedule ...")
-            print("MonetaryModel.init: type", type(agent))
-            print("MonetaryModel.init: unique_id", agent.unique_id)
-            print("MonetaryModel.init: fmarket", agent.fmarket.unique_id)
-            print("MonetaryModel.init: leverage_max", agent.leverage_max)
-            print("MonetaryModel.init: inventory", agent.inventory)
+            print(f"MonetaryModel.init: agent type={type(agent)}")
+            print(f"MonetaryModel.init: unique_id={agent.unique_id}")
+            print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
+            print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
+            print(f"MonetaryModel.init: inventory={agent.inventory}")
 
             self.schedule.add(agent)
 
-        # data collector
+        # simulation collector
         # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
         # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
         model_reporters = {
-            "{}-{}".format("d", ticker): partial(compute_price_diff, ticker=ticker)
+            f"d-{ticker}": partial(compute_price_diff, ticker=ticker)
             for ticker in tickers
         }
         model_reporters.update({
-            "{}-{}".format("s", ticker): partial(compute_sprice, ticker=ticker)
+            f"s-{ticker}": partial(compute_sprice, ticker=ticker)
             for ticker in tickers
         })
         model_reporters.update({
-            "{}-{}".format("f", ticker): partial(compute_fprice, ticker=ticker)
+            f"f-{ticker}": partial(compute_fprice, ticker=ticker)
             for ticker in tickers
         })
         model_reporters.update({
             "Gini": compute_gini,
+            "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
             "Supply": compute_supply,
             "Treasury": compute_treasury,
             "Liquidity": compute_liquidity,
@@ -187,17 +201,17 @@ class MonetaryModel(Model):
             "Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
             "Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
         })
-        self.datacollector = DataCollector(
+        self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters={"Wealth": "wealth"},
         )
 
         self.running = True
-        self.datacollector.collect(self)
+        self.data_collector.collect(self)
 
     def step(self):
         """
-        A model step. Used for collecting data and advancing the schedule
+        A model step. Used for collecting simulation and advancing the schedule
         """
-        self.datacollector.collect(self)
+        self.data_collector.collect(self)
         self.schedule.step()

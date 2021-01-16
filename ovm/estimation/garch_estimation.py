@@ -8,7 +8,7 @@ import scipy as sp
 import statsmodels.api as sm
 
 
-from .historical_data_io import PriceHistory
+from ovm.historical.data_io import PriceHistory
 
 VOLATILITY_MODEL = 'garch'
 DISTRIBUTION = 'StudentsT'

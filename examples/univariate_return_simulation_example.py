@@ -1,40 +1,18 @@
-from datetime import datetime
 import math
-import typing as tp
 
-import arch
 import matplotlib.pyplot as plt
-import numpy as np
 import os
-import pandas as pd
-import pyarrow
 from recombinator import stationary_bootstrap
-import scipy as sp
-import statsmodels.api as sm
-from statsmodels.graphics.gofplots import qqplot_2samples
-from statsmodels.tsa.stattools import adfuller
 
-from ovm.garch_estimation import estimate_garch_parameters
+from ovm.historical.data_io import load_price_history
 
-from ovm.historical_data_io import (
-    PriceHistoryColumnNames as PHCN,
-    compute_scaling_factor,
-    compute_scaled_log_returns,
-    PriceHistory,
-    compute_number_of_days_in_price_history,
-    compute_log_returns_from_price_history,
-    save_price_histories,
-    load_price_history
-)
+from ovm.paths import HISTORICAL_DATA_DIRECTORY
 
 from ovm.utils import TimeResolution
 
-# specify base directory for data files
-base_directory = os.path.join('..', 'notebooks')
-
-# use data sampled at 15 second intervals from FTX
+# use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(base_directory, time_resolution.value)
+directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
 
 # Make the block size approximately 6 hours
 block_length = math.ceil(6 * 60 * 60 / time_resolution.in_seconds)
@@ -44,7 +22,7 @@ price_history_file_name = 'ETH-USD'
 
 
 def main():
-    # load price data
+    # load price simulation
     price_history = \
         load_price_history(filename=price_history_file_name,
                            series_name=price_history_file_name,
