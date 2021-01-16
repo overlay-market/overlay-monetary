@@ -1,3 +1,8 @@
+import typing as tp
+
+from .agents import MonetaryAgent
+
+
 def compute_gini(model):
     agent_wealths = [agent.wealth for agent in model.schedule.agents]
     x = sorted(agent_wealths)
@@ -34,20 +39,23 @@ def compute_treasury(model):
     return model.treasury
 
 
-def compute_wealth(model, agent_type=None):
-    wealths = []
+def compute_wealth(model,
+                   agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
     if not agent_type:
         wealths = [a.wealth for a in model.schedule.agents]
     else:
-        wealths = [
-            a.wealth
-            for a in model.schedule.agents if type(a) == agent_type
-        ]
+        wealths = [a.wealth
+                   for a
+                   in model.schedule.agents
+                   if type(a) == agent_type
+                   ]
 
     return sum(wealths)
 
 
-def calc_inventory_wealth(model, agent, in_usd=False):
+def calc_inventory_wealth(model,
+                          agent: MonetaryAgent,
+                          in_usd: bool = False):
     idx = model.schedule.steps
     sprice_ovlusd = model.sims["OVL-USD"][idx]
     sprice = model.sims[agent.fmarket.unique_id][idx]
@@ -61,8 +69,9 @@ def calc_inventory_wealth(model, agent, in_usd=False):
             + agent.inventory[base_curr]*sprice
 
 
-def compute_inventory_wealth(model, agent_type=None, in_usd=False):
-    wealths = []
+def compute_inventory_wealth(model,
+                             agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
+                             in_usd: bool = False):
     if not agent_type:
         wealths = [
             calc_inventory_wealth(model, a, in_usd=in_usd)

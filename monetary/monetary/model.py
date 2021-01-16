@@ -5,18 +5,6 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from .utils import (
-    compute_gini,
-    compute_price_diff,
-    compute_fprice,
-    compute_sprice,
-    compute_supply,
-    compute_liquidity,
-    compute_treasury,
-    compute_wealth,
-    compute_inventory_wealth,
-)
-
 
 class MonetaryModel(Model):
     """
@@ -53,8 +41,20 @@ class MonetaryModel(Model):
 
         from .markets import MonetaryFMarket
 
+        from .model_reporter import (
+            compute_gini,
+            compute_price_diff,
+            compute_fprice,
+            compute_sprice,
+            compute_supply,
+            compute_liquidity,
+            compute_treasury,
+            compute_wealth,
+            compute_inventory_wealth,
+        )
+
         super().__init__()
-        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
+        self.num_agents: int = num_arbitrageurs + num_keepers + num_traders + num_holders
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
