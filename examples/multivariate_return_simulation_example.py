@@ -5,16 +5,21 @@ import numpy as np
 import os
 import pandas as pd
 
-from ovm.bootstrap import (
+from ovm.simulation.bootstrap import (
     convert_block_length_from_seconds_to_blocks,
     plot_multivariate_simulation
 )
 
-from ovm.historical_data_io import (
+from ovm.historical.data_io import (
     load_price_histories,
     construct_series_name_to_closing_price_map,
     construct_closing_price_df,
     compute_log_return_df
+)
+
+from ovm.paths import (
+    HISTORICAL_DATA_DIRECTORY,
+    SIMULATED_DATA_DIRECTORY
 )
 
 from ovm.utils import TimeResolution
@@ -23,12 +28,9 @@ from recombinator import (
     stationary_bootstrap
 )
 
-# specify base directory for data files
-base_directory = os.path.join('..', 'notebooks')
-
-# use data sampled at 15 second intervals from FTX
+# use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(base_directory, time_resolution.value)
+directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
 
 # Make the block size approximately 6 hours
 block_length = np.ceil(6 * 60 * 60 / time_resolution.in_seconds)
@@ -49,14 +51,14 @@ series_names = \
      'LINK-USD']
 
 # specify numpy seed for simulations
-NUMPY_SEED = 42
+NUMPY_SEED = 100
 
 
 def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
                      directory_path: tp.Optional[str] = None) \
         -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    # load price data
+    # load price simulation
     series_name_to_price_history_map = \
         load_price_histories(series_names=series_names,
                              period_length_in_seconds=period_length_in_seconds,
@@ -134,7 +136,10 @@ def main():
                                  title='Exchange Rates')
 
     # create output directory
-    simulation_output_directory = os.path.join(f'sims-{NUMPY_SEED}', str(time_resolution.value))
+    simulation_output_directory = os.path.join(SIMULATED_DATA_DIRECTORY,
+                                               str(time_resolution.value),
+                                               f'sims-{NUMPY_SEED}')
+
     if not os.path.exists(simulation_output_directory):
         os.makedirs(simulation_output_directory)
 
