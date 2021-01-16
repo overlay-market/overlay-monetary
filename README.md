@@ -32,5 +32,3 @@ Then run
 $ cd ovm/monetary
 $ mesa runserver
 ```
-
-in the project's base directory.
