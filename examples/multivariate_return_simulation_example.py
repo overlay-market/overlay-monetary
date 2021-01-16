@@ -17,7 +17,10 @@ from ovm.historical.data_io import (
     compute_log_return_df
 )
 
-from ovm.paths import HISTORICAL_DATA_DIRECTORY
+from ovm.paths import (
+    HISTORICAL_DATA_DIRECTORY,
+    SIMULATED_DATA_DIRECTORY
+)
 
 from ovm.utils import TimeResolution
 
@@ -48,7 +51,7 @@ series_names = \
      'LINK-USD']
 
 # specify numpy seed for simulations
-NUMPY_SEED = 42
+NUMPY_SEED = 100
 
 
 def load_log_returns(series_names: tp.Sequence[str],
@@ -133,7 +136,10 @@ def main():
                                  title='Exchange Rates')
 
     # create output directory
-    simulation_output_directory = os.path.join(f'sims-{NUMPY_SEED}', str(time_resolution.value))
+    simulation_output_directory = os.path.join(SIMULATED_DATA_DIRECTORY,
+                                               str(time_resolution.value),
+                                               f'sims-{NUMPY_SEED}')
+
     if not os.path.exists(simulation_output_directory):
         os.makedirs(simulation_output_directory)
 
