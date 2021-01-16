@@ -25,7 +25,7 @@ DATA_FREQUENCIES = {
 }
 
 DATA_FREQ_KEY = '15s'
-DATA_SIM_RNG = 115
+DATA_SIM_RNG = 42
 DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
@@ -119,6 +119,8 @@ def construct_chart_elements(tickers) -> tp.List:
                     data_collector_name=DATA_COLLECTOR_NAME),
 
         ChartModule([{"Label": "Gini", "Color": "Black"}],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+        ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
     ]
 

@@ -183,6 +183,7 @@ class MonetaryModel(Model):
         })
         model_reporters.update({
             "Gini": compute_gini,
+            "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
             "Supply": compute_supply,
             "Treasury": compute_treasury,
             "Liquidity": compute_liquidity,

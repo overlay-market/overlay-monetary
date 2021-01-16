@@ -3,10 +3,15 @@ import typing as tp
 from agents import MonetaryAgent
 
 
-def compute_gini(model):
-    agent_wealths = [agent.wealth for agent in model.schedule.agents]
+def compute_gini(model,
+                 agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
+    agents = [
+        a for a in model.schedule.agents
+        if agent_type is None or type(a) == agent_type
+    ]
+    agent_wealths = [agent.wealth for agent in agents]
     x = sorted(agent_wealths)
-    N = model.num_agents
+    N = len(agents)
     B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
     return 1.0 + (1.0 / N) - 2.0*B
 
