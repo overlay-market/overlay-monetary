@@ -23,7 +23,7 @@ class MonetaryModel(Model):
         num_keepers: int,
         num_traders: int,
         num_holders: int,
-        sims: tp.Dict[str, tp.List[float]],
+        ticker_to_time_series_of_prices_map: tp.Dict[str, tp.List[float]],
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
@@ -43,14 +43,15 @@ class MonetaryModel(Model):
 
         from reporters import (
             compute_gini,
-            compute_price_diff,
-            compute_fprice,
-            compute_sprice,
+            compute_price_difference,
+            compute_futures_price,
+            compute_spot_price,
             compute_supply,
             compute_liquidity,
             compute_treasury,
-            compute_wealth,
-            compute_inventory_wealth,
+            compute_wealth_for_agent_type,
+            compute_inventory_wealth_for_agent_type,
+            compute_positional_imbalance_by_market
         )
 
         super().__init__()
@@ -67,39 +68,41 @@ class MonetaryModel(Model):
         self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
-        self.sims = sims  # { k: [ prices ] }
+        self.ticker_to_time_series_of_prices_map = ticker_to_time_series_of_prices_map  # { k: [ time_series_of_prices ] }
 
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
-        n = len(sims.keys())
-        prices_ovlusd = self.sims["OVL-USD"]
+        n = len(ticker_to_time_series_of_prices_map.keys())
+        prices_ovlusd = self.ticker_to_time_series_of_prices_map["OVL-USD"]
         print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
-            list(sims.keys())[i]: 1
+            list(ticker_to_time_series_of_prices_map.keys())[i]: 1
             for i in range(n)
         }
         print(f"liquidity_weight = {liquidity_weight}")
-        self.fmarkets = {
+
+        # initialize futures markers (Overlay)
+        self.ticker_to_futures_market_map = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
                 nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 ny=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 px=prices_ovlusd[0],  # px = n_usd/n_ovl
-                py=prices_ovlusd[0]/prices[0],  # py = px/p
+                py=prices_ovlusd[0]/time_series_of_prices[0],  # py = px/p
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
-                model=self,
+                model=self
             )
-            for ticker, prices in self.sims.items()
+            for ticker, time_series_of_prices
+            in self.ticker_to_time_series_of_prices_map.items()
         }
 
-        tickers = list(self.fmarkets.keys())
+        tickers = list(self.ticker_to_futures_market_map.keys())
         for i in range(self.num_agents):
-            agent = None
-            fmarket = self.fmarkets[tickers[i % len(tickers)]]
+            fmarket = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
             base_curr = fmarket.unique_id[:-len("-USD")]
-            base_quote_price = self.sims[fmarket.unique_id][0]
+            base_quote_price = self.ticker_to_time_series_of_prices_map[fmarket.unique_id][0]
             inventory: tp.Dict[str, float] = {}
             if base_curr != 'OVL':
                 inventory = {
@@ -168,38 +171,43 @@ class MonetaryModel(Model):
 
         # simulation collector
         # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
-        # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
+        # TODO: What happens if not enough OVL to sway the market time_series_of_prices on the platform? (i.e. all locked up)
         model_reporters = {
-            f"d-{ticker}": partial(compute_price_diff, ticker=ticker)
+            f"d-{ticker}": partial(compute_price_difference, ticker=ticker)
             for ticker in tickers
         }
         model_reporters.update({
-            f"s-{ticker}": partial(compute_sprice, ticker=ticker)
+            f"s-{ticker}": partial(compute_spot_price, ticker=ticker)
             for ticker in tickers
         })
         model_reporters.update({
-            f"f-{ticker}": partial(compute_fprice, ticker=ticker)
+            f"f-{ticker}": partial(compute_futures_price, ticker=ticker)
             for ticker in tickers
         })
+        model_reporters.update({
+            f"positional imbalance {ticker}": partial(compute_positional_imbalance_by_market, ticker=ticker)
+            for ticker in tickers
+        })
+
         model_reporters.update({
             "Gini": compute_gini,
             "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
             "Supply": compute_supply,
             "Treasury": compute_treasury,
             "Liquidity": compute_liquidity,
-            "Agent": partial(compute_wealth, agent_type=None),
-            "Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
-            "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
-            "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
-            "Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
-            "Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            "Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            "Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
-            "Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            "Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            "Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
-            "Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
-            "Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
+            "Agent": partial(compute_wealth_for_agent_type, agent_type=None),
+            "Arbitrageurs Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
+            "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
+            "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur, in_usd=True),
+            "Keepers Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryKeeper),
+            "Keepers Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
+            "Keepers Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
+            "Traders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryTrader),
+            "Traders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
+            "Traders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
+            "Holders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryHolder),
+            "Holders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder),
+            "Holders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder, in_usd=True),
         })
         self.data_collector = DataCollector(
             model_reporters=model_reporters,

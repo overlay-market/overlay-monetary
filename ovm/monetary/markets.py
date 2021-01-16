@@ -1,25 +1,33 @@
 from dataclasses import dataclass
-import numpy as np
+import typing as tp
 import uuid
 
+import numpy as np
 
 # nx, ny: OVL locked in x and y token
 # dn: amount added to either bucket for the long/short position
 
-# ToDo: frozen=True if it turns out that the instance variables never need to change
+
 @dataclass(frozen=False)
 class MonetaryFPosition:
     fmarket_ticker: str
     lock_price: float = 0.0
-    amount: float = 0.0
+    amount_of_ovl_locked: float = 0.0  # this is non-negative
     long: bool = True
     leverage: float = 1.0
 
     def __post_init__(self):
         self.id = uuid.uuid4()
 
+    @property
+    def directional_size(self):
+        if self.long:
+            return self.amount_of_ovl_locked * self.leverage
+        else:
+            return -self.amount_of_ovl_locked * self.leverage
 
-class MonetaryFMarket:
+
+class MonetaryFMarket:  # This is Overlay
     from model import MonetaryModel
 
     def __init__(self,
@@ -42,7 +50,7 @@ class MonetaryFMarket:
         self.base_fee = base_fee
         self.max_leverage = max_leverage
         self.model = model
-        self.positions = {} # { id: [MonetaryFPosition] }
+        self.positions: tp.Dict[tp.Any, MonetaryFPosition] = {} # { id: [MonetaryFPosition] }
         self.base_currency = unique_id[:-len("-USD")]
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
@@ -143,7 +151,6 @@ class MonetaryFMarket:
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
         assert leverage < self.max_leverage, "_swap: leverage exceeds max_leverage"
-        avg_price = 0.0
         if (build and long) or (not build and not long):
             print("dn = +px*dx")
             dx = self.px*dn*leverage
@@ -188,36 +195,35 @@ class MonetaryFMarket:
     def build(self,
               dn: float,
               long: bool,
-              leverage: float):
+              leverage: float) -> MonetaryFPosition:
         # TODO: Factor in shares of lock pools for funding payment portions to work
-        amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
-        price = self._swap(amount, build=True, long=long, leverage=leverage)
+        amount_of_ovl_locked = self._impose_fees(dn, build=True, long=long, leverage=leverage)
+        price = self._swap(amount_of_ovl_locked, build=True, long=long, leverage=leverage)
         pos = MonetaryFPosition(fmarket_ticker=self.unique_id,
                                 lock_price=price,
-                                amount=amount,
+                                amount_of_ovl_locked=amount_of_ovl_locked,
                                 long=long,
                                 leverage=leverage)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
         if long:
-            self.locked_long += amount
+            self.locked_long += amount_of_ovl_locked
             self._update_cum_locked_long()
         else:
-            self.locked_short += amount
+            self.locked_short += amount_of_ovl_locked
             self._update_cum_locked_short()
         return pos
 
     def unwind(self,
                dn: float,
-               pid: uuid.UUID):
+               pid: uuid.UUID) -> tp.Tuple[MonetaryFPosition, float]:
         pos = self.positions.get(pid)
         if pos is None:
-            print(f"No position with pid {pid} exists on market {self.unique_id}")
-            return
-        elif pos.amount < dn:
+            raise ValueError(f"No position with pid {pid} exists on market {self.unique_id}")
+        elif pos.amount_of_ovl_locked < dn:
             print(f"Unwind amount {dn} is too large for locked position with pid {pid} "
-                  f"amount {pos.amount}")
+                  f"amount {pos.amount_of_ovl_locked}")
 
         # TODO: Account for pro-rata share of funding!
         # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
@@ -250,11 +256,12 @@ class MonetaryFMarket:
         self.model.supply += ds
 
         # Adjust position amounts stored
-        if dn == pos.amount:
+        if dn == pos.amount_of_ovl_locked:
             del self.positions[pid]
             pos = None
         else:
-            pos.amount -= amount
+            # Here the instance is mutated. Hence MonetaryFPosition cannot be frozen
+            pos.amount_of_ovl_locked -= amount
             self.positions[pid] = pos
 
         return pos, ds
@@ -270,7 +277,7 @@ class MonetaryFMarket:
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
         cum_price_feed = np.sum(np.array(
-            self.model.sims[self.unique_id][idx-self.model.sampling_interval:idx]
+            self.model.ticker_to_time_series_of_prices_map[self.unique_id][idx - self.model.sampling_interval:idx]
         ))
         print(f"fund: Paying out funding for {self.unique_id}")
         print(f"fund: cum_price_feed = {cum_price_feed}")
@@ -368,7 +375,7 @@ class MonetaryFMarket:
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
         print(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
         cum_ovlusd_feed = np.sum(np.array(
-            self.model.sims["OVL-USD"][idx-self.model.sampling_interval:idx]
+            self.model.ticker_to_time_series_of_prices_map["OVL-USD"][idx - self.model.sampling_interval:idx]
         ))
         print(f"fund: cum_price_feed = {cum_ovlusd_feed}")
         twap_ovlusd_feed = cum_ovlusd_feed / self.model.sampling_interval
@@ -380,7 +387,7 @@ class MonetaryFMarket:
         print(f"fund: price (updated... should be same) = {self.price}")
 
 
-class MonetarySMarket:
+class MonetarySMarket:  # This is UniSwap
     def __init__(self,
                  unique_id: str,
                  x: float,
