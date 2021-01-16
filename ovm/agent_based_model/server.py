@@ -9,7 +9,7 @@ from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 import pandas as pd
 
-from .model import MonetaryModel  # noqa
+from ovm.agent_based_model.model import MonetaryModel
 
 from ovm.paths import simulated_data_directory
 

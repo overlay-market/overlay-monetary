@@ -3,7 +3,7 @@ import typing as tp
 from mesa import Agent
 
 
-class MonetaryAgent(Agent):  # noqa
+class MonetaryAgent(Agent):
     """
     An agent ... these are the arbers with stop losses.
     Add in position hodlers as a different agent
@@ -91,19 +91,15 @@ class MonetaryArbitrageur(MonetaryAgent):
                 spot_sell_fees = min(
                     spot_sell_amount*self.fmarket.base_fee, pos.amount)
                 spot_sell_received = (spot_sell_amount - spot_sell_fees)*sprice
-                print(
-                    "Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
-                print(
-                    f"Arb._unwind_positions: spot sell amount (OVL) -> {pos.amount}")
-                print(
-                    f"Arb._unwind_positions: spot sell amount ({self.fmarket.base_currency}) -> {spot_sell_amount}"
-                )
-                print(
-                    f"Arb._unwind_positions: spot sell fees ({self.fmarket.base_currency}) -> {spot_sell_fees}"
-                )
-                print(
-                    f"Arb._unwind_positions: spot sell received (USD) -> {spot_sell_received}"
-                )
+                print("Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
+                print(f"Arb._unwind_positions: spot sell amount (OVL) -> {pos.amount}")
+                print(f"Arb._unwind_positions: spot sell amount ({self.fmarket.base_currency})"
+                      f" -> {spot_sell_amount}")
+
+                print(f"Arb._unwind_positions: spot sell fees ({self.fmarket.base_currency})"
+                      f" -> {spot_sell_fees}")
+
+                print(f"Arb._unwind_positions: spot sell received (USD) -> {spot_sell_received}")
                 # TODO: this is wrong because of the leverage! fix
                 self.inventory[self.fmarket.base_currency] -= spot_sell_amount
                 self.inventory["USD"] += spot_sell_received
@@ -113,16 +109,13 @@ class MonetaryArbitrageur(MonetaryAgent):
                 spot_buy_fees = min(
                     spot_buy_amount*self.fmarket.base_fee, pos.amount)
                 spot_buy_received = (spot_buy_amount - spot_buy_fees)/sprice
-                print(
-                    "Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
-                print(
-                    f"Arb._unwind_positions: spot buy amount (OVL) -> {pos.amount}")
-                print(
-                    f"Arb._unwind_positions: spot buy amount (USD) -> {spot_buy_amount}")
-                print(
-                    f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
-                print(
-                    f"Arb._unwind_positions: spot buy received ({self.fmarket.base_currency}) -> {spot_buy_received}")
+                print("Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
+                print(f"Arb._unwind_positions: spot buy amount (OVL) -> {pos.amount}")
+                print(f"Arb._unwind_positions: spot buy amount (USD) -> {spot_buy_amount}")
+                print(f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
+                print(f"Arb._unwind_positions: spot buy received ({self.fmarket.base_currency})"
+                      f" -> {spot_buy_received}")
+
                 self.inventory["USD"] -= spot_buy_amount
                 self.inventory[self.fmarket.base_currency] += spot_buy_received
                 print(f"Arb._unwind_positions: inventory -> {self.inventory}")
@@ -168,25 +161,27 @@ class MonetaryArbitrageur(MonetaryAgent):
         # TODO: Have arb bot determine position size dynamically needed to get price close to spot value (scale down size ...)
         # TODO: Have arb bot unwind all prior positions once deploys certain amount (or out of wealth)
         amount = self.pos_max*self.wealth
-        print(
-            f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
+        print(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
         if self.locked + amount < self.deploy_max*self.wealth:
             if sprice > fprice:
                 print(f"Arb.trade: Checking if long position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
 
-                fees = self.fmarket.fees(
-                    amount, build=True, long=True, leverage=self.leverage_max)
-                slippage = self.fmarket.slippage(
-                    amount-fees, build=True, long=True, leverage=self.leverage_max)
+                fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
+                slippage = self.fmarket.slippage(amount-fees,
+                                                 build=True,
+                                                 long=True,
+                                                 leverage=self.leverage_max)
+
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
-                print(f"Arb.trade: arb profit opp % -> {sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee}")
+                print(f"Arb.trade: arb profit opp % -> "
+                      f"{sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee}")
+
                 if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
                     and sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
-                    pos = self.fmarket.build(
-                        amount, long=True, leverage=self.leverage_max)
+                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
                     print("Arb.trade: Entered long arb trade w pos params ...")
                     print(f"Arb.trade: pos.amount -> {pos.amount}")
                     print(f"Arb.trade: pos.long -> {pos.long}")
@@ -209,14 +204,12 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_sell_amount - spot_sell_fees)*sprice
                     print("Arb.trade: Selling base curr on spot to lock in arb ...")
                     print(f"Arb.trade: spot sell amount (OVL) -> {pos.amount}")
-                    print(
-                        f"Arb.trade: spot sell amount ({self.fmarket.base_currency}) -> {spot_sell_amount}"
-                    )
-                    print(
-                        f"Arb.trade: spot sell fees ({self.fmarket.base_currency}) -> {spot_sell_fees}"
-                    )
-                    print(
-                        f"Arb.trade: spot sell received (USD) -> {spot_sell_received}")
+                    print(f"Arb.trade: spot sell amount ({self.fmarket.base_currency})"
+                          f" -> {spot_sell_amount}")
+                    print(f"Arb.trade: spot sell fees ({self.fmarket.base_currency})"
+                          f" -> {spot_sell_fees}")
+                    print(f"Arb.trade: spot sell received (USD)"
+                          f" -> {spot_sell_received}")
                     self.inventory[self.fmarket.base_currency] -= spot_sell_amount
                     self.inventory["USD"] += spot_sell_received
                     print(f"Arb.trade: inventory -> {self.inventory}")
@@ -244,7 +237,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     amount-fees, build=True, long=False, leverage=self.leverage_max)
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
-                print(f"Arb.trade: arb profit opp % -> {1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee}")
+                print(f"Arb.trade: arb profit opp % -> "
+                      f"{1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee}")
                 if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
                     and 1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
@@ -272,12 +266,10 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_buy_amount - spot_buy_fees)/sprice
                     print("Arb.trade: Buying base curr on spot to lock in arb ...")
                     print(f"Arb.trade: spot buy amount (OVL) -> {pos.amount}")
-                    print(
-                        f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
-                    print(
-                        f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
-                    print(
-                        f"Arb.trade: spot buy received ({self.fmarket.base_currency}) -> {spot_buy_received}")
+                    print(f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
+                    print(f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
+                    print(f"Arb.trade: spot buy received ({self.fmarket.base_currency})"
+                          f" -> {spot_buy_received}")
                     self.inventory["USD"] -= spot_buy_amount
                     self.inventory[self.fmarket.base_currency] += spot_buy_received
                     print(f"Arb.trade: inventory -> {self.inventory}")

@@ -167,8 +167,13 @@ class MonetaryFMarket:
             self.x -= dx
             self.nx -= dx/self.px
 
-        print(f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position on {self.unique_id} of size {dn*leverage} OVL at avg price of {1/avg_price}, with lock price {self.price}")
-        print(f"_swap: Percent diff bw avg and lock price is {100*(1/avg_price - self.price)/self.price}%")
+        print(f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position "
+              f"on {self.unique_id} of size {dn*leverage} OVL "
+              f"at avg price of {1/avg_price}, with lock price {self.price}")
+
+        print(f"_swap: Percent diff bw avg and lock price is "
+              f"{100*(1/avg_price - self.price)/self.price}%")
+
         print(f"_swap: locked_long -> {self.locked_long} OVL")
         print(f"_swap: nx -> {self.nx}")
         print(f"_swap: x -> {self.x}")
@@ -211,7 +216,8 @@ class MonetaryFMarket:
             print(f"No position with pid {pid} exists on market {self.unique_id}")
             return
         elif pos.amount < dn:
-            print(f"Unwind amount {dn} is too large for locked position with pid {pid} amount {pos.amount}")
+            print(f"Unwind amount {dn} is too large for locked position with pid {pid} "
+                  f"amount {pos.amount}")
 
         # TODO: Account for pro-rata share of funding!
         # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
