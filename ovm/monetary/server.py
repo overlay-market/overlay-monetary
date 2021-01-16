@@ -11,7 +11,7 @@ import pandas as pd
 
 from model import MonetaryModel
 
-from ovm.paths import HISTORICAL_DATA_DIRECTORY, SIMULATED_DATA_DIRECTORY
+from ovm.paths import SIMULATED_DATA_DIRECTORY
 
 
 def random_color():
@@ -33,11 +33,8 @@ DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 # Constants
 STEPS_MONTH = int((86400*30)/DATA_FREQ)
 BASE_DIRECTORY = Path(__file__).resolve().parents[1]
-# HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'historical')
-# SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'simulation')
 
 print(f'{BASE_DIRECTORY=}')
-print(f"{HISTORICAL_DATA_DIRECTORY=}")
 print(f"{SIMULATED_DATA_DIRECTORY=}")
 
 # Load sims from csv files as arrays
