@@ -1,16 +1,19 @@
 from functools import partial
+import typing as tp
+
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from .agents import (
-    MonetaryAgent, MonetaryArbitrageur, MonetaryKeeper, MonetaryHolder,
-    MonetaryTrader,
-)
-from .markets import MonetaryFMarket
 from .utils import (
-    compute_gini, compute_price_diff, compute_fprice, compute_sprice,
-    compute_supply, compute_liquidity, compute_treasury, compute_wealth,
+    compute_gini,
+    compute_price_diff,
+    compute_fprice,
+    compute_sprice,
+    compute_supply,
+    compute_liquidity,
+    compute_treasury,
+    compute_wealth,
     compute_inventory_wealth,
 )
 
@@ -28,19 +31,28 @@ class MonetaryModel(Model):
 
     def __init__(
         self,
-        num_arbitrageurs,
-        num_keepers,
-        num_traders,
-        num_holders,
-        sims,
-        base_wealth,
-        base_market_fee,
-        base_max_leverage,
-        liquidity,
-        liquidity_supply_emission,
-        treasury,
-        sampling_interval
+        num_arbitrageurs: int,
+        num_keepers: int,
+        num_traders: int,
+        num_holders: int,
+        sims: tp.Dict[str, tp.List[float]],
+        base_wealth: float,
+        base_market_fee: float,
+        base_max_leverage: float,
+        liquidity: float,
+        liquidity_supply_emission: tp.List[float],
+        treasury: float,
+        sampling_interval: int
     ):
+        from .agents import (
+            MonetaryArbitrageur,
+            MonetaryKeeper,
+            MonetaryHolder,
+            MonetaryTrader
+        )
+
+        from .markets import MonetaryFMarket
+
         super().__init__()
         self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
         self.num_arbitraguers = num_arbitrageurs
@@ -88,7 +100,7 @@ class MonetaryModel(Model):
             fmarket = self.fmarkets[tickers[i % len(tickers)]]
             base_curr = fmarket.unique_id[:-len("-USD")]
             base_quote_price = self.sims[fmarket.unique_id][0]
-            inventory = {}
+            inventory: tp.Dict[str, float] = {}
             if base_curr != 'OVL':
                 inventory = {
                     'OVL': self.base_wealth,
@@ -136,6 +148,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             else:
+                from .agents import MonetaryAgent
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,

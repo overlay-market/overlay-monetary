@@ -10,18 +10,18 @@ from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import BarChartModule, ChartModule
 
 
-def circle_portrayal_example(agent):
-    if agent is None:
-        return
-
-    portrayal = {
-        "Shape": "circle",
-        "Filled": "true",
-        "Layer": 0,
-        "r": 0.5,
-        "Color": "Pink",
-    }
-    return portrayal
+# def circle_portrayal_example(agent):
+#     if agent is None:
+#         return
+#
+#     portrayal = {
+#         "Shape": "circle",
+#         "Filled": "true",
+#         "Layer": 0,
+#         "r": 0.5,
+#         "Color": "Pink",
+#     }
+#     return portrayal
 
 
 def random_color():
@@ -63,10 +63,12 @@ base_wealth = 0.0001*100000  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
 time_liquidity_mine = STEPS_MONTH
-liquidity_supply_emission = [
-    (0.51*total_supply/time_liquidity_mine)*i + 0.285*total_supply
-    for i in range(time_liquidity_mine)
-]  # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
+
+# For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
+liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*total_supply
+                             for i
+                             in range(time_liquidity_mine)]
+
 num_arbitrageurs = max(len(sims.keys()) * 5,
                        int(total_supply*0.01/base_wealth))
 num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))

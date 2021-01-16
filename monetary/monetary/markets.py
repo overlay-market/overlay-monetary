@@ -1,9 +1,19 @@
+from dataclasses import dataclass
 import numpy as np
 import uuid
 
 
-class MonetaryFPosition(object):
-    def __init__(self, fmarket_ticker, lock_price=0.0, amount=0.0, long=True, leverage=1.0):
+# nx, ny: OVL locked in x and y token
+# dn: amount added to either bucket for the long/short position
+
+# ToDo: make this a dataclass!
+class MonetaryFPosition:
+    def __init__(self,
+                 fmarket_ticker: str,
+                 lock_price: float = 0.0,
+                 amount: float = 0.0,
+                 long: bool = True,
+                 leverage: float = 1.0):
         self.fmarket_ticker = fmarket_ticker
         self.lock_price = lock_price
         self.amount = amount
@@ -12,8 +22,17 @@ class MonetaryFPosition(object):
         self.id = uuid.uuid4()
 
 
-class MonetaryFMarket(object):
-    def __init__(self, unique_id, nx, ny, px, py, base_fee, max_leverage, model):
+class MonetaryFMarket:
+    from .model import MonetaryModel
+    def __init__(self,
+                 unique_id: str,
+                 nx: float,
+                 ny: float,
+                 px: float,
+                 py: float,
+                 base_fee: float,
+                 max_leverage: float,
+                 model: MonetaryModel):
         self.unique_id = unique_id  # ticker
         self.nx = nx
         self.ny = ny
@@ -31,7 +50,7 @@ class MonetaryFMarket(object):
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
         self.cum_locked_long_idx = 0
-        self.cum_locked_short = 0.0 # Used for time-weighted open interest on a side within sampling period
+        self.cum_locked_short = 0.0  # Used for time-weighted open interest on a side within sampling period
         self.cum_locked_short_idx = 0
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
@@ -71,7 +90,11 @@ class MonetaryFMarket(object):
             self.cum_locked_short += (idx - self.cum_locked_short_idx) * self.locked_short
             self.cum_locked_short_idx = idx
 
-    def _impose_fees(self, dn, build, long, leverage):
+    def _impose_fees(self,
+                     dn: float,
+                     build: float,
+                     long: float,
+                     leverage: float):
         # Impose fees, burns portion, and transfers rest to treasury
         size = dn*leverage
         fees = min(size*self.base_fee, dn)
@@ -83,11 +106,19 @@ class MonetaryFMarket(object):
 
         return dn - fees
 
-    def fees(self, dn, build, long, leverage):
+    def fees(self,
+             dn: float,
+             build: bool,
+             long: bool,
+             leverage: float):
         size = dn*leverage
         return min(size*self.base_fee, dn)
 
-    def slippage(self, dn, build, long, leverage):
+    def slippage(self,
+                 dn: float,
+                 build: bool,
+                 long: bool,
+                 leverage: float):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
         assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
@@ -104,7 +135,11 @@ class MonetaryFMarket(object):
             slippage = ((self.x-dx)/(self.y+dy) - self.price()) / self.price()
         return slippage
 
-    def _swap(self, dn, build, long, leverage):
+    def _swap(self,
+              dn: float,
+              build: bool,
+              long: bool,
+              leverage: float):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
@@ -146,11 +181,18 @@ class MonetaryFMarket(object):
         self.last_trade_idx = idx
         return self.price()
 
-    def build(self, dn, long, leverage):
+    def build(self,
+              dn: float,
+              long: bool,
+              leverage: float):
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount = self._impose_fees(dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount, build=True, long=long, leverage=leverage)
-        pos = MonetaryFPosition(self.unique_id, lock_price=price, amount=amount, long=long, leverage=leverage)
+        pos = MonetaryFPosition(fmarket_ticker=self.unique_id,
+                                lock_price=price,
+                                amount=amount,
+                                long=long,
+                                leverage=leverage)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
@@ -162,7 +204,9 @@ class MonetaryFMarket(object):
             self._update_cum_locked_short()
         return pos
 
-    def unwind(self, dn, pid):
+    def unwind(self,
+               dn: float,
+               pid: uuid.UUID):
         pos = self.positions.get(pid)
         if pos is None:
             print(f"No position with pid {pid} exists on market {self.unique_id}")
@@ -331,9 +375,12 @@ class MonetaryFMarket(object):
         print("fund: price (updated... should be same)", self.price())
 
 
-
-class MonetarySMarket(object):
-    def __init__(self, unique_id, x, y, k):
+class MonetarySMarket:
+    def __init__(self,
+                 unique_id: str,
+                 x: float,
+                 y: float,
+                 k: float):
         self.unique_id = unique_id
         self.x = x
         self.y = y

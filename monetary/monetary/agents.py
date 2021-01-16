@@ -1,3 +1,5 @@
+import typing as tp
+
 from mesa import Agent
 
 
@@ -7,18 +9,20 @@ class MonetaryAgent(Agent):  # noqa
     Add in position hodlers as a different agent
     later (maybe also with stop losses)
     """
+    from .model import MonetaryModel
+    from .markets import MonetaryFMarket
 
     def __init__(
         self,
-        unique_id,
-        model,
-        fmarket,
-        inventory,
-        pos_max=0.9,
-        deploy_max=0.95,
-        slippage_max=0.02,
-        leverage_max=1.0,
-        trade_delay=4*10
+        unique_id: int,
+        model: MonetaryModel,
+        fmarket: MonetaryFMarket,
+        inventory: tp.Dict[str, float],
+        pos_max: float = 0.9,
+        deploy_max: float = 0.95,
+        slippage_max: float = 0.02,
+        leverage_max: float = 1.0,
+        trade_delay: int = 4*10
     ):  # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
@@ -35,7 +39,7 @@ class MonetaryAgent(Agent):  # noqa
         self.leverage_max = leverage_max
         self.trade_delay = trade_delay
         self.last_trade_idx = 0
-        self.positions = {}  # { pos.id: MonetaryFPosition }
+        self.positions: tp.Dict = {}  # { pos.id: MonetaryFPosition }
         self.unwinding = False
         # TODO: store wealth in ETH and OVL, have feeds agent can trade on be
         # OVL/ETH (spot, futures) & TOKEN/ETH (spot, futures) .. start with futures trading only first so can
@@ -306,7 +310,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         idx = self.model.schedule.steps
         # Allow only one trader to trade on a market per block.
         # Add in a trade delay to simulate cooldown due to gas.
-        if self.fmarket.last_trade_idx != idx and (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
+        if (self.fmarket.last_trade_idx != idx) and \
+           (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
 
 
