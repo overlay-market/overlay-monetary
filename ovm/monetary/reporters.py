@@ -1,6 +1,6 @@
 import typing as tp
 
-from .agents import MonetaryAgent
+from agents import MonetaryAgent
 
 
 def compute_gini(model):

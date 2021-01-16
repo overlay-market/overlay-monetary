@@ -9,8 +9,8 @@ class MonetaryAgent(Agent):
     Add in position hodlers as a different agent
     later (maybe also with stop losses)
     """
-    from .model import MonetaryModel
-    from .markets import MonetaryFMarket
+    from model import MonetaryModel
+    from markets import MonetaryFMarket
 
     def __init__(
         self,

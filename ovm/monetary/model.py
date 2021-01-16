@@ -32,16 +32,16 @@ class MonetaryModel(Model):
         treasury: float,
         sampling_interval: int
     ):
-        from .agents import (
+        from agents import (
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
             MonetaryTrader
         )
 
-        from .markets import MonetaryFMarket
+        from markets import MonetaryFMarket
 
-        from .reporters import (
+        from reporters import (
             compute_gini,
             compute_price_diff,
             compute_fprice,

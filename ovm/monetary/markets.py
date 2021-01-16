@@ -20,7 +20,7 @@ class MonetaryFPosition:
 
 
 class MonetaryFMarket:
-    from .model import MonetaryModel
+    from model import MonetaryModel
 
     def __init__(self,
                  unique_id: str,

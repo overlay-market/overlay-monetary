@@ -9,7 +9,7 @@ from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 import pandas as pd
 
-from .model import MonetaryModel
+from model import MonetaryModel
 
 
 def random_color():

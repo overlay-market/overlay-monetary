@@ -45,7 +45,8 @@ def estimate_optimal_block_lengths_in_seconds_for_multiple_price_series(
         series_name_to_price_history_map: tp.Dict[str, PriceHistory],
         period_length_in_seconds: float) -> tp.Dict[str, float]:
     series_name_to_optimal_block_length_map = \
-        estimate_optimal_block_lengths_for_multiple_price_series(series_name_to_price_history_map)
+        estimate_optimal_block_lengths_for_multiple_price_series(
+            series_name_to_price_history_map)
 
     return convert_block_lenghts_to_seconds(series_name_to_optimal_block_length_map,
                                             period_length_in_seconds=period_length_in_seconds)
