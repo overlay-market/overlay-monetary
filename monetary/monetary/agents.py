@@ -153,7 +153,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         sprice_ovlusd = self.model.sims["OVL-USD"][idx]
-        fprice = self.fmarket.price()
+        fprice = self.fmarket.price
 
         # TODO: Check arbs are making money on the spot .... Implement spot USD basis
 
@@ -230,10 +230,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     locked_in_approx = pos.amount * pos.leverage * \
                         (sprice/pos.lock_price - 1.0)
                     # TODO: incorporate fee structure!
-                    print(f"Arb.trade: arb profit locked in (OVL)",
-                          locked_in_approx)
-                    print(f"Arb.trade: arb profit locked in (USD)",
-                          locked_in_approx*sprice_ovlusd)
+                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
 
             elif sprice < fprice:
                 print(f"Arb.trade: Checking if short position on {self.fmarket.unique_id} "
@@ -293,10 +291,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     locked_in_approx = pos.amount * pos.leverage * \
                         (1.0 - sprice/pos.lock_price)
                     # TODO: incorporate fee structure!
-                    print(f"Arb.trade: arb profit locked in (OVL)",
-                          locked_in_approx)
-                    print(f"Arb.trade: arb profit locked in (USD)",
-                          locked_in_approx*sprice_ovlusd)
+                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
         else:
             # TODO: remove but try this here => dumb logic but want to see
             # what happens to currency supply if end up unwinding before each new trade (so only 1 pos per arb)

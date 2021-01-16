@@ -15,13 +15,13 @@ def compute_price_diff(model,
                        ticker: str):
     idx = model.schedule.steps
     sprice = model.sims[ticker][idx]
-    fprice = model.fmarkets[ticker].price()
+    fprice = model.fmarkets[ticker].price
     return (fprice - sprice) / sprice
 
 
 def compute_fprice(model,
                    ticker: str):
-    return model.fmarkets[ticker].price()
+    return model.fmarkets[ticker].price
 
 
 def compute_sprice(model,

@@ -1,27 +1,13 @@
 """
 Configure visualization elements and instantiate a server
 """
-import pandas as pd
-import numpy as np
 import random
-from .model import MonetaryModel  # noqa
 
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
+import pandas as pd
 
-
-# def circle_portrayal_example(agent):
-#     if agent is None:
-#         return
-#
-#     portrayal = {
-#         "Shape": "circle",
-#         "Filled": "true",
-#         "Layer": 0,
-#         "r": 0.5,
-#         "Color": "Pink",
-#     }
-#     return portrayal
+from .model import MonetaryModel  # noqa
 
 
 def random_color():
@@ -51,7 +37,7 @@ for ticker in tickers:
     rpath = './sims/{}/sims-{}/sim-{}.csv'.format(
         DATA_FREQ_KEY, DATA_SIM_RNG, ticker
     )
-    print("Reading in sim data from", rpath)
+    print(f"Reading in sim data from {rpath}")
     f = pd.read_csv(rpath)
     if ticker == ovl_ticker:
         sims["OVL-USD"] = f.transpose().values.tolist()[0]
@@ -85,7 +71,7 @@ chart_elements = [
         {"Label": "Treasury", "Color": "Green"},
     ], data_collector_name='data_collector'),
     ChartModule([
-        {"Label": "{}-{}".format("d", ticker), "Color": random_color()} for ticker in sims.keys()
+        {"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()
     ], data_collector_name='data_collector'),
     ChartModule([
         {"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()},
@@ -114,8 +100,8 @@ chart_elements = [
 for ticker in sims.keys():
     chart_elements.append(
         ChartModule([
-            {"Label": "{}-{}".format("s", ticker), "Color": "Black"},
-            {"Label": "{}-{}".format("f", ticker), "Color": "Red"},
+            {"Label": f"s-{ticker}", "Color": "Black"},
+            {"Label": f"f-{ticker}", "Color": "Red"},
         ], data_collector_name='data_collector')
     )
 
@@ -139,11 +125,11 @@ model_kwargs = {
 }
 
 print("Model kwargs for initial conditions of sim:")
-print("num_arbitrageurs", model_kwargs["num_arbitrageurs"])
-print("num_keepers", model_kwargs["num_keepers"])
-print("num_traders", model_kwargs["num_traders"])
-print("num_holders", model_kwargs["num_holders"])
-print("base_wealth", model_kwargs["base_wealth"])
+print(f"num_arbitrageurs = {model_kwargs['num_arbitrageurs']}")
+print(f"num_keepers = {model_kwargs['num_keepers']}")
+print(f"num_traders = {model_kwargs['num_traders']}")
+print(f"num_holders = {model_kwargs['num_holders']}")
+print(f"base_wealth = {model_kwargs['base_wealth']}")
 
 server = ModularServer(
     MonetaryModel,

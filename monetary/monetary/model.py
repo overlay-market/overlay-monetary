@@ -79,7 +79,7 @@ class MonetaryModel(Model):
             list(sims.keys())[i]: 1
             for i in range(n)
         }
-        print("liquidity_weight", liquidity_weight)
+        print(f"liquidity_weight = {liquidity_weight}")
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
@@ -160,9 +160,9 @@ class MonetaryModel(Model):
             print("MonetaryModel.init: Adding agent to schedule ...")
             print(f"MonetaryModel.init: agent type={type(agent)}")
             print(f"MonetaryModel.init: unique_id={agent.unique_id}")
-            print(f"MonetaryModel.init: fmarket", agent.fmarket.unique_id)
-            print(f"MonetaryModel.init: leverage_max", agent.leverage_max)
-            print(f"MonetaryModel.init: inventory", agent.inventory)
+            print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
+            print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
+            print(f"MonetaryModel.init: inventory={agent.inventory}")
 
             self.schedule.add(agent)
 
