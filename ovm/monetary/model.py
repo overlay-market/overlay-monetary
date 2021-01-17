@@ -106,9 +106,9 @@ class MonetaryModel(Model):
 
         tickers = list(self.ticker_to_futures_market_map.keys())
         for i in range(self.num_agents):
-            fmarket = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
-            base_curr = fmarket.unique_id[:-len(f"-{USD_TICKER}")]
-            base_quote_price = self.ticker_to_time_series_of_prices_map[fmarket.unique_id][0]
+            futures_market = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
+            base_curr = futures_market.unique_id[:-len(f"-{USD_TICKER}")]
+            base_quote_price = self.ticker_to_time_series_of_prices_map[futures_market.unique_id][0]
             if base_curr != OVL_TICKER:
                 inventory: tp.Dict[str, float] = {
                     OVL_TICKER: self.base_wealth,
@@ -127,7 +127,7 @@ class MonetaryModel(Model):
                 agent = MonetaryArbitrageur(
                     unique_id=i,
                     model=self,
-                    fmarket=fmarket,
+                    futures_market=futures_market,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -135,7 +135,7 @@ class MonetaryModel(Model):
                 agent = MonetaryKeeper(
                     unique_id=i,
                     model=self,
-                    fmarket=fmarket,
+                    futures_market=futures_market,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -143,7 +143,7 @@ class MonetaryModel(Model):
                 agent = MonetaryHolder(
                     unique_id=i,
                     model=self,
-                    fmarket=fmarket,
+                    futures_market=futures_market,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -151,7 +151,7 @@ class MonetaryModel(Model):
                 agent = MonetaryTrader(
                     unique_id=i,
                     model=self,
-                    fmarket=fmarket,
+                    futures_market=futures_market,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -160,7 +160,7 @@ class MonetaryModel(Model):
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,
-                    fmarket=fmarket,
+                    futures_market=futures_market,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -168,7 +168,7 @@ class MonetaryModel(Model):
             print("MonetaryModel.init: Adding agent to schedule ...")
             print(f"MonetaryModel.init: agent type={type(agent)}")
             print(f"MonetaryModel.init: unique_id={agent.unique_id}")
-            print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
+            print(f"MonetaryModel.init: futures market={agent.futures_market.unique_id}")
             print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
             print(f"MonetaryModel.init: inventory={agent.inventory}")
 
