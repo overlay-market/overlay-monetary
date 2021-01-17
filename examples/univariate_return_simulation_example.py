@@ -10,7 +10,7 @@ from ovm.paths import HISTORICAL_DATA_DIRECTORY
 
 from ovm.tickers import ETH_USD_TICKER
 
-from ovm.utils import TimeResolution
+from ovm.time_resolution import TimeResolution
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS

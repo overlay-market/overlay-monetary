@@ -31,7 +31,7 @@ from ovm.tickers import (
     LINK_USD_TICKER
 )
 
-from ovm.utils import TimeResolution
+from ovm.time_resolution import TimeResolution
 
 from recombinator import (
     stationary_bootstrap
