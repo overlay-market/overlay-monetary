@@ -64,8 +64,8 @@ def compute_inventory_wealth_for_agent(model,
                                        in_usd: bool = False):
     spot_price_ovl_usd = model.ticker_to_time_series_of_prices_map["OVL-USD"][model.schedule.steps]
     spot_price = \
-        model.ticker_to_time_series_of_prices_map[agent.fmarket.unique_id][model.schedule.steps]
-    base_curr = agent.fmarket.base_currency
+        model.ticker_to_time_series_of_prices_map[agent.futures_market.unique_id][model.schedule.steps]
+    base_curr = agent.futures_market.base_currency
 
     if not in_usd:
         return agent.inventory["OVL"] + agent.inventory["USD"]/spot_price_ovl_usd \

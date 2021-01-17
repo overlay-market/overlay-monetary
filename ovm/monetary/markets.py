@@ -10,7 +10,7 @@ import numpy as np
 
 @dataclass(frozen=False)
 class MonetaryFPosition:
-    fmarket_ticker: str
+    futures_market_ticker: str
     lock_price: float = 0.0
     amount_of_ovl_locked: float = 0.0  # this is non-negative
     long: bool = True
@@ -55,17 +55,17 @@ class MonetaryFMarket:  # This is Overlay
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
-        self.cum_locked_long_idx = 0
+        self.cum_locked_long_time_step = 0
         self.cum_locked_short = 0.0  # Used for time-weighted open interest on a side within sampling period
-        self.cum_locked_short_idx = 0
+        self.cum_locked_short_time_step = 0
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
         self.cum_price = self.x / self.y
-        self.cum_price_idx = 0
+        self.cum_price_time_step = 0
         self.last_cum_price = self.x / self.y
         self.last_liquidity = model.liquidity # For liquidity adjustments
-        self.last_funding_idx = 0
-        self.last_trade_idx = 0
+        self.last_funding_time_step = 0
+        self.last_trade_time_step = 0
         print(f"Init'ing FMarket {self.unique_id}")
         print(f"FMarket {self.unique_id} has x = {self.x}")
         print(f"FMarket {self.unique_id} has nx={self.nx} OVL")
@@ -80,22 +80,22 @@ class MonetaryFMarket:  # This is Overlay
     def _update_cum_price(self):
         # TODO: cum_price and time_elapsed setters ...
         # TODO: Need to check that this is the last swap for given timestep ... (slightly different than Uniswap in practice)
-        idx = self.model.schedule.steps
-        if idx > self.cum_price_idx:  # and last swap for idx ...
-            self.cum_price += (idx - self.cum_price_idx) * self.price
-            self.cum_price_idx = idx
+        current_time_step = self.model.schedule.steps
+        if current_time_step > self.cum_price_time_step:  # and last swap for current_time_step ...
+            self.cum_price += (current_time_step - self.cum_price_time_step) * self.price
+            self.cum_price_time_step = current_time_step
 
     def _update_cum_locked_long(self):
-        idx = self.model.schedule.steps
-        if idx > self.cum_locked_long_idx:
-            self.cum_locked_long += (idx - self.cum_locked_long_idx) * self.locked_long
-            self.cum_locked_long_idx = idx
+        current_time_step = self.model.schedule.steps
+        if current_time_step > self.cum_locked_long_time_step:
+            self.cum_locked_long += (current_time_step - self.cum_locked_long_time_step) * self.locked_long
+            self.cum_locked_long_time_step = current_time_step
 
     def _update_cum_locked_short(self):
-        idx = self.model.schedule.steps
-        if idx > self.cum_locked_short_idx:
-            self.cum_locked_short += (idx - self.cum_locked_short_idx) * self.locked_short
-            self.cum_locked_short_idx = idx
+        current_time_step = self.model.schedule.steps
+        if current_time_step > self.cum_locked_short_time_step:
+            self.cum_locked_short += (current_time_step - self.cum_locked_short_time_step) * self.locked_short
+            self.cum_locked_short_time_step = current_time_step
 
     def _impose_fees(self,
                      dn: float,
@@ -188,8 +188,7 @@ class MonetaryFMarket:  # This is Overlay
         print(f"_swap: ny -> {self.ny}")
         print(f"_swap: y -> {self.y}")
         self._update_cum_price()
-        idx = self.model.schedule.steps
-        self.last_trade_idx = idx
+        self.last_trade_time_step = self.model.schedule.steps
         return self.price
 
     def build(self,
@@ -199,12 +198,13 @@ class MonetaryFMarket:  # This is Overlay
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount_of_ovl_locked = self._impose_fees(dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount_of_ovl_locked, build=True, long=long, leverage=leverage)
-        pos = MonetaryFPosition(fmarket_ticker=self.unique_id,
-                                lock_price=price,
-                                amount_of_ovl_locked=amount_of_ovl_locked,
-                                long=long,
-                                leverage=leverage)
-        self.positions[pos.id] = pos
+        position = \
+            MonetaryFPosition(futures_market_ticker=self.unique_id,
+                              lock_price=price,
+                              amount_of_ovl_locked=amount_of_ovl_locked,
+                              long=long,
+                              leverage=leverage)
+        self.positions[position.id] = position
 
         # Lock into long/short pool last
         if long:
@@ -213,27 +213,27 @@ class MonetaryFMarket:  # This is Overlay
         else:
             self.locked_short += amount_of_ovl_locked
             self._update_cum_locked_short()
-        return pos
+        return position
 
     def unwind(self,
                dn: float,
-               pid: uuid.UUID) -> tp.Tuple[MonetaryFPosition, float]:
+               position_id: uuid.UUID) -> tp.Tuple[MonetaryFPosition, float]:
         """
         Reduce or eliminate an existing position
 
         Args:
             dn: amount in OVL to reduce the position by
-            pid: position id
+            position_id: position id
 
         Returns:
 
         """
-        pos = self.positions.get(pid)
-        if pos is None:
-            raise ValueError(f"No position with pid {pid} exists on market {self.unique_id}")
-        elif pos.amount_of_ovl_locked < dn:
-            raise ValueError(f"Unwind amount {dn} is too large for locked position with pid {pid} "
-                             f"amount {pos.amount_of_ovl_locked}")
+        position = self.positions.get(position_id)
+        if position is None:
+            raise ValueError(f"No position with {position_id=} exists on market {self.unique_id}")
+        elif position.amount_of_ovl_locked < dn:
+            raise ValueError(f"Unwind amount {dn} is too large for locked position with {position_id=} "
+                             f"amount {position.amount_of_ovl_locked}")
 
         # TODO: Account for pro-rata share of funding!
         # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
@@ -241,11 +241,11 @@ class MonetaryFMarket:  # This is Overlay
 
         # Unlock from long/short pool first
         print(f"unwind: dn = {dn}")
-        print(f"unwind: pos = {pos.id}")
+        print(f"unwind: position = {position.id}")
         print(f"unwind: locked_long = {self.locked_long}")
         print(f"unwind: locked_short = {self.locked_short}")
         # TODO: Fix for funding pro-rata logic .... for now just min it ...
-        if pos.long:
+        if position.long:
             dn = min(dn, self.locked_long)
             assert dn <= self.locked_long, "unwind: Not enough locked in self.locked_long for unwind"
             self.locked_long -= dn
@@ -256,38 +256,38 @@ class MonetaryFMarket:  # This is Overlay
             self.locked_short -= dn
             self._update_cum_locked_short()
 
-        amount = self._impose_fees(dn, build=False, long=pos.long, leverage=pos.leverage)
-        price = self._swap(amount, build=False, long=pos.long, leverage=pos.leverage)
-        side = 1 if pos.long else -1
+        amount = self._impose_fees(dn, build=False, long=position.long, leverage=position.leverage)
+        price = self._swap(amount, build=False, long=position.long, leverage=position.leverage)
+        side = 1 if position.long else -1
 
         # Mint/burn from total supply the profits/losses
-        ds = amount * pos.leverage * side * (price - pos.lock_price) / pos.lock_price
+        ds = amount * position.leverage * side * (price - position.lock_price) / position.lock_price
         print(f"unwind: {'Minting' if ds > 0 else 'Burning'} ds={ds} OVL from total supply")
         self.model.supply_of_ovl += ds
 
         # Adjust position amounts stored
-        if dn == pos.amount_of_ovl_locked:
-            del self.positions[pid]
-            pos = None
+        if dn == position.amount_of_ovl_locked:
+            del self.positions[position_id]
+            position = None
         else:
             # Here the instance is mutated. Hence MonetaryFPosition cannot be frozen
-            pos.amount_of_ovl_locked -= amount
-            self.positions[pid] = pos
+            position.amount_of_ovl_locked -= amount
+            self.positions[position_id] = position
 
-        return pos, ds
+        return position, ds
 
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
         # oracle fetch
         # TODO: Fix for px, py sensitivity constant updates! => In practice, use TWAP from Sushi/Uni OVLETH pool for px and TWAP of underlying oracle fetch for p
         # Calculate the TWAP over previous sample
-        idx = self.model.schedule.steps
-        if (idx % self.model.sampling_interval != 0) or (idx-self.model.sampling_interval < 0) or (idx == self.last_funding_idx):
+        current_time_step = self.model.schedule.steps
+        if (current_time_step % self.model.sampling_interval != 0) or (current_time_step-self.model.sampling_interval < 0) or (current_time_step == self.last_funding_time_step):
             return
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
         cum_price_feed = np.sum(np.array(
-            self.model.ticker_to_time_series_of_prices_map[self.unique_id][idx - self.model.sampling_interval:idx]
+            self.model.ticker_to_time_series_of_prices_map[self.unique_id][current_time_step - self.model.sampling_interval:current_time_step]
         ))
         print(f"fund: Paying out funding for {self.unique_id}")
         print(f"fund: cum_price_feed = {cum_price_feed}")
@@ -326,8 +326,8 @@ class MonetaryFMarket:  # This is Overlay
         print(f"fund: twao_short={twao_short}")
         self.last_cum_locked_short = self.cum_locked_short
 
-        # Mark the last funding idx as now
-        self.last_funding_idx = idx
+        # Mark the last funding current_time_step as now
+        self.last_funding_time_step = current_time_step
 
         # Mint/burn funding
         funding = (twap_market - twap_feed) / twap_feed
@@ -385,7 +385,7 @@ class MonetaryFMarket:  # This is Overlay
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
         print(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
         cum_ovlusd_feed = np.sum(np.array(
-            self.model.ticker_to_time_series_of_prices_map["OVL-USD"][idx - self.model.sampling_interval:idx]
+            self.model.ticker_to_time_series_of_prices_map["OVL-USD"][current_time_step - self.model.sampling_interval:current_time_step]
         ))
         print(f"fund: cum_price_feed = {cum_ovlusd_feed}")
         twap_ovlusd_feed = cum_ovlusd_feed / self.model.sampling_interval
@@ -397,6 +397,7 @@ class MonetaryFMarket:  # This is Overlay
         print(f"fund: price (updated... should be same) = {self.price}")
 
 
+# ToDo: This code is not used yet. Do not delete but ignore for now.
 class MonetarySMarket:  # This is UniSwap
     def __init__(self,
                  unique_id: str,
