@@ -17,7 +17,7 @@ def construct_ticker_to_series_of_prices_map(
         time_resolution: TimeResolution,
         tickers: tp.Sequence[str],
         ovl_ticker: str = YFI_USD_TICKER,   # for sim source, since OVL doesn't actually exist yet
-    ) -> tp.Dict[str, tp.List[float]]:
+        verbose: bool = False) -> tp.Dict[str, tp.List[float]]:
 
     ticker_to_time_series_of_prices_map = {}
     for ticker in tickers:
@@ -26,7 +26,8 @@ def construct_ticker_to_series_of_prices_map(
                              f'sims-{data_sim_rng}',
                              f'sim-{ticker}.csv')
 
-        print(f"Reading in sim simulation from {rpath}")
+        if verbose:
+            print(f"Reading in sim simulation from {rpath}")
         f = pd.read_csv(rpath)
         if ticker == ovl_ticker:
             ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.tolist()[0]

@@ -28,7 +28,7 @@ class MonetaryFPosition:
 
 
 class MonetaryFMarket:  # This is Overlay
-    from model import MonetaryModel
+    from ovm.monetary.model import MonetaryModel
 
     def __init__(self,
                  unique_id: str,

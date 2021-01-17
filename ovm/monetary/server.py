@@ -7,7 +7,7 @@ import typing as tp
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 
-from model import MonetaryModel
+from ovm.monetary.model import MonetaryModel
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
 from ovm.tickers import (
