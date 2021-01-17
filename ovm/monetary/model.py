@@ -23,6 +23,7 @@ class MonetaryModel(Model):
         num_keepers: int,
         num_traders: int,
         num_holders: int,
+        num_snipers: int,
         sims: tp.Dict[str, tp.List[float]],
         base_wealth: float,
         base_market_fee: float,
@@ -36,7 +37,8 @@ class MonetaryModel(Model):
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
-            MonetaryTrader
+            MonetaryTrader,
+            MonetarySniper
         )
 
         from markets import MonetaryFMarket
@@ -54,11 +56,12 @@ class MonetaryModel(Model):
         )
 
         super().__init__()
-        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
+        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders + num_snipers
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
         self.num_holders = num_holders
+        self.num_snipers = num_snipers
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
         self.base_max_leverage = base_max_leverage
@@ -146,6 +149,21 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
+                agent = MonetarySniper(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    leverage_max=leverage_max,
+                    size_increment=0.01,
+                    min_edge=0.0,
+                    max_edge=0.1, # max deploy at 10% edge
+                    funding_multiplier=1.0, # applied to funding cost when considering exiting position
+                    min_funding_unwind=0.001, # start unwind when funding reaches .1% against position
+                    max_funding_unwind=0.02 # unwind immediately when funding reaches 2% against position
+
                 )
             else:
                 from .agents import MonetaryAgent

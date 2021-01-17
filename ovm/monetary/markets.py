@@ -58,6 +58,7 @@ class MonetaryFMarket:
         self.last_liquidity = model.liquidity # For liquidity adjustments
         self.last_funding_idx = 0
         self.last_trade_idx = 0
+        self.last_funding_rate = 0
         print(f"Init'ing FMarket {self.unique_id}")
         print(f"FMarket {self.unique_id} has x = {self.x}")
         print(f"FMarket {self.unique_id} has nx={self.nx} OVL")
@@ -314,6 +315,7 @@ class MonetaryFMarket:
 
         # Mint/burn funding
         funding = (twap_market - twap_feed) / twap_feed
+        self.last_funding_rate = funding
         print(f"fund: funding % -> {funding*100.0}%")
         if funding == 0.0:
             return
