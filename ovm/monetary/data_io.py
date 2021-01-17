@@ -5,7 +5,6 @@ import pandas as pd
 
 from ovm.paths import SIMULATED_DATA_DIRECTORY
 from ovm.tickers import (
-    USD_TICKER,
     OVL_USD_TICKER,
     YFI_USD_TICKER
 )
