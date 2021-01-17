@@ -34,9 +34,6 @@ DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 STEPS_MONTH = int((86400*30)/DATA_FREQ)
 BASE_DIRECTORY = Path(__file__).resolve().parents[1]
 
-print(f'{BASE_DIRECTORY=}')
-print(f"{SIMULATED_DATA_DIRECTORY=}")
-
 # Load sims from csv files as arrays
 TICKERS = ["ETH-USD",
            # not a long history of simulation (can we use a different token instead)
