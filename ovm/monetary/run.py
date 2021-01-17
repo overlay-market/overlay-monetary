@@ -1,3 +1,3 @@
-from server import server  # noqa
+from ovm.monetary.server import server  # noqa
 
 server.launch()

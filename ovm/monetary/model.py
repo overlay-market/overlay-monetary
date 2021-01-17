@@ -38,16 +38,16 @@ class MonetaryModel(Model):
         treasury: float,
         sampling_interval: int
     ):
-        from agents import (
+        from ovm.monetary.agents import (
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
             MonetaryTrader
         )
 
-        from markets import MonetaryFMarket
+        from ovm.monetary.markets import MonetaryFMarket
 
-        from reporters import (
+        from ovm.monetary.reporters import (
             compute_gini,
             compute_price_difference,
             compute_futures_price,
@@ -156,7 +156,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             else:
-                from .agents import MonetaryAgent
+                from ovm.monetary.agents import MonetaryAgent
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,
