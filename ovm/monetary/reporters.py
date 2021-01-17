@@ -37,7 +37,7 @@ def compute_spot_price(model,
 
 
 def compute_supply(model):
-    return model.supply
+    return model.supply_of_ovl
 
 
 def compute_liquidity(model):

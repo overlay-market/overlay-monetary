@@ -108,7 +108,7 @@ class MonetaryFMarket:  # This is Overlay
 
         # Burn 50% and other 50% send to treasury
         print(f"Burning ds={0.5*fees} OVL from total supply")
-        self.model.supply -= 0.5*fees
+        self.model.supply_of_ovl -= 0.5 * fees
         self.model.treasury += 0.5*fees
 
         return dn - fees
@@ -218,12 +218,22 @@ class MonetaryFMarket:  # This is Overlay
     def unwind(self,
                dn: float,
                pid: uuid.UUID) -> tp.Tuple[MonetaryFPosition, float]:
+        """
+        Reduce or eliminate an existing position
+
+        Args:
+            dn: amount in OVL to reduce the position by
+            pid: position id
+
+        Returns:
+
+        """
         pos = self.positions.get(pid)
         if pos is None:
             raise ValueError(f"No position with pid {pid} exists on market {self.unique_id}")
         elif pos.amount_of_ovl_locked < dn:
-            print(f"Unwind amount {dn} is too large for locked position with pid {pid} "
-                  f"amount {pos.amount_of_ovl_locked}")
+            raise ValueError(f"Unwind amount {dn} is too large for locked position with pid {pid} "
+                             f"amount {pos.amount_of_ovl_locked}")
 
         # TODO: Account for pro-rata share of funding!
         # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
@@ -251,9 +261,9 @@ class MonetaryFMarket:  # This is Overlay
         side = 1 if pos.long else -1
 
         # Mint/burn from total supply the profits/losses
-        ds = amount * pos.leverage * side * (price - pos.lock_price)/pos.lock_price
+        ds = amount * pos.leverage * side * (price - pos.lock_price) / pos.lock_price
         print(f"unwind: {'Minting' if ds > 0 else 'Burning'} ds={ds} OVL from total supply")
-        self.model.supply += ds
+        self.model.supply_of_ovl += ds
 
         # Adjust position amounts stored
         if dn == pos.amount_of_ovl_locked:
@@ -329,7 +339,7 @@ class MonetaryFMarket:  # This is Overlay
             funding_long = min(twao_long*funding, self.locked_long) # can't have negative locked long
             funding_short = twao_short*funding
             print(f"fund: Adding ds={funding_short - funding_long} OVL to total supply")
-            self.model.supply += funding_short - funding_long
+            self.model.supply_of_ovl += funding_short - funding_long
             print(f"fund: Adding ds={-funding_long} OVL to longs")
             self.locked_long -= funding_long
             print(f"fund: Adding ds={funding_short} OVL to shorts")
@@ -339,7 +349,7 @@ class MonetaryFMarket:  # This is Overlay
             funding_long = abs(twao_long*funding)
             funding_short = min(abs(twao_short*funding), self.locked_short) # can't have negative locked short
             print(f"fund: Adding ds={funding_long - funding_short} OVL to total supply")
-            self.model.supply += funding_long - funding_short
+            self.model.supply_of_ovl += funding_long - funding_short
             print(f"fund: Adding ds={funding_long} OVL to longs")
             self.locked_long += funding_long
             print(f"fund: Adding ds={-funding_short} OVL to shorts")

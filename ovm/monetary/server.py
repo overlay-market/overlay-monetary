@@ -1,41 +1,27 @@
 """
 Configure visualization elements and instantiate a server
 """
-import os
 import random
 import typing as tp
-from pathlib import Path
+
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
-import pandas as pd
 
 from model import MonetaryModel
+from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.utils import TimeResolution
 
 
 def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-# Data frequencies in seconds
-DATA_FREQUENCIES = {
-    '15s': 15,
-    '1m': 60,
-    '5m': 300,
-    '15m': 900,
-}
-
-DATA_FREQ_KEY = '15s'
+TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
 DATA_SIM_RNG = 42
-DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
-STEPS_MONTH = int((86400*30)/DATA_FREQ)
-BASE_DIRECTORY = Path(__file__).resolve().parents[1]
-
-print(f'{BASE_DIRECTORY=}')
-print(f"{SIMULATED_DATA_DIRECTORY=}")
+STEPS_MONTH = int((86400*30) / TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
 TICKERS = ["ETH-USD",
@@ -47,20 +33,10 @@ TICKERS = ["ETH-USD",
            "YFI-USD"
            ]
 
-OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
-ticker_to_time_series_of_prices_map = {}
-for ticker in TICKERS:
-    rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
-                         str(DATA_FREQ_KEY),
-                         f'sims-{DATA_SIM_RNG}',
-                         f'sim-{ticker}.csv')
-
-    print(f"Reading in sim simulation from {rpath}")
-    f = pd.read_csv(rpath)
-    if ticker == OVL_TICKER:
-        ticker_to_time_series_of_prices_map["OVL-USD"] = f.transpose().values.tolist()[0]
-    else:
-        ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.tolist()[0]
+ticker_to_time_series_of_prices_map = \
+    construct_ticker_to_series_of_prices_map(data_sim_rng=DATA_SIM_RNG,
+                                             time_resolution=TIME_RESOLUTION,
+                                             tickers=TICKERS)
 
 total_supply = 100000  # OVL
 base_wealth = 0.0001*100000  # OVL

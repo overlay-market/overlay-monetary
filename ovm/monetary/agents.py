@@ -70,14 +70,14 @@ class MonetaryArbitrageur(MonetaryAgent):
     def _unwind_positions(self):
         # For now just assume all positions unwound at once (even tho unrealistic)
         # TODO: rebalance inventory on unwind!
-        idx = self.model.schedule.steps
-        sprice = self.model.ticker_to_time_series_of_prices_map[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.ticker_to_time_series_of_prices_map["OVL-USD"][idx]
+        current_time_step = self.model.schedule.steps
+        sprice = self.model.ticker_to_time_series_of_prices_map[self.fmarket.unique_id][current_time_step]
+        sprice_ovlusd = self.model.ticker_to_time_series_of_prices_map["OVL-USD"][current_time_step]
         for pid, pos in self.positions.items():
-            print(
-                f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
-            fees = self.fmarket.fees(pos.amount_of_ovl_locked, build=False, long=(
-                not pos.long), leverage=pos.leverage)
+            print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+            fees = self.fmarket.fees(pos.amount_of_ovl_locked,
+                                     build=False, long=(not pos.long),
+                                     leverage=pos.leverage)
             _, ds = self.fmarket.unwind(pos.amount_of_ovl_locked, pid)
             self.inventory["OVL"] += pos.amount_of_ovl_locked + ds - fees
             self.locked -= pos.amount_of_ovl_locked
