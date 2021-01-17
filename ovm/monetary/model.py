@@ -5,6 +5,12 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
+from ovm.tickers import (
+    USD_TICKER,
+    OVL_TICKER,
+    OVL_USD_TICKER
+)
+
 
 class MonetaryModel(Model):
     """
@@ -74,7 +80,7 @@ class MonetaryModel(Model):
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
         n = len(ticker_to_time_series_of_prices_map.keys())
-        prices_ovlusd = self.ticker_to_time_series_of_prices_map["OVL-USD"]
+        prices_ovlusd = self.ticker_to_time_series_of_prices_map[OVL_USD_TICKER]
         print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
             list(ticker_to_time_series_of_prices_map.keys())[i]: 1
@@ -101,18 +107,18 @@ class MonetaryModel(Model):
         tickers = list(self.ticker_to_futures_market_map.keys())
         for i in range(self.num_agents):
             fmarket = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
-            base_curr = fmarket.unique_id[:-len("-USD")]
+            base_curr = fmarket.unique_id[:-len(f"-{USD_TICKER}")]
             base_quote_price = self.ticker_to_time_series_of_prices_map[fmarket.unique_id][0]
-            if base_curr != 'OVL':
+            if base_curr != OVL_TICKER:
                 inventory: tp.Dict[str, float] = {
-                    'OVL': self.base_wealth,
-                    'USD': self.base_wealth*prices_ovlusd[0],
+                    OVL_TICKER: self.base_wealth,
+                    USD_TICKER: self.base_wealth*prices_ovlusd[0],
                     base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
                 }  # 50/50 inventory of base and quote curr (3x base_wealth for total in OVL)
             else:
                 inventory: tp.Dict[str, float] = {
-                    'OVL': self.base_wealth*2,  # 2x since using for both spot and futures
-                    'USD': self.base_wealth*prices_ovlusd[0]
+                    OVL_TICKER: self.base_wealth*2,  # 2x since using for both spot and futures
+                    USD_TICKER: self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 3.0) + 1.0

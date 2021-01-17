@@ -1,7 +1,4 @@
 import typing as tp
-
-import numpy as np
-
 from agents import MonetaryAgent
 
 
@@ -100,6 +97,8 @@ def compute_positional_imbalance_by_market(model, ticker: str) -> float:
     monetary_futures_market = model.ticker_to_futures_market_map[ticker]
     uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
     if len(uuid_to_position_map) > 0:
+        # import numpy as np
+
         # positional_imbalance_1 = \
         #     sum(position.directional_size for position in uuid_to_position_map.values())
 
