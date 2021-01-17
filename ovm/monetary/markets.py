@@ -241,9 +241,9 @@ class MonetaryFMarket:  # This is Overlay
         """
         position = self.positions.get(position_id)
         if position is None:
-            raise ValueError(f"No position with {position_id=} exists on market {self.unique_id}")
+            raise ValueError(f"No position with position_id={position_id} exists on market {self.unique_id}")
         elif position.amount_of_ovl_locked < dn:
-            raise ValueError(f"Unwind amount {dn} is too large for locked position with {position_id=} "
+            raise ValueError(f"Unwind amount {dn} is too large for locked position with position_id={position_id} "
                              f"amount {position.amount_of_ovl_locked}")
 
         # TODO: Account for pro-rata share of funding!

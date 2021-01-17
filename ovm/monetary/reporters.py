@@ -110,9 +110,9 @@ def compute_positional_imbalance_by_market(model, ticker: str) -> float:
         # positional_imbalance_3 = \
         #     monetary_futures_market.nx - monetary_futures_market.ny
 
-        # print(f'{positional_imbalance_1=}')
-        # print(f'{positional_imbalance_2=}')
-        # print(f'{positional_imbalance_3=}')
+        # print(f'positional_imbalance_1={positional_imbalance_1}')
+        # print(f'positional_imbalance_2={positional_imbalance_2}')
+        # print(f'positional_imbalance_3={positional_imbalance_3}')
         return positional_imbalance_2
     else:
         return 0.0
