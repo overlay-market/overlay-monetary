@@ -10,6 +10,13 @@ from mesa.visualization.modules import ChartModule
 from model import MonetaryModel
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
+from ovm.tickers import (
+    ETH_USD_TICKER,
+    COMP_USD_TICKER,
+    LINK_USD_TICKER,
+    YFI_USD_TICKER
+)
+
 from ovm.utils import TimeResolution
 
 
@@ -24,13 +31,13 @@ DATA_SIM_RNG = 42
 STEPS_MONTH = int((86400*30) / TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
-TICKERS = ["ETH-USD",
+TICKERS = [ETH_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "COMP-USD",
+           COMP_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "LINK-USD",
+           LINK_USD_TICKER,
            # less than half a year of simulation (can we use a different token instead)
-           "YFI-USD"
+           YFI_USD_TICKER
            ]
 
 ticker_to_time_series_of_prices_map = \
