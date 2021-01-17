@@ -8,17 +8,19 @@ from ovm.historical.data_io import load_price_history
 
 from ovm.paths import HISTORICAL_DATA_DIRECTORY
 
-from ovm.utils import TimeResolution
+from ovm.tickers import ETH_USD_TICKER
+
+from ovm.time_resolution import TimeResolution
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
+directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, str(time_resolution.value))
 
 # Make the block size approximately 6 hours
 block_length = math.ceil(6 * 60 * 60 / time_resolution.in_seconds)
 
 # Use ETH/USD exchange rate
-price_history_file_name = 'ETH-USD'
+price_history_file_name = ETH_USD_TICKER
 
 
 def main():
@@ -31,7 +33,7 @@ def main():
 
     # resample returns
     bootstrap_simulation_result = \
-        stationary_bootstrap(x=price_history.unscaled_log_returns,
+        stationary_bootstrap(x=price_history.unscaled_log_returns.values,
                              block_length=block_length,
                              replications=1).squeeze()
 

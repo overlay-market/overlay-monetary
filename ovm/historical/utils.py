@@ -5,7 +5,7 @@ import typing as tp
 import ccxt
 from tqdm import tqdm
 
-from ovm.utils import TimeResolution
+from ovm.time_resolution import TimeResolution
 
 
 def fetch_data_for_single_symbol(symbol: str,
