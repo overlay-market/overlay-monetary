@@ -24,7 +24,6 @@ from ovm.time_resolution import TimeResolution
 
 # set up logging
 logger = logging.getLogger(__name__)
-# print(f"{logging.root.level=}")
 
 
 def random_color():
