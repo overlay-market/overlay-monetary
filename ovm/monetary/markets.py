@@ -122,16 +122,45 @@ class MonetaryFMarket:
         # dy = y - k/(x+dx)
         assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
         slippage = 0.0
+        print(f"FMarket.slippage: market -> {self.unique_id}")
+        print(f"FMarket.slippage: margin (OVL) -> {dn}")
+        print(f"FMarket.slippage: leverage -> {leverage}")
+        print(f"FMarket.slippage: is long? -> {long}")
+        print(f"FMarket.slippage: build? -> {build}")
         if (build and long) or (not build and not long):
+            print("FMarket.slippage: dn = +px*dx; (x+dx)*(y-dy) = k")
+            print(f"FMarket.slippage: px -> {self.px}")
+            print(f"FMarket.slippage: py -> {self.py}")
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
+            print(f"FMarket.slippage: reserves (Quote: x) -> {self.x}")
+            print(f"FMarket.slippage: position impact (Quote: dx) -> {dx}")
+            print(f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}")
+            print(f"FMarket.slippage: reserves (Base: y) -> {self.y}")
+            print(f"FMarket.slippage: position impact (Base: dy) -> {dy}")
+            print(f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}")
             assert dy < self.y, "slippage: Not enough liquidity in self.y for swap"
             slippage = ((self.x+dx)/(self.y-dy) - self.price) / self.price
+            print(f"FMarket.slippage: price before -> {self.price}")
+            print(f"FMarket.slippage: price after -> {(self.x+dx)/(self.y-dy)}")
+            print(f"FMarket.slippage: slippage -> {slippage}")
         else:
+            print("FMarket.slippage: dn = -px*dx; (x-dx)*(y+dy) = k")
+            print(f"FMarket.slippage: px -> {self.px}")
+            print(f"FMarket.slippage: py -> {self.py}")
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
+            print(f"FMarket.slippage: reserves (Quote: x) -> {self.x}")
+            print(f"FMarket.slippage: position impact (Quote: dx) -> {dx}")
+            print(f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}")
+            print(f"FMarket.slippage: reserves (Base: y) -> {self.y}")
+            print(f"FMarket.slippage: position impact (Base: dy) -> {dy}")
+            print(f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}")
             assert dx < self.x, "slippage: Not enough liquidity in self.x for swap"
             slippage = ((self.x-dx)/(self.y+dy) - self.price) / self.price
+            print(f"FMarket.slippage: price before -> {self.price}")
+            print(f"FMarket.slippage: price after -> {(self.x-dx)/(self.y+dy)}")
+            print(f"FMarket.slippage: slippage -> {slippage}")
         return slippage
 
     def _swap(self,
@@ -148,6 +177,9 @@ class MonetaryFMarket:
             print("dn = +px*dx")
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
+            print(f"_swap: position size (OVL) -> {dn*leverage}")
+            print(f"_swap: position impact (Quote: dx) -> {dx}")
+            print(f"_swap: position impact (Base: dy) -> {dy}")
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
             assert dy/self.py < self.ny, "_swap: Not enough liquidity in self.ny for swap"
             avg_price = self.k / (self.x * (self.x+dx))
@@ -159,6 +191,9 @@ class MonetaryFMarket:
             print("dn = -px*dx")
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
+            print(f"_swap: position size (OVL) -> {dn*leverage}")
+            print(f"_swap: position impact (Quote: dx) -> {dx}")
+            print(f"_swap: position impact (Base: dy) -> {dy}")
             assert dx < self.x, "_swap: Not enough liquidity in self.x for swap"
             assert dx/self.px < self.nx, "_swap: Not enough liquidity in self.nx for swap"
             avg_price = self.k / (self.x * (self.x-dx))
