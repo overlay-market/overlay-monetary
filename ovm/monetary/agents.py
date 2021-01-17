@@ -1,6 +1,12 @@
+import logging
 import typing as tp
 
 from mesa import Agent
+
+from ovm.debug_level import DEBUG_LEVEL
+
+# set up logging
+logger = logging.getLogger(__name__)
 
 
 class MonetaryAgent(Agent):
@@ -63,7 +69,7 @@ class MonetaryAgent(Agent):
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        # print(f"Trader agent {self.unique_id} activated")
+        # logger.debug(f"Trader agent {self.unique_id} activated")
         if self.wealth > 0 and self.locked / self.wealth < self.deploy_max:
             # Assume only make one trade per step ...
             self.trade()
@@ -79,7 +85,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         spot_price = self.model.ticker_to_time_series_of_prices_map[self.futures_market.unique_id][current_time_step]
         spot_price_ovlusd = self.model.ticker_to_time_series_of_prices_map["OVL-USD"][current_time_step]
         for position_id, position in self.positions.items():
-            print(f"Arb._unwind_positions: Unwinding position {position_id} on {self.futures_market.unique_id}")
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"Arb._unwind_positions: Unwinding position {position_id} on {self.futures_market.unique_id}")
             fees = self.futures_market.fees(position.amount_of_ovl_locked,
                                             build=False, long=(not position.long),
                                             leverage=position.leverage)
@@ -96,34 +103,38 @@ class MonetaryArbitrageur(MonetaryAgent):
                 spot_sell_fees = min(
                     spot_sell_amount*self.futures_market.base_fee, position.amount_of_ovl_locked)
                 spot_sell_received = (spot_sell_amount - spot_sell_fees)*spot_price
-                print("Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
-                print(f"Arb._unwind_positions: spot sell amount (OVL) -> {position.amount_of_ovl_locked}")
-                print(f"Arb._unwind_positions: spot sell amount ({self.futures_market.base_currency})"
-                      f" -> {spot_sell_amount}")
-
-                print(f"Arb._unwind_positions: spot sell fees ({self.futures_market.base_currency})"
-                      f" -> {spot_sell_fees}")
-
-                print(f"Arb._unwind_positions: spot sell received (USD) -> {spot_sell_received}")
                 # TODO: this is wrong because of the leverage! fix
                 self.inventory[self.futures_market.base_currency] -= spot_sell_amount
                 self.inventory["USD"] += spot_sell_received
-                print(f"Arb._unwind_positions: inventory -> {self.inventory}")
+
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug("Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
+                    logger.debug(f"Arb._unwind_positions: spot sell amount (OVL) "
+                                 f"-> {position.amount_of_ovl_locked}")
+                    logger.debug(f"Arb._unwind_positions: spot sell amount "
+                                 f"({self.futures_market.base_currency}) -> {spot_sell_amount}")
+                    logger.debug(f"Arb._unwind_positions: spot sell fees "
+                                 f"({self.futures_market.base_currency}) -> {spot_sell_fees}")
+                    logger.debug(f"Arb._unwind_positions: spot sell received (USD) "
+                                 f"-> {spot_sell_received}")
+                    logger.debug(f"Arb._unwind_positions: inventory -> {self.inventory}")
             else:
                 spot_buy_amount = position.amount_of_ovl_locked * position.leverage * spot_price_ovlusd
                 spot_buy_fees = min(
                     spot_buy_amount*self.futures_market.base_fee, position.amount_of_ovl_locked)
                 spot_buy_received = (spot_buy_amount - spot_buy_fees)/spot_price
-                print("Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
-                print(f"Arb._unwind_positions: spot buy amount (OVL) -> {position.amount_of_ovl_locked}")
-                print(f"Arb._unwind_positions: spot buy amount (USD) -> {spot_buy_amount}")
-                print(f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
-                print(f"Arb._unwind_positions: spot buy received ({self.futures_market.base_currency})"
-                      f" -> {spot_buy_received}")
-
                 self.inventory["USD"] -= spot_buy_amount
                 self.inventory[self.futures_market.base_currency] += spot_buy_received
-                print(f"Arb._unwind_positions: inventory -> {self.inventory}")
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug("Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
+                    logger.debug(f"Arb._unwind_positions: spot buy amount (OVL) -> "
+                                 f"{position.amount_of_ovl_locked}")
+                    logger.debug(f"Arb._unwind_positions: spot buy amount (USD) "
+                                 f"-> {spot_buy_amount}")
+                    logger.debug(f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
+                    logger.debug(f"Arb._unwind_positions: spot buy received "
+                                 f"({self.futures_market.base_currency}) -> {spot_buy_received}")
+                    logger.debug(f"Arb._unwind_positions: inventory -> {self.inventory}")
 
         self.positions = {}
 
@@ -132,16 +143,18 @@ class MonetaryArbitrageur(MonetaryAgent):
         if len(self.positions.keys()) == 0:
             self.unwinding = False
             return
-        print('Arb._unwind_next_position: positions (prior)', self.positions)
-        print('Arb._unwind_next_position: locked (prior)', self.locked)
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug('Arb._unwind_next_position: positions (prior)', self.positions)
+            logger.debug('Arb._unwind_next_position: locked (prior)', self.locked)
         position_id = list(self.positions.keys())[0]
         position = self.positions[position_id]
         _, ds = self.futures_market.unwind(position.amount_of_ovl_locked, position_id)
         self.locked -= position.amount_of_ovl_locked
         self.last_trade_time_step = self.model.schedule.steps
         del self.positions[position_id]
-        print('Arb._unwind_next_position: positions (updated)', self.positions)
-        print('Arb._unwind_next_position: locked (updated)', self.locked)
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug('Arb._unwind_next_position: positions (updated)', self.positions)
+            logger.debug('Arb._unwind_next_position: locked (updated)', self.locked)
 
     def trade(self):
         # If market futures price > spot then short, otherwise long
@@ -166,11 +179,13 @@ class MonetaryArbitrageur(MonetaryAgent):
         # TODO: Have arb bot determine position size dynamically needed to get price close to spot value (scale down size ...)
         # TODO: Have arb bot unwind all prior positions once deploys certain amount (or out of wealth)
         amount = self.pos_max*self.wealth
-        print(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
         if self.locked + amount < self.deploy_max*self.wealth:
             if spot_price > fprice:
-                print(f"Arb.trade: Checking if long position on {self.futures_market.unique_id} "
-                      f"is profitable after slippage ....")
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug(f"Arb.trade: Checking if long position on "
+                                 f"{self.futures_market.unique_id} is profitable after slippage ....")
 
                 fees = self.futures_market.fees(amount, build=True, long=True, leverage=self.leverage_max)
                 slippage = self.futures_market.slippage(amount - fees,
@@ -178,20 +193,22 @@ class MonetaryArbitrageur(MonetaryAgent):
                                                         long=True,
                                                         leverage=self.leverage_max)
 
-                print(f"Arb.trade: fees -> {fees}")
-                print(f"Arb.trade: slippage -> {slippage}")
-                print(f"Arb.trade: arb profit opp % -> "
-                      f"{spot_price/(fprice * (1+slippage)) - 1.0 - 2*self.futures_market.base_fee}")
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug(f"Arb.trade: fees -> {fees}")
+                    logger.debug(f"Arb.trade: slippage -> {slippage}")
+                    logger.debug(f"Arb.trade: arb profit opp % -> "
+                                 f"{spot_price/(fprice * (1+slippage)) - 1.0 - 2*self.futures_market.base_fee}")
 
                 if self.slippage_max > abs(slippage) and spot_price > fprice * (1+slippage) \
                     and spot_price/(fprice * (1+slippage)) - 1.0 - 2*self.futures_market.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
                     position = self.futures_market.build(amount, long=True, leverage=self.leverage_max)
-                    print("Arb.trade: Entered long arb trade w position params ...")
-                    print(f"Arb.trade: position amount -> {position.amount_of_ovl_locked}")
-                    print(f"Arb.trade: position long -> {position.long}")
-                    print(f"Arb.trade: position leverage -> {position.leverage}")
-                    print(f"Arb.trade: position lock_price -> {position.lock_price}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug("Arb.trade: Entered long arb trade w position params ...")
+                        logger.debug(f"Arb.trade: position amount -> {position.amount_of_ovl_locked}")
+                        logger.debug(f"Arb.trade: position long -> {position.long}")
+                        logger.debug(f"Arb.trade: position leverage -> {position.leverage}")
+                        logger.debug(f"Arb.trade: position lock_price -> {position.lock_price}")
                     self.positions[position.id] = position
                     self.inventory["OVL"] -= position.amount_of_ovl_locked + fees
                     self.locked += position.amount_of_ovl_locked
@@ -207,17 +224,18 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_sell_amount*self.futures_market.base_fee, position.amount_of_ovl_locked)
                     spot_sell_received = (
                         spot_sell_amount - spot_sell_fees)*spot_price
-                    print("Arb.trade: Selling base curr on spot to lock in arb ...")
-                    print(f"Arb.trade: spot sell amount (OVL) -> {position.amount_of_ovl_locked}")
-                    print(f"Arb.trade: spot sell amount ({self.futures_market.base_currency})"
-                          f" -> {spot_sell_amount}")
-                    print(f"Arb.trade: spot sell fees ({self.futures_market.base_currency})"
-                          f" -> {spot_sell_fees}")
-                    print(f"Arb.trade: spot sell received (USD)"
-                          f" -> {spot_sell_received}")
                     self.inventory[self.futures_market.base_currency] -= spot_sell_amount
                     self.inventory["USD"] += spot_sell_received
-                    print(f"Arb.trade: inventory -> {self.inventory}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug("Arb.trade: Selling base curr on spot to lock in arb ...")
+                        logger.debug(f"Arb.trade: spot sell amount (OVL) -> {position.amount_of_ovl_locked}")
+                        logger.debug(f"Arb.trade: spot sell amount ({self.futures_market.base_currency})"
+                              f" -> {spot_sell_amount}")
+                        logger.debug(f"Arb.trade: spot sell fees ({self.futures_market.base_currency})"
+                              f" -> {spot_sell_fees}")
+                        logger.debug(f"Arb.trade: spot sell received (USD)"
+                              f" -> {spot_sell_received}")
+                        logger.debug(f"Arb.trade: inventory -> {self.inventory}")
 
                     # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
                     # PnL (OVL) = - position.amount * (sprice_ovlusd/sprice_ovlusd_t) * (price_t - s_price)/s_price + position.amount * (price_t - lock_price)/lock_price
@@ -228,32 +246,36 @@ class MonetaryArbitrageur(MonetaryAgent):
                     locked_in_approx = position.amount_of_ovl_locked * position.leverage * \
                                        (spot_price/position.lock_price - 1.0)
                     # TODO: incorporate fee structure!
-                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
-                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                        logger.debug(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
 
             elif spot_price < fprice:
-                print(f"Arb.trade: Checking if short position on {self.futures_market.unique_id} "
-                      f"is profitable after slippage ....")
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug(f"Arb.trade: Checking if short position on {self.futures_market.unique_id} "
+                                 f"is profitable after slippage ....")
 
                 fees = self.futures_market.fees(
                     amount, build=True, long=False, leverage=self.leverage_max)
                 # should be negative ...
                 slippage = self.futures_market.slippage(
                     amount-fees, build=True, long=False, leverage=self.leverage_max)
-                print(f"Arb.trade: fees -> {fees}")
-                print(f"Arb.trade: slippage -> {slippage}")
-                print(f"Arb.trade: arb profit opp % -> "
+                if logging.root.level <= DEBUG_LEVEL:
+                    logger.debug(f"Arb.trade: fees -> {fees}")
+                    logger.debug(f"Arb.trade: slippage -> {slippage}")
+                    logger.debug(f"Arb.trade: arb profit opp % -> "
                       f"{1.0 - spot_price/(fprice * (1+slippage)) - 2*self.futures_market.base_fee}")
                 if self.slippage_max > abs(slippage) and spot_price < fprice * (1+slippage) \
                     and 1.0 - spot_price/(fprice * (1+slippage)) - 2*self.futures_market.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
                     # enter the trade to arb
                     position = self.futures_market.build(
                         amount, long=False, leverage=self.leverage_max)
-                    print("Arb.trade: Entered short arb trade w position params ...")
-                    print(f"Arb.trade: position.amount -> {position.amount_of_ovl_locked}")
-                    print(f"Arb.trade: position.long -> {position.long}")
-                    print(f"Arb.trade: position.leverage -> {position.leverage}")
-                    print(f"Arb.trade: position.lock_price -> {position.lock_price}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug("Arb.trade: Entered short arb trade w position params ...")
+                        logger.debug(f"Arb.trade: position.amount -> {position.amount_of_ovl_locked}")
+                        logger.debug(f"Arb.trade: position.long -> {position.long}")
+                        logger.debug(f"Arb.trade: position.leverage -> {position.leverage}")
+                        logger.debug(f"Arb.trade: position.lock_price -> {position.lock_price}")
                     self.positions[position.id] = position
                     self.inventory["OVL"] -= position.amount_of_ovl_locked + fees
                     self.locked += position.amount_of_ovl_locked
@@ -269,15 +291,16 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_buy_amount*self.futures_market.base_fee, position.amount_of_ovl_locked)
                     spot_buy_received = (
                         spot_buy_amount - spot_buy_fees)/spot_price
-                    print("Arb.trade: Buying base curr on spot to lock in arb ...")
-                    print(f"Arb.trade: spot buy amount (OVL) -> {position.amount_of_ovl_locked}")
-                    print(f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
-                    print(f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
-                    print(f"Arb.trade: spot buy received ({self.futures_market.base_currency})"
-                          f" -> {spot_buy_received}")
                     self.inventory["USD"] -= spot_buy_amount
                     self.inventory[self.futures_market.base_currency] += spot_buy_received
-                    print(f"Arb.trade: inventory -> {self.inventory}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug("Arb.trade: Buying base curr on spot to lock in arb ...")
+                        logger.debug(f"Arb.trade: spot buy amount (OVL) -> {position.amount_of_ovl_locked}")
+                        logger.debug(f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
+                        logger.debug(f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
+                        logger.debug(f"Arb.trade: spot buy received ({self.futures_market.base_currency})"
+                              f" -> {spot_buy_received}")
+                        logger.debug(f"Arb.trade: inventory -> {self.inventory}")
 
                     # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
                     # PnL (OVL) = position.amount * (sprice_ovlusd/sprice_ovlusd_t) * (price_t - s_price)/s_price - position.amount * (price_t - lock_price)/lock_price
@@ -288,8 +311,9 @@ class MonetaryArbitrageur(MonetaryAgent):
                     locked_in_approx = position.amount_of_ovl_locked * position.leverage * \
                                        (1.0 - spot_price/position.lock_price)
                     # TODO: incorporate fee structure!
-                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
-                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
+                    if logging.root.level <= DEBUG_LEVEL:
+                        logger.debug(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                        logger.debug(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
         else:
             # TODO: remove but try this here => dumb logic but want to see
             # what happens to currency supply if end up unwinding before each new trade (so only 1 position per arb)

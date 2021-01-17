@@ -1,12 +1,14 @@
 """
 Configure visualization elements and instantiate a server
 """
+import logging
 import random
 import typing as tp
 
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 
+from ovm.debug_level import DEBUG_LEVEL
 from ovm.monetary.model import MonetaryModel
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
@@ -17,7 +19,12 @@ from ovm.tickers import (
     YFI_USD_TICKER
 )
 
-from ovm.utils import TimeResolution
+from ovm.time_resolution import TimeResolution
+
+
+# set up logging
+logger = logging.getLogger(__name__)
+# print(f"{logging.root.level=}")
 
 
 def random_color():
@@ -137,13 +144,13 @@ MODEL_KWARGS = {
     "sampling_interval": 240,
 }
 
-
-print("Model kwargs for initial conditions of sim:")
-print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
-print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
-print(f"num_traders = {MODEL_KWARGS['num_traders']}")
-print(f"num_holders = {MODEL_KWARGS['num_holders']}")
-print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
+if logging.root.level <= DEBUG_LEVEL:
+    logger.debug("Model kwargs for initial conditions of sim:")
+    logger.debug(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+    logger.debug(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
+    logger.debug(f"num_traders = {MODEL_KWARGS['num_traders']}")
+    logger.debug(f"num_holders = {MODEL_KWARGS['num_holders']}")
+    logger.debug(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
 chart_elements = construct_chart_elements(ticker_to_time_series_of_prices_map.keys())
 

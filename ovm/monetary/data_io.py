@@ -9,7 +9,7 @@ from ovm.tickers import (
     YFI_USD_TICKER
 )
 
-from ovm.utils import TimeResolution
+from ovm.time_resolution import TimeResolution
 
 
 def construct_ticker_to_series_of_prices_map(
