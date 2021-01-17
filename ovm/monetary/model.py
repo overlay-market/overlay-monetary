@@ -56,7 +56,7 @@ class MonetaryModel(Model):
 
         super().__init__()
         self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
-        self.num_arbitraguers = num_arbitrageurs
+        self.num_arbitrageurs = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
         self.num_holders = num_holders
@@ -66,7 +66,7 @@ class MonetaryModel(Model):
         self.liquidity = liquidity
         self.treasury = treasury
         self.sampling_interval = sampling_interval
-        self.supply = base_wealth * self.num_agents + liquidity
+        self.supply_of_ovl = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
         self.ticker_to_time_series_of_prices_map = ticker_to_time_series_of_prices_map  # { k: [ time_series_of_prices ] }
 
@@ -103,22 +103,21 @@ class MonetaryModel(Model):
             fmarket = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
             base_curr = fmarket.unique_id[:-len("-USD")]
             base_quote_price = self.ticker_to_time_series_of_prices_map[fmarket.unique_id][0]
-            inventory: tp.Dict[str, float] = {}
             if base_curr != 'OVL':
-                inventory = {
+                inventory: tp.Dict[str, float] = {
                     'OVL': self.base_wealth,
                     'USD': self.base_wealth*prices_ovlusd[0],
                     base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
                 }  # 50/50 inventory of base and quote curr (3x base_wealth for total in OVL)
             else:
-                inventory = {
+                inventory: tp.Dict[str, float] = {
                     'OVL': self.base_wealth*2,  # 2x since using for both spot and futures
                     'USD': self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 3.0) + 1.0
 
-            if i < self.num_arbitraguers:
+            if i < self.num_arbitrageurs:
                 agent = MonetaryArbitrageur(
                     unique_id=i,
                     model=self,
@@ -126,7 +125,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitraguers + self.num_keepers:
+            elif i < self.num_arbitrageurs + self.num_keepers:
                 agent = MonetaryKeeper(
                     unique_id=i,
                     model=self,
@@ -134,7 +133,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
+            elif i < self.num_arbitrageurs + self.num_keepers + self.num_holders:
                 agent = MonetaryHolder(
                     unique_id=i,
                     model=self,
@@ -142,7 +141,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
+            elif i < self.num_arbitrageurs + self.num_keepers + self.num_holders + self.num_traders:
                 agent = MonetaryTrader(
                     unique_id=i,
                     model=self,
