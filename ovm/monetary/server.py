@@ -9,7 +9,11 @@ from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 
 from ovm.debug_level import DEBUG_LEVEL
-from ovm.monetary.model import MonetaryModel
+from ovm.monetary.model import (
+    DataCollectionOptions,
+    MonetaryModel
+)
+
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
 from ovm.tickers import (
@@ -70,10 +74,14 @@ num_holders = int(total_supply*0.5/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
+data_collection_options = \
+    DataCollectionOptions(compute_gini_coefficient=False,
+                          compute_wealth=False,
+                          compute_inventory_wealth=False)
 
 
 # TODO: Have separate lines for each bot along with the aggregate!
-def construct_chart_elements(tickers) -> tp.List:
+def construct_chart_elements(tickers, data_collection_options: DataCollectionOptions) -> tp.List:
     chart_elements = [
         ChartModule([{"Label": "Supply", "Color": "Black"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
@@ -86,32 +94,40 @@ def construct_chart_elements(tickers) -> tp.List:
 
         ChartModule([{"Label": f"Skew {ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
+    ]
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+    if data_collection_options.compute_inventory_wealth:
+        chart_elements += [
+            ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
+        ]
 
+    chart_elements += [
         ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
+    ]
 
-        ChartModule([{"Label": "Gini", "Color": "Black"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+    if data_collection_options.compute_gini_coefficient:
+        chart_elements += [
+            ChartModule([{"Label": "Gini", "Color": "Black"}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
@@ -141,6 +157,7 @@ MODEL_KWARGS = {
     "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
     "sampling_interval": 240,
+    "data_collection_options": data_collection_options
 }
 
 if logging.root.level <= DEBUG_LEVEL:
@@ -151,7 +168,9 @@ if logging.root.level <= DEBUG_LEVEL:
     logger.debug(f"num_holders = {MODEL_KWARGS['num_holders']}")
     logger.debug(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
-chart_elements = construct_chart_elements(ticker_to_time_series_of_prices_map.keys())
+chart_elements = \
+    construct_chart_elements(ticker_to_time_series_of_prices_map.keys(),
+                             data_collection_options=data_collection_options)
 
 server = ModularServer(
     MonetaryModel,
