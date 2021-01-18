@@ -4,22 +4,6 @@ FUTURES_PRICE_LABEL_START = 'f-'
 SKEW_LABEL_START = 'Skew'
 
 
-# def is_deviation_label(label: str):
-#     return label.startswith(DEVIATION_LABEL_START)
-#
-#
-# def is_spot_price_label(label: str):
-#     return label.startswith(SPOT_PRICE_LABEL_START)
-#
-#
-# def is_futures_price_label(label: str):
-#     return label.startswith(FUTURES_PRICE_LABEL_START)
-#
-#
-# def is_skew_label(label: str):
-#     return label.startswith(SKEW_LABEL_START)
-
-
 def price_deviation_label(ticker: str) -> str:
     return f"{DEVIATION_LABEL_START}{ticker}"
 
