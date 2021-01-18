@@ -16,6 +16,20 @@ from ovm.monetary.options import DataCollectionOptions
 
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
+from ovm.monetary.plot_labels import (
+    price_deviation_label,
+    spot_price_label,
+    futures_price_label,
+    skew_label,
+    inventory_wealth_ovl_label,
+    inventory_wealth_usd_label,
+    GINI_LABEL,
+    GINI_ARBITRAGEURS_LABEL,
+    SUPPLY_LABEL,
+    TREASURY_LABEL,
+    LIQUIDITY_LABEL
+)
+
 from ovm.tickers import (
     ETH_USD_TICKER,
     COMP_USD_TICKER,
@@ -75,66 +89,78 @@ num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
 data_collection_options = \
-    DataCollectionOptions(compute_gini_coefficient=False,
-                          compute_wealth=False,
-                          compute_inventory_wealth=False)
+    DataCollectionOptions(compute_gini_coefficient=True,
+                          compute_wealth=True,
+                          compute_inventory_wealth=True)
 
 
 # TODO: Have separate lines for each bot along with the aggregate!
 def construct_chart_elements(tickers, data_collection_options: DataCollectionOptions) -> tp.List:
     chart_elements = [
-        ChartModule([{"Label": "Supply", "Color": "Black"}],
+        ChartModule([{"Label": SUPPLY_LABEL, "Color": "Black"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Treasury", "Color": "Green"}],
+        ChartModule([{"Label": TREASURY_LABEL, "Color": "Green"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
+        ChartModule([{"Label": price_deviation_label(ticker), "Color": random_color()}
+                     for ticker
+                     in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": f"Skew {ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
+        ChartModule([{"Label": skew_label(ticker), "Color": random_color()}
+                     for ticker
+                     in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        chart_elements += [
-            ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders"]:
+            chart_elements += [
+                ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                            data_collector_name=DATA_COLLECTOR_NAME),
+                ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
+                            data_collector_name=DATA_COLLECTOR_NAME),
+            ]
 
-            ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
-
-            ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
-
-            ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
-
-            ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
-
-            ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
-        ]
+        # chart_elements += [
+        #     ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        #
+        #     ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        #
+        #     ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        #
+        #     ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        #
+        #     ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        #
+        #     ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
+        #                 data_collector_name=DATA_COLLECTOR_NAME),
+        # ]
 
     chart_elements += [
-        ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
+        ChartModule([{"Label": LIQUIDITY_LABEL, "Color": "Blue"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     if data_collection_options.compute_gini_coefficient:
         chart_elements += [
-            ChartModule([{"Label": "Gini", "Color": "Black"}],
+            ChartModule([{"Label": GINI_LABEL, "Color": "Black"}],
                         data_collector_name=DATA_COLLECTOR_NAME),
-            ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
+            ChartModule([{"Label": GINI_ARBITRAGEURS_LABEL, "Color": "Blue"}],
                         data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
         chart_elements.append(
             ChartModule([
-                {"Label": f"s-{ticker}", "Color": "Black"},
-                {"Label": f"f-{ticker}", "Color": "Red"},
+                {"Label": spot_price_label(ticker), "Color": "Black"},
+                {"Label": futures_price_label(ticker), "Color": "Red"},
             ], data_collector_name='data_collector')
         )
 

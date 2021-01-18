@@ -9,6 +9,19 @@ from mesa.datacollection import DataCollector
 
 from ovm.debug_level import DEBUG_LEVEL
 from ovm.monetary.options import DataCollectionOptions
+from ovm.monetary.plot_labels import (
+    price_deviation_label,
+    spot_price_label,
+    futures_price_label,
+    skew_label,
+    inventory_wealth_ovl_label,
+    inventory_wealth_usd_label,
+    GINI_LABEL,
+    GINI_ARBITRAGEURS_LABEL,
+    SUPPLY_LABEL,
+    TREASURY_LABEL,
+    LIQUIDITY_LABEL
+)
 
 from ovm.tickers import (
     USD_TICKER,
@@ -192,32 +205,32 @@ class MonetaryModel(Model):
         # TODO: What happens if not enough OVL to sway the market time_series_of_prices on the platform? (i.e. all locked up)
         if self.data_collection_options.perform_data_collection:
             model_reporters = {
-                f"d-{ticker}": partial(compute_price_difference, ticker=ticker)
+                price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
                 for ticker in tickers
             }
             model_reporters.update({
-                f"s-{ticker}": partial(compute_spot_price, ticker=ticker)
+                spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                f"f-{ticker}": partial(compute_futures_price, ticker=ticker)
+                futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                f"Skew {ticker}": partial(compute_positional_imbalance_by_market, ticker=ticker)
+                skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
                 for ticker in tickers
             })
 
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
-                    "Gini": compute_gini,
-                    "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur)
+                    GINI_LABEL: compute_gini,
+                    GINI_ARBITRAGEURS_LABEL: partial(compute_gini, agent_type=MonetaryArbitrageur)
                 })
 
             model_reporters.update({
-                "Supply": compute_supply,
-                "Treasury": compute_treasury,
-                "Liquidity": compute_liquidity
+                SUPPLY_LABEL: compute_supply,
+                TREASURY_LABEL: compute_treasury,
+                LIQUIDITY_LABEL: compute_liquidity
             })
 
             if self.data_collection_options.compute_wealth:
@@ -234,24 +247,9 @@ class MonetaryModel(Model):
 
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
-                        f'{agent_type_name} Inventory (OVL)': partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
-                        f'{agent_type_name} Inventory (USD)': partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_usd=True)
+                        inventory_wealth_ovl_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
+                        inventory_wealth_usd_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_usd=True)
                     })
-
-            # model_reporters.update({
-            #     "Arbitrageurs Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
-            #     "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
-            #     "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur, in_usd=True),
-            #     "Keepers Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryKeeper),
-            #     "Keepers Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
-            #     "Keepers Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
-            #     "Traders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryTrader),
-            #     "Traders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
-            #     "Traders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
-            #     "Holders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryHolder),
-            #     "Holders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder),
-            #     "Holders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder, in_usd=True),
-            # })
 
             self.data_collector = DataCollector(
                 model_reporters=model_reporters,
