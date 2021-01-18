@@ -56,7 +56,8 @@ class MonetaryModel(Model):
         )
 
         super().__init__()
-        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders + num_snipers
+        self.num_agents = num_arbitrageurs + num_keepers + \
+            num_traders + num_holders + num_snipers
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
@@ -157,12 +158,12 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max,
-                    size_increment=0.01,
+                    size_increment=0.1,
                     min_edge=0.0,
-                    max_edge=0.1, # max deploy at 10% edge
-                    funding_multiplier=1.0, # applied to funding cost when considering exiting position
-                    min_funding_unwind=0.001, # start unwind when funding reaches .1% against position
-                    max_funding_unwind=0.02 # unwind immediately when funding reaches 2% against position
+                    max_edge=0.1,  # max deploy at 10% edge
+                    funding_multiplier=1.0,  # applied to funding cost when considering exiting position
+                    min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
+                    max_funding_unwind=0.02  # unwind immediately when funding reaches 2% against position
 
                 )
             else:
@@ -201,27 +202,32 @@ class MonetaryModel(Model):
         })
         model_reporters.update({
             "Gini": compute_gini,
-            "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
+            #"Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
             "Supply": compute_supply,
             "Treasury": compute_treasury,
-            "Liquidity": compute_liquidity,
-            "Agent": partial(compute_wealth, agent_type=None),
-            "Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
-            "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
-            "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
-            "Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
-            "Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            "Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            "Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
-            "Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            "Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            "Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
-            "Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
-            "Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
+            #"Liquidity": compute_liquidity,
+            #"Agent": partial(compute_wealth, agent_type=None),
+            #"Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
+            #"Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
+            #"Arbitrageurs OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, inventory_type="OVL"),
+            #"Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
+            "Snipers Wealth (OVL)": partial(compute_wealth, agent_type=MonetarySniper),
+            "Snipers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper),
+            "Snipers OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper, inventory_type="OVL"),
+            "Snipers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetarySniper, in_usd=True),
+            #"Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
+            #"Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            #"Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            #"Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
+            #"Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            #"Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            #"Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
+            #"Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
+            #"Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
         })
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
-            agent_reporters={"Wealth": "wealth"},
+            agent_reporters={},  # {"Wealth": "wealth"},
         )
 
         self.running = True

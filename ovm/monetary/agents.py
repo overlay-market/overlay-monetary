@@ -1,4 +1,5 @@
 import typing as tp
+import numpy as np
 
 from mesa import Agent
 
@@ -23,7 +24,7 @@ class MonetaryAgent(Agent):
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
         trade_delay: int = 4*10,
-        size_increment: float = 0.01,
+        size_increment: float = 0.1,
         min_edge: float = 0.0,
         max_edge: float = 0.1, # max deploy at 10% edge
         funding_multiplier: float = 1.0, # applied to funding cost when considering exiting position
@@ -44,6 +45,12 @@ class MonetaryAgent(Agent):
         self.slippage_max = slippage_max
         self.leverage_max = leverage_max
         self.trade_delay = trade_delay
+        self.size_increment = size_increment
+        self.min_edge = min_edge
+        self.max_edge = max_edge
+        self.funding_multiplier = funding_multiplier
+        self.min_funding_unwind = min_funding_unwind
+        self.max_funding_unwind = max_funding_unwind
         self.last_trade_idx = 0
         self.positions: tp.Dict = {}  # { pos.id: MonetaryFPosition }
         self.unwinding = False
@@ -182,10 +189,10 @@ class MonetaryArbitrageur(MonetaryAgent):
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
                 print(f"Arb.trade: arb profit opp % -> "
-                      f"{sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee}")
+                      f"{sprice/(fprice * (1+slippage)) - 1.0}")
 
                 if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
-                    and sprice/(fprice * (1+slippage)) - 1.0 - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
+                    and sprice/(fprice * (1+slippage)) - 1.0 > 0.025: # TODO: arb_min on the RHS here instead of hard coded 0.025 = 2.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
                     print("Arb.trade: Entered long arb trade w pos params ...")
@@ -244,9 +251,9 @@ class MonetaryArbitrageur(MonetaryAgent):
                 print(f"Arb.trade: fees -> {fees}")
                 print(f"Arb.trade: slippage -> {slippage}")
                 print(f"Arb.trade: arb profit opp % -> "
-                      f"{1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee}")
+                      f"{1.0 - sprice/(fprice * (1+slippage))}")
                 if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
-                    and 1.0 - sprice/(fprice * (1+slippage)) - 2*self.fmarket.base_fee > 0.0025: # TODO: arb_min on the RHS here instead of hard coded 0.0025 = 0.25%
+                    and 1.0 - sprice/(fprice * (1+slippage)) > 0.025: # TODO: arb_min on the RHS here instead of hard coded 0.025 = 2.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(
                         amount, long=False, leverage=self.leverage_max)
@@ -362,7 +369,7 @@ class MonetarySniper(MonetaryAgent):
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         sprice_ovlusd = self.model.sims["OVL-USD"][idx]
         for pid, pos in self.positions.items():
-            unwind_amount = self._get_unwind_amount(self.fmarket.last_funding_rate, pos.amount, pos.long)
+            unwind_amount = self._get_unwind_amount(self.fmarket.funding(), pos.amount, pos.long)
             print(
                 f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}; unwind amount {unwind_amount}")
             fees = self.fmarket.fees(unwind_amount, build=False, long=(
@@ -427,19 +434,21 @@ class MonetarySniper(MonetaryAgent):
 
     def _get_size(self, sprice, fprice, max_size, long):
         # Assume min size is zero
-        sizes = range(0, max_size, self.size_increment) 
+        sizes = np.arange(0, max_size, self.size_increment*self.wealth)
+        print(f"Sniper._get_size: {sizes}")
         edge_map = {}
         for size in sizes:
-            filled_price = self.get_filled_price(fprice, size, long)
+            filled_price = self._get_filled_price(fprice, size, long)
             if long:
-                edge_map[self._get_effective_edge(sprice - filled_price, self.fmarket.last_funding_rate, long)] = size
+                edge_map[self._get_effective_edge(sprice - filled_price, self.fmarket.funding(), long)] = size
             else:
-                edge_map[self._get_effective_edge(filled_price - sprice, self.fmarket.last_funding_rate, long)] = size
+                edge_map[self._get_effective_edge(filled_price - sprice, self.fmarket.funding(), long)] = size
         best_size = edge_map[max(edge_map.keys())]
         return best_size
 
     def _get_effective_edge(self, raw_edge, funding_rate, long):
         # Assume negative funding favors longs
+        funding_edge = raw_edge
         if long:
             funding_edge -= funding_rate * self.funding_multiplier
             return min(funding_edge, self.max_edge)
@@ -481,11 +490,11 @@ class MonetarySniper(MonetaryAgent):
                                                  long=True,
                                                  leverage=self.leverage_max)
                 # This has a good amount of duplicate work; already have fees, slippage, edge calculated
-                fill_price = self._get_filled_price(fprice, size, True)
+                fill_price = self._get_filled_price(fprice, amount, True) # TODO: size of trade here
                 edge = sprice - fill_price
-                effective_edge = self._get_effective_edge(edge, self.fmarket.last_funding_rate, True)
+                effective_edge = self._get_effective_edge(edge, self.fmarket.funding(), True) # TODO: current funding rate estimate goes here
                 if effective_edge > self.min_edge:
-                    deploy_fraction = self.effective_edge / self.max_edge
+                    deploy_fraction = effective_edge / self.max_edge
                     amount = deploy_fraction * available_size
                     print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
                     # enter the trade to arb
@@ -541,11 +550,11 @@ class MonetarySniper(MonetaryAgent):
                 slippage = self.fmarket.slippage(
                     amount-fees, build=True, long=False, leverage=self.leverage_max)
                 # This has a good amount of duplicate work; already have fees, slippage, edge calculated
-                fill_price = self._get_filled_price(fprice, size, False)
+                fill_price = self._get_filled_price(fprice, amount, False)
                 edge = fill_price - sprice
-                effective_edge = self._get_effective_edge(edge, self.fmarket.last_funding_rate, False)
+                effective_edge = self._get_effective_edge(edge, self.fmarket.funding(), False)
                 if effective_edge > self.min_edge:
-                    deploy_fraction = self.effective_edge / self.max_edge
+                    deploy_fraction = effective_edge / self.max_edge
                     amount = deploy_fraction * available_size
                     print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
                     # enter the trade to arb

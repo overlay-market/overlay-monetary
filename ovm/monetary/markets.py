@@ -295,6 +295,33 @@ class MonetaryFMarket:
 
         return pos, ds
 
+    def funding(self):
+        # View for current estimate of the funding rate over current sampling period
+        idx = self.model.schedule.steps
+        dt = idx - self.last_funding_idx
+        if dt == 0 or self.cum_price_idx == self.last_funding_idx:
+            return 0.0
+
+        # Calculate twap of oracle feed ... each step is value 1 in time weight
+        cum_price_feed = np.sum(np.array(
+            self.model.sims[self.unique_id][self.last_funding_idx:idx]
+        ))
+        print(f"funding: Checking funding for {self.unique_id}")
+        print(f"funding: cum_price_feed = {cum_price_feed}")
+        print(f"funding: Time since last funding (dt) = {dt}")
+        twap_feed = cum_price_feed / dt
+        print(f"funding: twap_feed = {twap_feed}")
+
+        # Calculate twap of market ... update cum price value first
+        print(f"funding: cum_price = {self.cum_price}")
+        print(f"funding: last_cum_price = {self.last_cum_price}")
+        twap_market = (self.cum_price - self.last_cum_price) / dt
+        print(f"funding: twap_market = {twap_market}")
+
+        funding = (twap_market - twap_feed) / twap_feed
+        print(f"funding: funding % -> {funding*100.0}%")
+        return funding
+
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
         # oracle fetch

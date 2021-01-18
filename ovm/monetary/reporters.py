@@ -63,31 +63,48 @@ def compute_wealth(model,
 
 def calc_inventory_wealth(model,
                           agent: MonetaryAgent,
+                          inventory_type: tp.Optional[str] = None,
                           in_usd: bool = False):
     idx = model.schedule.steps
     sprice_ovlusd = model.sims["OVL-USD"][idx]
     sprice = model.sims[agent.fmarket.unique_id][idx]
     base_curr = agent.fmarket.base_currency
 
+    p_constants_ovl = {
+        'OVL': 1.0,
+        'USD': 1.0/sprice_ovlusd,
+        base_curr: sprice/sprice_ovlusd,
+    }
+    p_constants_usd = {
+        k: sprice_ovlusd * v
+        for k, v in p_constants_ovl.items()
+    }
+    p_constants = {}
     if not in_usd:
-        return agent.inventory["OVL"] + agent.inventory["USD"]/sprice_ovlusd \
-            + agent.inventory[base_curr]*sprice/sprice_ovlusd
+        p_constants = p_constants_ovl
     else:
-        return agent.inventory["OVL"]*sprice_ovlusd + agent.inventory["USD"] \
-            + agent.inventory[base_curr]*sprice
+        p_constants = p_constants_usd
+
+    if inventory_type in agent.inventory:
+        return p_constants[inventory_type] * agent.inventory[inventory_type]
+
+    return sum([v*p_constants[k] for k, v in agent.inventory.items()])
 
 
 def compute_inventory_wealth(model,
                              agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
+                             inventory_type: tp.Optional[str] = None,
                              in_usd: bool = False):
     if not agent_type:
         wealths = [
-            calc_inventory_wealth(model, a, in_usd=in_usd)
+            calc_inventory_wealth(
+                model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents
         ]
     else:
         wealths = [
-            calc_inventory_wealth(model, a, in_usd=in_usd)
+            calc_inventory_wealth(
+                model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents if type(a) == agent_type
         ]
 

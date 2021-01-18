@@ -71,12 +71,11 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
                              for i
                              in range(time_liquidity_mine)]
 
-num_arbitrageurs = max(len(sims.keys()) * 5,
-                       int(total_supply*0.01/base_wealth))
-num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))
-num_traders = int(total_supply*0.2/base_wealth)
+num_arbitrageurs = int(total_supply*0.0/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.01/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = 1
+num_snipers = int(total_supply*0.2/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
@@ -94,31 +93,49 @@ def construct_chart_elements(tickers) -> tp.List:
         ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+        #ChartModule([{"Label": "Arbitrageurs Wealth (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Arbitrageurs OVL Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": "Snipers Wealth (OVL)", "Color": random_color()}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+        ChartModule([{"Label": "Snipers Inventory (OVL)", "Color": random_color()}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+        ChartModule([{"Label": "Snipers OVL Inventory (OVL)", "Color": random_color()}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
         ChartModule([{"Label": "Gini", "Color": "Black"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
@@ -154,6 +171,7 @@ MODEL_KWARGS = {
 
 print("Model kwargs for initial conditions of sim:")
 print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+print(f"num_snipers = {MODEL_KWARGS['num_snipers']}")
 print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
 print(f"num_traders = {MODEL_KWARGS['num_traders']}")
 print(f"num_holders = {MODEL_KWARGS['num_holders']}")
