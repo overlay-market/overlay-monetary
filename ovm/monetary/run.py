@@ -1,7 +1,7 @@
 import logging
 logFormatter = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=logFormatter,
-                    # level=logging.DEBUG
+                    level=logging.DEBUG
                     )
 
 # logging.basicConfig()

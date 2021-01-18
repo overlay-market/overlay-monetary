@@ -66,12 +66,25 @@ class MonetaryFMarket:  # This is Overlay
         self.cum_locked_short_time_step = 0
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
-        self.cum_price = self.x / self.y
-        self.cum_price_time_step = 0
+
+        # the current cumulative time-interval multiplied price begins at the initial price on Overlay
+        self.cum_price: float = self.x / self.y
+
+        # This represents the time step at which the cumulative time-interval multiplied price on
+        # the futures market was last updated
+        self.cum_price_time_step: int = 0
+
+        # the previous cumulative time-interval multiplied price begins at the initial price on Overlay
         self.last_cum_price = self.x / self.y
-        self.last_liquidity = model.liquidity # For liquidity adjustments
+
+        self.last_liquidity = model.liquidity  # For liquidity adjustments
+
+        # the time step at which the previous funding rate payment/funding rate recalculation occurred
         self.last_funding_time_step = 0
+
+        # the time step at which the previous trade on this market occurred
         self.last_trade_time_step = 0
+
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
             logger.debug(f"FMarket {self.unique_id} has x = {self.x}")
@@ -85,6 +98,10 @@ class MonetaryFMarket:  # This is Overlay
         return self.x / self.y
 
     def _update_cum_price(self):
+        # the cumulative time-multiplied price (cum_price) is the sum of the price on overlay multiplied with the
+        # time difference between trades on the futures market
+        # cum_price = P_0 + \sum_{i=1}^N (T_i - T_{i-1}) * P_i
+
         # TODO: cum_price and time_elapsed setters ...
         # TODO: Need to check that this is the last swap for given timestep ... (slightly different than Uniswap in practice)
         current_time_step = self.model.schedule.steps
@@ -109,6 +126,19 @@ class MonetaryFMarket:  # This is Overlay
                      build: float,
                      long: float,
                      leverage: float):
+        """
+        Calculates fees for building or unwinding a position then transfers to treasury and burns
+        the rest. Returns the value after fees
+
+        Args:
+            dn:
+            build:
+            long:
+            leverage:
+
+        Returns:
+
+        """
         # Impose fees, burns portion, and transfers rest to treasury
         size = dn*leverage
         fees = min(size*self.base_fee, dn)
@@ -116,6 +146,7 @@ class MonetaryFMarket:  # This is Overlay
         # Burn 50% and other 50% send to treasury
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"Burning ds={0.5*fees} OVL from total supply")
+
         self.model.supply_of_ovl -= 0.5 * fees
         self.model.treasury += 0.5*fees
 
@@ -137,7 +168,7 @@ class MonetaryFMarket:  # This is Overlay
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
         assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
-        slippage = 0.0
+
         if (build and long) or (not build and not long):
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
@@ -299,9 +330,9 @@ class MonetaryFMarket:  # This is Overlay
             return
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
-        cum_price_feed = np.sum(np.array(
-            self.model.ticker_to_time_series_of_prices_map[self.unique_id][current_time_step - self.model.sampling_interval:current_time_step]
-        ))
+        cum_price_feed = \
+            np.sum(self.model.ticker_to_time_series_of_prices_map[self.unique_id][current_time_step - self.model.sampling_interval:current_time_step])
+
         twap_feed = cum_price_feed / self.model.sampling_interval
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"fund: Paying out funding for {self.unique_id}")
@@ -313,6 +344,7 @@ class MonetaryFMarket:  # This is Overlay
         self._update_cum_price()
         twap_market = (self.cum_price - self.last_cum_price) / self.model.sampling_interval
         self.last_cum_price = self.cum_price
+
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"fund: cum_price = {self.cum_price}")
             logger.debug(f"fund: last_cum_price = {self.last_cum_price}")
@@ -352,23 +384,25 @@ class MonetaryFMarket:  # This is Overlay
         if funding == 0.0:
             return
         elif funding > 0.0:
-            funding = min(funding, 1.0)
-            funding_long = min(twao_long*funding, self.locked_long) # can't have negative locked long
+            funding = min(funding, 1.0)  # clamp funding rate at 100%
+            funding_long = min(twao_long*funding, self.locked_long)  # can't have negative locked long
             funding_short = twao_short*funding
             self.model.supply_of_ovl += funding_short - funding_long
             self.locked_long -= funding_long
             self.locked_short += funding_short
+
             if logging.root.level <= DEBUG_LEVEL:
                 logger.debug(f"fund: Adding ds={funding_short - funding_long} OVL to total supply")
                 logger.debug(f"fund: Adding ds={-funding_long} OVL to longs")
                 logger.debug(f"fund: Adding ds={funding_short} OVL to shorts")
         else:
-            funding = max(funding, -1.0)
+            funding = max(funding, -1.0)  # clamp funding rate at 100%
             funding_long = abs(twao_long*funding)
-            funding_short = min(abs(twao_short*funding), self.locked_short) # can't have negative locked short
+            funding_short = min(abs(twao_short*funding), self.locked_short)  # can't have negative locked short
             self.model.supply_of_ovl += funding_long - funding_short
             self.locked_long += funding_long
             self.locked_short -= funding_short
+
             if logging.root.level <= DEBUG_LEVEL:
                 logger.debug(f"fund: Adding ds={funding_long - funding_short} OVL to total supply")
                 logger.debug(f"fund: Adding ds={funding_long} OVL to longs")
@@ -386,6 +420,7 @@ class MonetaryFMarket:  # This is Overlay
         self.x = self.nx*self.px
         self.y = self.ny*self.py
         self.k = self.x * self.y
+
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"fund: Adjusting virtual liquidity constants for {self.unique_id}")
             logger.debug(f"fund: nx (prior) = {self.nx}")
@@ -403,12 +438,13 @@ class MonetaryFMarket:  # This is Overlay
             logger.debug(f"fund: price (updated... should be same) = {self.price}")
 
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
-        cum_ovlusd_feed = np.sum(np.array(
-            self.model.ticker_to_time_series_of_prices_map["OVL-USD"][current_time_step - self.model.sampling_interval:current_time_step]
-        ))
+        cum_ovlusd_feed = \
+            np.sum(self.model.ticker_to_time_series_of_prices_map["OVL-USD"][current_time_step - self.model.sampling_interval:current_time_step])
+
         twap_ovlusd_feed = cum_ovlusd_feed / self.model.sampling_interval
-        self.px = twap_ovlusd_feed # px = n_usd/n_ovl
-        self.py = twap_ovlusd_feed/twap_feed # py = px/p
+        self.px = twap_ovlusd_feed  # px = n_usd/n_ovl
+        self.py = twap_ovlusd_feed/twap_feed  # py = px/p
+
         if logging.root.level <= DEBUG_LEVEL:
             logger.debug(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
             logger.debug(f"fund: cum_price_feed = {cum_ovlusd_feed}")
