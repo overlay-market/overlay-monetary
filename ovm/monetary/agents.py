@@ -362,6 +362,7 @@ class MonetarySniper(MonetaryAgent):
         if -funding_rate > self.min_funding_unwind:
             effective_rate = min(-funding_rate, self.max_funding_unwind)
             return current_size * (-funding_rate) / effective_rate
+        return 0.0
 
     def _unwind_positions(self):
         # TODO: rebalance inventory on unwind!
@@ -372,6 +373,9 @@ class MonetarySniper(MonetaryAgent):
             unwind_amount = self._get_unwind_amount(self.fmarket.funding(), pos.amount, pos.long)
             print(
                 f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}; unwind amount {unwind_amount}")
+            if unwind_amount == 0.0:
+                continue
+
             fees = self.fmarket.fees(unwind_amount, build=False, long=(
                 not pos.long), leverage=pos.leverage)
             _, ds = self.fmarket.unwind(unwind_amount, pid)
@@ -434,7 +438,7 @@ class MonetarySniper(MonetaryAgent):
 
     def _get_size(self, sprice, fprice, max_size, long):
         # Assume min size is zero
-        sizes = np.arange(0, max_size, self.size_increment*self.wealth)
+        sizes = np.arange(1, max_size, self.size_increment*self.wealth)
         print(f"Sniper._get_size: {sizes}")
         edge_map = {}
         for size in sizes:
@@ -443,6 +447,8 @@ class MonetarySniper(MonetaryAgent):
                 edge_map[self._get_effective_edge(sprice - filled_price, self.fmarket.funding(), long)] = size
             else:
                 edge_map[self._get_effective_edge(filled_price - sprice, self.fmarket.funding(), long)] = size
+        if len(edge_map.keys()) == 0:
+            return 0.0
         best_size = edge_map[max(edge_map.keys())]
         return best_size
 
@@ -484,6 +490,10 @@ class MonetarySniper(MonetaryAgent):
                 print(f"Arb.trade: Checking if long position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
                 amount = self._get_size(sprice, fprice, available_size, True)
+                # NOTE: this is hacky
+                if amount == 0.0:
+                    self._unwind_positions()
+
                 fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
                 slippage = self.fmarket.slippage(amount-fees,
                                                  build=True,
@@ -544,6 +554,10 @@ class MonetarySniper(MonetaryAgent):
                 print(f"Arb.trade: Checking if short position on {self.fmarket.unique_id} "
                       f"is profitable after slippage ....")
                 amount = self._get_size(sprice, fprice, available_size, False)
+                # NOTE: this is hacky
+                if amount == 0.0:
+                    self._unwind_positions()
+
                 fees = self.fmarket.fees(
                     amount, build=True, long=False, leverage=self.leverage_max)
                 # should be negative ...

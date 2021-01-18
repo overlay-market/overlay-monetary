@@ -315,7 +315,9 @@ class MonetaryFMarket:
         # Calculate twap of market ... update cum price value first
         print(f"funding: cum_price = {self.cum_price}")
         print(f"funding: last_cum_price = {self.last_cum_price}")
-        twap_market = (self.cum_price - self.last_cum_price) / dt
+        #twap_market = (self.cum_price - self.last_cum_price) / dt
+        # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
+        twap_market = self.price
         print(f"funding: twap_market = {twap_market}")
 
         funding = (twap_market - twap_feed) / twap_feed

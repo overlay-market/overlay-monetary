@@ -158,6 +158,7 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max,
+                    trade_delay=4*5,  # 15 s blocks ...
                     size_increment=0.1,
                     min_edge=0.0,
                     max_edge=0.1,  # max deploy at 10% edge
