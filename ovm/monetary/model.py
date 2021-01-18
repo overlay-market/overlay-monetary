@@ -78,12 +78,12 @@ class MonetaryModel(Model):
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
         n = len(sims.keys())
         prices_ovlusd = self.sims["OVL-USD"]
-        print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
+        # print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
             list(sims.keys())[i]: 1
             for i in range(n)
         }
-        print(f"liquidity_weight = {liquidity_weight}")
+        # print(f"liquidity_weight = {liquidity_weight}")
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
@@ -158,7 +158,7 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max,
-                    trade_delay=4*5,  # 15 s blocks ...
+                    trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
                     size_increment=0.1,
                     min_edge=0.0,
                     max_edge=0.1,  # max deploy at 10% edge
@@ -177,12 +177,12 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
 
-            print("MonetaryModel.init: Adding agent to schedule ...")
-            print(f"MonetaryModel.init: agent type={type(agent)}")
-            print(f"MonetaryModel.init: unique_id={agent.unique_id}")
-            print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
-            print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
-            print(f"MonetaryModel.init: inventory={agent.inventory}")
+            # print("MonetaryModel.init: Adding agent to schedule ...")
+            # print(f"MonetaryModel.init: agent type={type(agent)}")
+            # print(f"MonetaryModel.init: unique_id={agent.unique_id}")
+            # print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
+            # print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
+            # print(f"MonetaryModel.init: inventory={agent.inventory}")
 
             self.schedule.add(agent)
 
