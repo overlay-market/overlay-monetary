@@ -123,26 +123,6 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                             data_collector_name=DATA_COLLECTOR_NAME),
             ]
 
-        # chart_elements += [
-        #     ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        #
-        #     ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        #
-        #     ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        #
-        #     ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        #
-        #     ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        #
-        #     ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-        #                 data_collector_name=DATA_COLLECTOR_NAME),
-        # ]
-
     chart_elements += [
         ChartModule([{"Label": LIQUIDITY_LABEL, "Color": "Blue"}],
                     data_collector_name=DATA_COLLECTOR_NAME),

@@ -16,6 +16,7 @@ from ovm.monetary.plot_labels import (
     skew_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
+    agent_wealth_ovl_label,
     GINI_LABEL,
     GINI_ARBITRAGEURS_LABEL,
     SUPPLY_LABEL,
@@ -243,7 +244,7 @@ class MonetaryModel(Model):
                                                 ("Traders", MonetaryTrader),
                                                 ("Holders", MonetaryHolder)]:
                 if self.data_collection_options.compute_wealth:
-                    model_reporters[f'{agent_type_name} Wealth (OVL)'] = partial(compute_wealth_for_agent_type, agent_type=agent_type)
+                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(compute_wealth_for_agent_type, agent_type=agent_type)
 
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
