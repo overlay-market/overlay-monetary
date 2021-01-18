@@ -212,10 +212,10 @@ class MonetaryModel(Model):
             #"Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
             #"Arbitrageurs OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, inventory_type="OVL"),
             #"Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
-            "Snipers Wealth (OVL)": partial(compute_wealth, agent_type=MonetarySniper),
-            "Snipers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper),
-            "Snipers OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper, inventory_type="OVL"),
-            "Snipers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetarySniper, in_usd=True),
+            #"Snipers Wealth (OVL)": partial(compute_wealth, agent_type=MonetarySniper),
+            #"Snipers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper),
+            #"Snipers OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper, inventory_type="OVL"),
+            #"Snipers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetarySniper, in_usd=True),
             #"Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
             #"Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
             #"Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
@@ -228,7 +228,7 @@ class MonetaryModel(Model):
         })
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
-            agent_reporters={},  # {"Wealth": "wealth"},
+            agent_reporters={"Wealth": "wealth"},
         )
 
         self.running = True
@@ -238,5 +238,25 @@ class MonetaryModel(Model):
         """
         A model step. Used for collecting simulation and advancing the schedule
         """
+        from agents import (
+            MonetarySniper
+        )
         self.data_collector.collect(self)
+        top_10_snipers = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetarySniper],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_snipers = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetarySniper],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Sniper wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_snipers
+             })
+        print("Sniper wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_snipers
+             })
         self.schedule.step()

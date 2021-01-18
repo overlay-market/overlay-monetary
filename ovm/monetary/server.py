@@ -73,9 +73,9 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
 
 num_arbitrageurs = int(total_supply*0.0/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.01/base_wealth)
+num_traders = int(total_supply*0.16/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.2/base_wealth)
+num_snipers = int(total_supply*0.05/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
@@ -105,14 +105,14 @@ def construct_chart_elements(tickers) -> tp.List:
         #ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
         #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Snipers Wealth (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers Wealth (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Snipers Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Snipers OVL Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers OVL Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
         #ChartModule([{"Label": "Snipers Inventory (USD)", "Color": random_color()}],
         #            data_collector_name=DATA_COLLECTOR_NAME),
