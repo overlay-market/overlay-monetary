@@ -76,6 +76,7 @@ num_arbitrageurs = max(len(sims.keys()) * 5,
 num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))
 num_traders = int(total_supply*0.2/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
+num_snipers = 1
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
@@ -138,6 +139,7 @@ MODEL_KWARGS = {
     "num_keepers": num_keepers,
     "num_traders": num_traders,
     "num_holders": num_holders,
+    "num_snipers": num_snipers,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,

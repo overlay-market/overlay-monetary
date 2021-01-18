@@ -22,7 +22,13 @@ class MonetaryAgent(Agent):
         deploy_max: float = 0.95,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
-        trade_delay: int = 4*10
+        trade_delay: int = 4*10,
+        size_increment: float = 0.01,
+        min_edge: float = 0.0,
+        max_edge: float = 0.1, # max deploy at 10% edge
+        funding_multiplier: float = 1.0, # applied to funding cost when considering exiting position
+        min_funding_unwind: float = 0.001, # start unwind when funding reaches .1% against position
+        max_funding_unwind: float = 0.02 # unwind immediately when funding reaches 2% against position
     ):  # TODO: Fix constraint issues? => related to liquidity values we set ... do we need to weight liquidity based off vol?
         """
         Customize the agent
@@ -335,3 +341,270 @@ class MonetaryKeeper(MonetaryAgent):
         if i % self.model.sampling_interval == 0:
             self.distribute_funding()
             self.update_market_liquidity()
+
+
+# Only attempts for opportunities above a certain edge threshold, and linearly scales into position according to the amount of edge available.
+# Unwinds position according to edge adjusted for current funding rate * funding_multiplier (ideally, this would be predicted funding rate).
+class MonetarySniper(MonetaryAgent):
+
+    def _get_unwind_amount(self, funding_rate, current_size, long):
+        # Assume negative funding favors longs
+        if long and funding_rate > self.min_funding_unwind:
+            effective_rate = min(funding_rate, self.max_funding_unwind)
+            return current_size * funding_rate / effective_rate
+        if -funding_rate > self.min_funding_unwind:
+            effective_rate = min(-funding_rate, self.max_funding_unwind)
+            return current_size * (-funding_rate) / effective_rate
+
+    def _unwind_positions(self):
+        # TODO: rebalance inventory on unwind!
+        idx = self.model.schedule.steps
+        sprice = self.model.sims[self.fmarket.unique_id][idx]
+        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        for pid, pos in self.positions.items():
+            unwind_amount = self._get_unwind_amount(self.fmarket.last_funding_rate, pos.amount, pos.long)
+            print(
+                f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}; unwind amount {unwind_amount}")
+            fees = self.fmarket.fees(unwind_amount, build=False, long=(
+                not pos.long), leverage=pos.leverage)
+            _, ds = self.fmarket.unwind(unwind_amount, pid)
+            slippage = self.fmarket.slippage(unwind_amount-fees,
+                                                build=True,
+                                                long=True,
+                                                leverage=self.leverage_max)
+            self.inventory["OVL"] += unwind_amount + ds - fees
+            self.locked -= unwind_amount
+            self.wealth += ds - fees
+            self.last_trade_idx = self.model.schedule.steps
+
+            # Counter the futures trade on spot to unwind the arb
+            # TODO: Have the spot market counter trades wrapped in SMarket class properly (clean this up)
+            if pos.long is not True:
+                spot_sell_amount = unwind_amount*pos.leverage*sprice_ovlusd/sprice
+                spot_sell_fees = min(
+                    spot_sell_amount*self.fmarket.base_fee, unwind_amount)
+                spot_sell_received = (spot_sell_amount - spot_sell_fees)*sprice
+                print("Arb._unwind_positions: Selling base curr on spot to unwind arb ...")
+                print(f"Arb._unwind_positions: spot sell amount (OVL) -> {unwind_amount}")
+                print(f"Arb._unwind_positions: spot sell amount ({self.fmarket.base_currency})"
+                      f" -> {spot_sell_amount}")
+
+                print(f"Arb._unwind_positions: spot sell fees ({self.fmarket.base_currency})"
+                      f" -> {spot_sell_fees}")
+
+                print(f"Arb._unwind_positions: spot sell received (USD) -> {spot_sell_received}")
+                # TODO: this is wrong because of the leverage! fix
+                self.inventory[self.fmarket.base_currency] -= spot_sell_amount
+                self.inventory["USD"] += spot_sell_received
+                print(f"Arb._unwind_positions: inventory -> {self.inventory}")
+            else:
+                spot_buy_amount = unwind_amount*pos.leverage*sprice_ovlusd
+                spot_buy_fees = min(
+                    spot_buy_amount*self.fmarket.base_fee, unwind_amount)
+                spot_buy_received = (spot_buy_amount - spot_buy_fees)/sprice
+                print("Arb._unwind_positions: Buying base curr on spot to lock in arb ...")
+                print(f"Arb._unwind_positions: spot buy amount (OVL) -> {unwind_amount}")
+                print(f"Arb._unwind_positions: spot buy amount (USD) -> {spot_buy_amount}")
+                print(f"Arb._unwind_positions: spot buy fees (USD) -> {spot_buy_fees}")
+                print(f"Arb._unwind_positions: spot buy received ({self.fmarket.base_currency})"
+                      f" -> {spot_buy_received}")
+
+                self.inventory["USD"] -= spot_buy_amount
+                self.inventory[self.fmarket.base_currency] += spot_buy_received
+                print(f"Arb._unwind_positions: inventory -> {self.inventory}")
+
+        self.positions = {}
+
+    def _get_filled_price(self, price, amount, long):
+        fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
+        slippage = self.fmarket.slippage(amount-fees,
+                                            build=True,
+                                            long=True,
+                                            leverage=self.leverage_max)
+        if long:
+            return price * (1 + slippage + fees)
+        return price - (slippage + fees)
+
+    def _get_size(self, sprice, fprice, max_size, long):
+        # Assume min size is zero
+        sizes = range(0, max_size, self.size_increment) 
+        edge_map = {}
+        for size in sizes:
+            filled_price = self.get_filled_price(fprice, size, long)
+            if long:
+                edge_map[self._get_effective_edge(sprice - filled_price, self.fmarket.last_funding_rate, long)] = size
+            else:
+                edge_map[self._get_effective_edge(filled_price - sprice, self.fmarket.last_funding_rate, long)] = size
+        best_size = edge_map[max(edge_map.keys())]
+        return best_size
+
+    def _get_effective_edge(self, raw_edge, funding_rate, long):
+        # Assume negative funding favors longs
+        if long:
+            funding_edge -= funding_rate * self.funding_multiplier
+            return min(funding_edge, self.max_edge)
+        funding_edge += funding_rate * self.funding_multiplier
+        return min(funding_edge, self.max_edge)
+
+    def trade(self):
+        # If market futures price > spot then short, otherwise long
+        # Calc the slippage first to see if worth it
+        # TODO: Check for an arb opportunity. If exists, trade it ... bet Y% of current wealth on the arb ...
+        # Get ready to arb current spreads
+        idx = self.model.schedule.steps
+        sprice = self.model.sims[self.fmarket.unique_id][idx]
+        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        fprice = self.fmarket.price
+
+        # TODO: Check arbs are making money on the spot .... Implement spot USD basis
+
+        # TODO: Either wait for funding to unwind OR unwind once
+        # reach wealth deploy_max and funding looks to be dried up?
+
+        # Simple for now: tries to enter a pos_max amount of position if it wouldn't
+        # breach the deploy_max threshold
+        # TODO: make smarter, including thoughts on capturing funding (TWAP'ing it as well) => need to factor in slippage on spot (and have a spot market ...)
+        # TODO: ALSO, when should arbitrageur exit their positions? For now, assume at funding they do (again, dumb) => Get dwasse comments here to make smarter
+        # TODO: Add in slippage bounds for an order
+        # TODO: Have arb bot determine position size dynamically needed to get price close to spot value (scale down size ...)
+        # TODO: Have arb bot unwind all prior positions once deploys certain amount (or out of wealth)
+        print(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
+        available_size = self.wealth - self.locked
+        if available_size > 0:
+            if sprice > fprice:
+                print(f"Arb.trade: Checking if long position on {self.fmarket.unique_id} "
+                      f"is profitable after slippage ....")
+                amount = self._get_size(sprice, fprice, available_size, True)
+                fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
+                slippage = self.fmarket.slippage(amount-fees,
+                                                 build=True,
+                                                 long=True,
+                                                 leverage=self.leverage_max)
+                # This has a good amount of duplicate work; already have fees, slippage, edge calculated
+                fill_price = self._get_filled_price(fprice, size, True)
+                edge = sprice - fill_price
+                effective_edge = self._get_effective_edge(edge, self.fmarket.last_funding_rate, True)
+                if effective_edge > self.min_edge:
+                    deploy_fraction = self.effective_edge / self.max_edge
+                    amount = deploy_fraction * available_size
+                    print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
+                    # enter the trade to arb
+                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
+                    print("Arb.trade: Entered long arb trade w pos params ...")
+                    print(f"Arb.trade: pos.amount -> {pos.amount}")
+                    print(f"Arb.trade: pos.long -> {pos.long}")
+                    print(f"Arb.trade: pos.leverage -> {pos.leverage}")
+                    print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
+                    self.positions[pos.id] = pos
+                    self.inventory["OVL"] -= pos.amount + fees
+                    self.locked += pos.amount
+                    self.wealth -= fees
+                    self.last_trade_idx = idx
+                    # Counter the futures trade on spot with sell to lock in the arb
+                    # TODO: Check never goes negative and eventually implement with a spot CFMM
+                    # TODO: send fees to spot market CFMM ... (amount - fees)
+                    spot_sell_amount = pos.amount*pos.leverage*sprice_ovlusd/sprice
+                    # assume same as futures fees
+                    spot_sell_fees = min(
+                        spot_sell_amount*self.fmarket.base_fee, pos.amount)
+                    spot_sell_received = (
+                        spot_sell_amount - spot_sell_fees)*sprice
+                    print("Arb.trade: Selling base curr on spot to lock in arb ...")
+                    print(f"Arb.trade: spot sell amount (OVL) -> {pos.amount}")
+                    print(f"Arb.trade: spot sell amount ({self.fmarket.base_currency})"
+                        f" -> {spot_sell_amount}")
+                    print(f"Arb.trade: spot sell fees ({self.fmarket.base_currency})"
+                        f" -> {spot_sell_fees}")
+                    print(f"Arb.trade: spot sell received (USD)"
+                        f" -> {spot_sell_received}")
+                    self.inventory[self.fmarket.base_currency] -= spot_sell_amount
+                    self.inventory["USD"] += spot_sell_received
+                    print(f"Arb.trade: inventory -> {self.inventory}")
+                    # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
+                    # PnL (OVL) = - pos.amount * (sprice_ovlusd/sprice_ovlusd_t) * (price_t - s_price)/s_price + pos.amount * (price_t - lock_price)/lock_price
+                    #           = pos.amount * [ - (sprice_ovlusd/sprice_ovlusd_t) * (price_t/s_price - 1 ) + (price_t/lock_price - 1) ]
+                    #           ~ pos.amount * [ - price_t/s_price + price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
+                    #           = pos.amount * price_t * [ 1/lock_price - 1/s_price ]
+                    # But s_price > lock_price, so PnL (approx) > 0
+                    locked_in_approx = pos.amount * pos.leverage * \
+                        (sprice/pos.lock_price - 1.0)
+                    # TODO: incorporate fee structure!
+                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
+            elif sprice < fprice:
+                print(f"Arb.trade: Checking if short position on {self.fmarket.unique_id} "
+                      f"is profitable after slippage ....")
+                amount = self._get_size(sprice, fprice, available_size, False)
+                fees = self.fmarket.fees(
+                    amount, build=True, long=False, leverage=self.leverage_max)
+                # should be negative ...
+                slippage = self.fmarket.slippage(
+                    amount-fees, build=True, long=False, leverage=self.leverage_max)
+                # This has a good amount of duplicate work; already have fees, slippage, edge calculated
+                fill_price = self._get_filled_price(fprice, size, False)
+                edge = fill_price - sprice
+                effective_edge = self._get_effective_edge(edge, self.fmarket.last_funding_rate, False)
+                if effective_edge > self.min_edge:
+                    deploy_fraction = self.effective_edge / self.max_edge
+                    amount = deploy_fraction * available_size
+                    print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
+                    # enter the trade to arb
+                    pos = self.fmarket.build(
+                        amount, long=False, leverage=self.leverage_max)
+                    print("Arb.trade: Entered short arb trade w pos params ...")
+                    print(f"Arb.trade: pos.amount -> {pos.amount}")
+                    print(f"Arb.trade: pos.long -> {pos.long}")
+                    print(f"Arb.trade: pos.leverage -> {pos.leverage}")
+                    print(f"Arb.trade: pos.lock_price -> {pos.lock_price}")
+                    self.positions[pos.id] = pos
+                    self.inventory["OVL"] -= pos.amount + fees
+                    self.locked += pos.amount
+                    self.wealth -= fees
+                    self.last_trade_idx = idx
+
+                    # Counter the futures trade on spot with buy to lock in the arb
+                    # TODO: Check never goes negative and eventually implement with a spot CFMM
+                    # TODO: send fees to spot market CFMM ...
+                    # TODO: FIX THIS FOR LEVERAGE SINCE OWING DEBT ON SPOT (and not accounting for it properly) -> Fine with counter unwind ultimately in long run
+                    spot_buy_amount = pos.amount*pos.leverage*sprice_ovlusd
+                    spot_buy_fees = min(
+                        spot_buy_amount*self.fmarket.base_fee, pos.amount)
+                    spot_buy_received = (
+                        spot_buy_amount - spot_buy_fees)/sprice
+                    print("Arb.trade: Buying base curr on spot to lock in arb ...")
+                    print(f"Arb.trade: spot buy amount (OVL) -> {pos.amount}")
+                    print(f"Arb.trade: spot buy amount (USD) -> {spot_buy_amount}")
+                    print(f"Arb.trade: spot buy fees (USD) -> {spot_buy_fees}")
+                    print(f"Arb.trade: spot buy received ({self.fmarket.base_currency})"
+                          f" -> {spot_buy_received}")
+                    self.inventory["USD"] -= spot_buy_amount
+                    self.inventory[self.fmarket.base_currency] += spot_buy_received
+                    print(f"Arb.trade: inventory -> {self.inventory}")
+
+                    # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
+                    # PnL (OVL) = pos.amount * (sprice_ovlusd/sprice_ovlusd_t) * (price_t - s_price)/s_price - pos.amount * (price_t - lock_price)/lock_price
+                    #           = pos.amount * [ (sprice_ovlusd/sprice_ovlusd_t) * (price_t/s_price - 1 ) - (price_t/lock_price - 1) ]
+                    #           ~ pos.amount * [ price_t/s_price - price_t/lock_price ] (if sprice_ovlusd/sprice_ovlusd_t ~ 1 over trade entry/exit time period)
+                    #           = pos.amount * price_t * [ 1/s_price - 1/lock_price ]
+                    # But s_price < lock_price, so PnL (approx) > 0
+                    locked_in_approx = pos.amount * pos.leverage * \
+                        (1.0 - sprice/pos.lock_price)
+                    # TODO: incorporate fee structure!
+                    print(f"Arb.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                    print(f"Arb.trade: arb profit locked in (USD) = {locked_in_approx*sprice_ovlusd}")
+        else:
+            # TODO: remove but try this here => dumb logic but want to see
+            # what happens to currency supply if end up unwinding before each new trade (so only 1 pos per arb)
+            self._unwind_positions()
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        idx = self.model.schedule.steps
+        # Allow only one trader to trade on a market per block.
+        # Add in a trade delay to simulate cooldown due to gas.
+        if (self.fmarket.last_trade_idx != idx) and \
+           (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
+            self.trade()
