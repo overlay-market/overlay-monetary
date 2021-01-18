@@ -10,9 +10,9 @@ from mesa.visualization.modules import ChartModule
 
 from ovm.debug_level import DEBUG_LEVEL
 from ovm.monetary.model import (
-    DataCollectionOptions,
     MonetaryModel
 )
+from ovm.monetary.options import DataCollectionOptions
 
 from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 

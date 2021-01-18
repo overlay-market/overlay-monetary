@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from functools import partial
 import logging
 import typing as tp
@@ -9,6 +8,7 @@ from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
 from ovm.debug_level import DEBUG_LEVEL
+from ovm.monetary.options import DataCollectionOptions
 
 from ovm.tickers import (
     USD_TICKER,
@@ -18,15 +18,6 @@ from ovm.tickers import (
 
 # set up logging
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DataCollectionOptions:
-    # if False, all data collection is turned off, even if individual flags are turned on below
-    perform_data_collection: bool = True
-    compute_gini_coefficient: bool = True
-    compute_wealth: bool = True
-    compute_inventory_wealth: bool = True
 
 
 class MonetaryModel(Model):
