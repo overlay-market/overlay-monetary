@@ -1,25 +1,18 @@
-import typing as tp
-
 from contexttimer import Timer
 import numpy as np
 import os
-import pandas as pd
 
-from ovm.simulation.bootstrap import (
-    convert_block_length_from_seconds_to_blocks,
-    plot_multivariate_simulation
-)
-
-from ovm.historical.data_io import (
-    load_price_histories,
-    construct_series_name_to_closing_price_map,
-    construct_closing_price_df,
-    compute_log_return_df
-)
+from ovm.simulation.bootstrap import plot_multivariate_simulation
 
 from ovm.paths import (
     HISTORICAL_DATA_DIRECTORY,
     SIMULATED_DATA_DIRECTORY
+)
+
+from ovm.simulation.resampling import (
+    load_log_returns,
+    simulate_new_price_series_via_bootstrap,
+    store_simulated_price_series_in_output_directory
 )
 
 from ovm.tickers import (
@@ -32,10 +25,6 @@ from ovm.tickers import (
 )
 
 from ovm.time_resolution import TimeResolution
-
-from recombinator import (
-    stationary_bootstrap
-)
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
@@ -57,47 +46,7 @@ series_names = \
      LINK_USD_TICKER]
 
 # specify numpy seed for simulations
-NUMPY_SEED = 100
-
-
-def load_log_returns(series_names: tp.Sequence[str],
-                     period_length_in_seconds: float,
-                     directory_path: tp.Optional[str] = None) \
-        -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    # load price simulation
-    series_name_to_price_history_map = \
-        load_price_histories(series_names=series_names,
-                             period_length_in_seconds=period_length_in_seconds,
-                             directory_path=directory_path)
-
-    # construct log returns
-    closing_price_df = \
-        (construct_closing_price_df(
-            construct_series_name_to_closing_price_map(series_name_to_price_history_map))
-         .loc[:, series_names].dropna())
-
-    initial_prices = closing_price_df.iloc[0, :]
-
-    log_return_df = compute_log_return_df(closing_price_df).dropna()
-
-    return log_return_df, closing_price_df, initial_prices
-
-
-def convert_log_simulated_returns_to_prices(simulated_log_returns: np.ndarray,
-                                            initial_prices: np.ndarray):
-    # simulated_log_returns is an array with shape
-    # (number of monte carlo replications,
-    # length of simulated time series,
-    # number of cryptocurrencies simulated)
-    return np.exp(np.log(initial_prices.reshape((1, 1, -1))) + simulated_log_returns.cumsum(axis=1))
-
-
-def extract_single_cryptocurrency_path_from_simulated_data(
-        simulated_data: np.ndarray,
-        series_names: tp.Sequence[str],
-        series_name: str,
-        path: int = 0):
-    return simulated_data[path, :, series_names.index(series_name)]
+NUMPY_SEED = 42
 
 
 def main():
@@ -109,55 +58,76 @@ def main():
                              period_length_in_seconds=time_resolution.in_seconds,
                              directory_path=directory_path)
 
-        block_length = \
-            convert_block_length_from_seconds_to_blocks(
-                # block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
-                block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
-                period_length_in_seconds=time_resolution.in_seconds)
+        # block_length = \
+        #     convert_and_ceil_time_period_from_seconds_to_number_of_periods(
+        #         # block_length_in_seconds=15 * 60 * 60,  # 15 hour block length
+        #         time_periods_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
+        #         period_length_in_seconds=time_resolution.in_seconds)
 
     print(f'Time to load all price series: {timer.elapsed} seconds')
 
-    with Timer() as timer:
-        # resample returns
-        simulated_log_returns = \
-            stationary_bootstrap(
-                log_return_df.values,
-                block_length=block_length,
-                replications=number_of_paths)
+    simulated_sample_length_in_steps = len(log_return_df)
+    simulated_sample_length_in_seconds = simulated_sample_length_in_steps * time_resolution.in_seconds
 
-        # convert to prices
+    with Timer() as timer:
+    #     # resample returns
+    #     simulated_log_returns = \
+    #         stationary_bootstrap(
+    #             log_return_df.values,
+    #             block_length=block_length,
+    #             replications=number_of_paths,
+    #             sub_sample_length=simulated_sample_length_in_steps)
+    #
+    #     # convert to prices
+    #     simulated_prices = \
+    #         convert_log_simulated_returns_to_prices(simulated_log_returns=simulated_log_returns,
+    #                                                 initial_prices=initial_prices.values)
+
         simulated_prices = \
-            convert_log_simulated_returns_to_prices(simulated_log_returns=simulated_log_returns,
-                                                    initial_prices=initial_prices.values)
+            simulate_new_price_series_via_bootstrap(
+                initial_prices=initial_prices,
+                input_log_return_df=log_return_df,
+                time_resolution=time_resolution,
+                block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
+                simulated_sample_length_in_steps_in_seconds=simulated_sample_length_in_seconds,
+                number_of_paths=1)
 
     print(f'Time to simulate {number_of_paths} paths of prices and returns: {timer.elapsed} seconds')
 
-    # plot the first monte carlo replication of log returns and prices
-    plot_multivariate_simulation(simulated_data=simulated_log_returns,
-                                 series_names=series_names,
-                                 title='Log Returns')
+    # # plot the first monte carlo replication of log returns and prices
+    # plot_multivariate_simulation(simulated_data=simulated_log_returns,
+    #                              series_names=series_names,
+    #                              title='Log Returns')
 
     plot_multivariate_simulation(simulated_data=simulated_prices,
                                  series_names=series_names,
                                  title='Exchange Rates')
 
-    # create output directory
-    simulation_output_directory = os.path.join(SIMULATED_DATA_DIRECTORY,
-                                               str(time_resolution.value),
-                                               f'sims-{NUMPY_SEED}')
+    # # create output directory
+    # simulation_output_directory = \
+    #     construct_simulation_output_directory(time_resolution=time_resolution,
+    #                                           numpy_seed=NUMPY_SEED,
+    #                                           simulated_data_directory=SIMULATED_DATA_DIRECTORY)
+    #
+    # if not os.path.exists(simulation_output_directory):
+    #     os.makedirs(simulation_output_directory)
+    #
+    # # output simulated paths to csv files ...
+    # for series in series_names:
+    #     simulation_output_filepath = os.path.join(simulation_output_directory,
+    #                                               f'sim-{series}.csv')
+    #
+    #     pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
+    #         simulation_output_filepath,
+    #         index=False
+    #     )
 
-    if not os.path.exists(simulation_output_directory):
-        os.makedirs(simulation_output_directory)
-
-    # output simulated paths to csv files ...
-    for series in series_names:
-        simulation_output_filepath = os.path.join(simulation_output_directory,
-                                                  f'sim-{series}.csv')
-
-        pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
-            simulation_output_filepath,
-            index=False
-        )
+    store_simulated_price_series_in_output_directory(
+        series_names=series_names,
+        simulated_prices=simulated_prices,
+        time_resolution=time_resolution,
+        numpy_seed=NUMPY_SEED,
+        simulated_data_directory=SIMULATED_DATA_DIRECTORY)
 
 
 if __name__ == '__main__':

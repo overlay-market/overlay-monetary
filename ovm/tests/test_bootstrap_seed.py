@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ovm.simulation.bootstrap import convert_block_length_from_seconds_to_blocks
+from ovm.simulation.bootstrap import convert_and_ceil_time_period_from_seconds_to_number_of_periods
 
 from ovm.historical.data_io import (
     load_price_histories,
@@ -75,8 +75,8 @@ def load_log_returns(series_names: tp.Sequence[str],
 
 
 block_length = \
-    convert_block_length_from_seconds_to_blocks(
-        block_length_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
+    convert_and_ceil_time_period_from_seconds_to_number_of_periods(
+        time_periods_in_seconds=4 * 24 * 60 * 60,  # 4 day block length
         period_length_in_seconds=time_resolution.in_seconds)
 
 

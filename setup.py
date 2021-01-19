@@ -26,6 +26,7 @@ REQUIRED = [
     "ccxt",
     "contexttimer",
     "jupyter",
+    "line_profiler",
     "matplotlib",
     "mesa",
     "numpy",

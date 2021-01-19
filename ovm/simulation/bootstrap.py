@@ -36,9 +36,14 @@ def convert_block_lenghts_to_seconds(
     return series_name_to_block_lengths_in_seconds_map
 
 
-def convert_block_length_from_seconds_to_blocks(block_length_in_seconds: float,
-                                                period_length_in_seconds: float) -> int:
-    return np.ceil(block_length_in_seconds / period_length_in_seconds)
+def convert_and_ceil_time_period_from_seconds_to_number_of_periods(
+        time_periods_in_seconds: float,
+        period_length_in_seconds: float) -> int:
+    # Example:
+    # period length = 15s
+    # block length = 60s
+    # That means 4 steps
+    return int(np.ceil(time_periods_in_seconds / period_length_in_seconds))
 
 
 def estimate_optimal_block_lengths_in_seconds_for_multiple_price_series(
