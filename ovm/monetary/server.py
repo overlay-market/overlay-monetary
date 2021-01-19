@@ -71,11 +71,11 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
                              for i
                              in range(time_liquidity_mine)]
 
-num_arbitrageurs = int(total_supply*0.0/base_wealth)
+num_arbitrageurs = int(total_supply*0.05/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.16/base_wealth)
+num_traders = int(total_supply*0.01/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.05/base_wealth)
+num_snipers = int(total_supply*0.15/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
 
 DATA_COLLECTOR_NAME = 'data_collector'
@@ -176,6 +176,7 @@ print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
 print(f"num_traders = {MODEL_KWARGS['num_traders']}")
 print(f"num_holders = {MODEL_KWARGS['num_holders']}")
 print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
+print(f"base_wealth = {total_supply}")
 
 chart_elements = construct_chart_elements(sims.keys())
 

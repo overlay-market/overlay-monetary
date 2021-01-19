@@ -92,6 +92,7 @@ class MonetaryArbitrageur(MonetaryAgent):
             fees = self.fmarket.fees(pos.amount, build=False, long=(
                 not pos.long), leverage=pos.leverage)
             _, ds = self.fmarket.unwind(pos.amount, pid)
+            print("Unwound: ds ->", ds)
             self.inventory["OVL"] += pos.amount + ds - fees
             self.locked -= pos.amount
             self.wealth += ds - fees
@@ -192,7 +193,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 #      f"{sprice/(fprice * (1+slippage)) - 1.0}")
 
                 if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
-                    and sprice/(fprice * (1+slippage)) - 1.0 > 0.025: # TODO: arb_min on the RHS here instead of hard coded 0.025 = 2.5%
+                    and sprice/(fprice * (1+slippage)) - 1.0 > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
                     # print("Arb.trade: Entered long arb trade w pos params ...")
@@ -253,7 +254,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 # print(f"Arb.trade: arb profit opp % -> "
                 #      f"{1.0 - sprice/(fprice * (1+slippage))}")
                 if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
-                    and 1.0 - sprice/(fprice * (1+slippage)) > 0.025: # TODO: arb_min on the RHS here instead of hard coded 0.025 = 2.5%
+                    and 1.0 - sprice/(fprice * (1+slippage)) > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(
                         amount, long=False, leverage=self.leverage_max)
@@ -434,14 +435,14 @@ class MonetarySniper(MonetaryAgent):
                                             build=True,
                                             long=True,
                                             leverage=self.leverage_max)
+
         if long:
-            return price * (1 + slippage + fees)
-        return price - (slippage + fees)
+            return price * (1 + slippage + fees/amount)
+        return price * (1 - slippage - fees/amount)
 
     def _get_size(self, sprice, fprice, max_size, long):
         # Assume min size is zero
-        sizes = np.arange(1, max_size, self.size_increment*self.wealth)
-        # print(f"Sniper._get_size: {sizes}")
+        sizes = np.arange(self.size_increment*self.wealth, max_size, self.size_increment*self.wealth)
         edge_map = {}
         for size in sizes:
             filled_price = self._get_filled_price(fprice, size, long)
@@ -494,7 +495,7 @@ class MonetarySniper(MonetaryAgent):
                 amount = self._get_size(sprice, fprice, available_size, True)
                 # NOTE: this is hacky
                 if amount == 0.0:
-                    self._unwind_positions()
+                    return self._unwind_positions()
 
                 fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
                 slippage = self.fmarket.slippage(amount-fees,
@@ -558,7 +559,7 @@ class MonetarySniper(MonetaryAgent):
                 amount = self._get_size(sprice, fprice, available_size, False)
                 # NOTE: this is hacky
                 if amount == 0.0:
-                    self._unwind_positions()
+                    return self._unwind_positions()
 
                 fees = self.fmarket.fees(
                     amount, build=True, long=False, leverage=self.leverage_max)

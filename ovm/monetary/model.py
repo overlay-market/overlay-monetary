@@ -239,7 +239,8 @@ class MonetaryModel(Model):
         A model step. Used for collecting simulation and advancing the schedule
         """
         from agents import (
-            MonetarySniper
+            MonetaryArbitrageur,
+            MonetarySniper,
         )
         self.data_collector.collect(self)
         top_10_snipers = sorted(
@@ -258,5 +259,23 @@ class MonetaryModel(Model):
         print("Sniper wealths bottom 10", {
               a.unique_id: a.wealth
               for a in bottom_10_snipers
+             })
+
+        top_10_arbs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_arbs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Arbs wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_arbs
+             })
+        print("Arbs wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_arbs
              })
         self.schedule.step()
