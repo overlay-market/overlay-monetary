@@ -1,3 +1,4 @@
+from typing import Any
 from dataclasses import dataclass
 import numpy as np
 import uuid
@@ -14,6 +15,9 @@ class MonetaryFPosition:
     amount: float = 0.0
     long: bool = True
     leverage: float = 1.0
+    maintenance: float = 0.6 # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0
+    trader: Any = None
+    # TODO: Link this to the trader who entered otherwise no way to know how wealth changes after liquidate
 
     def __post_init__(self):
         self.id = uuid.uuid4()
@@ -227,7 +231,8 @@ class MonetaryFMarket:
     def build(self,
               dn: float,
               long: bool,
-              leverage: float):
+              leverage: float,
+              trader: Any = None):
         # TODO: Factor in shares of lock pools for funding payment portions to work
         amount = self._impose_fees(
             dn, build=True, long=long, leverage=leverage)
@@ -236,7 +241,8 @@ class MonetaryFMarket:
                                 lock_price=price,
                                 amount=amount,
                                 long=long,
-                                leverage=leverage)
+                                leverage=leverage,
+                                trader=trader)
         self.positions[pos.id] = pos
 
         # Lock into long/short pool last
@@ -290,6 +296,10 @@ class MonetaryFMarket:
         # Mint/burn from total supply the profits/losses
         ds=amount * pos.leverage * side * \
             (price - pos.lock_price)/pos.lock_price
+
+        # Cap to make sure system doesn't burn more than locked amount in pos
+        if ds < 0:
+            ds = max(ds, -amount)
         # print(f"unwind: {'Minting' if ds > 0 else 'Burning'} ds={ds} OVL from total supply")
         self.model.supply += ds
 
@@ -459,6 +469,45 @@ class MonetaryFMarket:
         # print(f"fund: px (updated) = {self.px}")
         # print(f"fund: py (updated) = {self.py}")
         # print(f"fund: price (updated... should be same) = {self.price}")
+
+    def liquidatable(self, pid: uuid.UUID) -> bool:
+        pos = self.positions.get(pid)
+        if pos is None or (pos.long and pos.leverage == 1.0):
+            return False
+
+        # position initial margin fraction = 1/leverage
+        side=1 if pos.long else -1
+        open_position_notional = pos.amount*pos.leverage*(1 + \
+            side*(self.price - pos.lock_price)/pos.lock_price)
+        collateral = pos.amount
+        open_leverage = open_position_notional/collateral
+        open_margin = 1/open_leverage
+        maintenance_margin = self.maintenance/self.leverage
+        return open_margin < maintenance_margin
+
+    def liquidate(self, pid: uuid.UUID) -> float:
+        can = self.liquidatable(pid)
+        pos = self.positions.get(pid)
+        if pos is None or not can:
+            # print(f"liquidate: pid {pid} can't be liquidated") ... TODO: as an error although don't want to kill the sim
+            return 0.0
+
+        # Unwind but change supply back to original before unwind to factor in
+        # reward to liquidator (then modify supply again) -> this is hacky
+        _, ds = self.unwind(pos.amount, pid)
+        self.model.supply -= ds
+
+        # NOTE: ds should be negative
+        assert ds < 0, "liquidate: position liquidation should result in burn of amount"
+        reward = abs(ds) * self.liquidate_reward
+
+        # Anything left over after the burn is pos.amount - abs(ds) (leftover margin) ... split this
+        margin = min(pos.amount - abs(ds), 0)
+
+        # Any maintenance margin should be split between burn and treasury
+        self.model.treasury += 0.5 * margin
+        self.model.supply -= (abs(ds) - reward + 0.5*margin)
+        return reward
 
 
 class MonetarySMarket:

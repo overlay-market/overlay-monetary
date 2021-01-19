@@ -77,6 +77,64 @@ class MonetaryAgent(Agent):
             self.trade()
 
 
+class MonetaryKeeper(MonetaryAgent):
+    def distribute_funding(self):
+        # Sends funding payments on each agent's positions and updates px, py
+        self.fmarket.fund()
+
+    def update_market_liquidity(self):
+        # Updates k value per funding payment to adjust slippage
+        i = self.model.schedule.steps
+
+        # TODO: Adjust slippage to ensure appropriate price sensitivity
+        # per OVL in x, y pools => Start with 1/N * OVLETH liquidity and then
+        # do a per market risk weighted avg
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        i = self.model.schedule.steps
+        if i % self.model.sampling_interval == 0:
+            self.distribute_funding()
+            self.update_market_liquidity()
+
+
+class MonetaryLiquidator(MonetaryAgent):
+    def scope_liquidations(self):
+        # Finds a position to liquidate, then liquidates it
+        idx = self.model.schedule.steps
+        sprice = self.model.sims[self.fmarket.unique_id][idx]
+        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        fprice = self.fmarket.price
+
+        for pid, pos in self.fmarket.positions.items():
+            print("pid {} on market {}".format(pid, self.fmarket.unique_id))
+            if self.fmarket.liquidatable(pid) and pos.amount > 0.0:
+                reward = self.fmarket.liquidate(pid)
+                self.inventory["OVL"] += reward
+                self.wealth += reward
+                pos.agent.locked -= pos.amount
+                pos.agent.wealth -= pos.amount
+                self.last_trade_idx = self.model.schedule.steps
+                return
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        # NOTE: liquidated positions act like market orders, so
+        # liquidators act like traders in a sense
+        idx = self.model.schedule.steps
+        # Allow only one trader to trade on a market per block.
+        # Add in a trade delay to simulate cooldown due to gas.
+        if (self.fmarket.last_trade_idx != idx) and \
+           (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
+            self.scope_liquidations()
+
+
 class MonetaryArbitrageur(MonetaryAgent):
     # TODO: super().__init__() with an arb min for padding, so doesn't trade if can't make X% locked in
 
@@ -195,7 +253,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
                     and sprice/(fprice * (1+slippage)) - 1.0 > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
-                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
+                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max, trader=self)
                     # print("Arb.trade: Entered long arb trade w pos params ...")
                     # print(f"Arb.trade: pos.amount -> {pos.amount}")
                     # print(f"Arb.trade: pos.long -> {pos.long}")
@@ -256,8 +314,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
                     and 1.0 - sprice/(fprice * (1+slippage)) > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
-                    pos = self.fmarket.build(
-                        amount, long=False, leverage=self.leverage_max)
+                    pos = self.fmarket.build(amount, long=False, leverage=self.leverage_max, trader=self)
                     # print("Arb.trade: Entered short arb trade w pos params ...")
                     # print(f"Arb.trade: pos.amount -> {pos.amount}")
                     # print(f"Arb.trade: pos.long -> {pos.long}")
@@ -325,30 +382,6 @@ class MonetaryTrader(MonetaryAgent):
 class MonetaryHolder(MonetaryAgent):
     def trade(self):
         pass
-
-
-class MonetaryKeeper(MonetaryAgent):
-    def distribute_funding(self):
-        # Figure out funding payments on each agent's positions
-        self.fmarket.fund()
-
-    def update_market_liquidity(self):
-        # Updates k value per funding payment to adjust slippage
-        i = self.model.schedule.steps
-
-        # TODO: Adjust slippage to ensure appropriate price sensitivity
-        # per OVL in x, y pools => Start with 1/N * OVLETH liquidity and then
-        # do a per market risk weighted avg
-
-    def step(self):
-        """
-        Modify this method to change what an individual agent will do during each step.
-        Can include logic based on neighbors states.
-        """
-        i = self.model.schedule.steps
-        if i % self.model.sampling_interval == 0:
-            self.distribute_funding()
-            self.update_market_liquidity()
 
 
 # Only attempts for opportunities above a certain edge threshold, and linearly scales into position according to the amount of edge available.
@@ -436,9 +469,10 @@ class MonetarySniper(MonetaryAgent):
                                             long=True,
                                             leverage=self.leverage_max)
 
+        fee_perc = fees/amount
         if long:
-            return price * (1 + slippage + fees/amount)
-        return price * (1 - slippage - fees/amount)
+            return price * (1 + slippage + fee_perc)
+        return price * (1 - slippage - fee_perc)
 
     def _get_size(self, sprice, fprice, max_size, long):
         # Assume min size is zero
@@ -511,7 +545,7 @@ class MonetarySniper(MonetaryAgent):
                     amount = deploy_fraction * available_size
                     # print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
                     # enter the trade to arb
-                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max)
+                    pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max, trader=self)
                     # print("Arb.trade: Entered long arb trade w pos params ...")
                     # print(f"Arb.trade: pos.amount -> {pos.amount}")
                     # print(f"Arb.trade: pos.long -> {pos.long}")
@@ -575,8 +609,7 @@ class MonetarySniper(MonetaryAgent):
                     amount = deploy_fraction * available_size
                     # print(f"Arb.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
                     # enter the trade to arb
-                    pos = self.fmarket.build(
-                        amount, long=False, leverage=self.leverage_max)
+                    pos = self.fmarket.build(amount, long=False, leverage=self.leverage_max, trader=self)
                     # print("Arb.trade: Entered short arb trade w pos params ...")
                     # print(f"Arb.trade: pos.amount -> {pos.amount}")
                     # print(f"Arb.trade: pos.long -> {pos.long}")
