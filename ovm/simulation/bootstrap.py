@@ -96,7 +96,7 @@ def plot_multivariate_simulation(simulated_data: np.ndarray,
         axs[i].plot(time_axis, simulated_data[0, :, i])
         axs[i].set_title(series_name)
         # axs[i].xaxis.set_label(f'Time in {plot_time_scale}')
-        axs[i].set_xlabel(f'Time in {plot_time_scale}')
+        axs[i].set_xlabel(f'Time in {plot_time_scale.value}')
 
     if title is not None:
         fig.suptitle(title)

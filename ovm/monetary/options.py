@@ -8,3 +8,4 @@ class DataCollectionOptions:
     compute_gini_coefficient: bool = True
     compute_wealth: bool = True
     compute_inventory_wealth: bool = True
+    data_collection_interval: int = 1

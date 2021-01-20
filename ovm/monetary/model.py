@@ -269,6 +269,7 @@ class MonetaryModel(Model):
         """
         A model step. Used for collecting simulation and advancing the schedule
         """
-        if self.data_collection_options.perform_data_collection:
+        if self.data_collection_options.perform_data_collection and \
+           self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
         self.schedule.step()
