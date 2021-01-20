@@ -36,3 +36,13 @@ def construct_ticker_to_series_of_prices_map(
             ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.reshape((-1, ))
 
     return ticker_to_time_series_of_prices_map
+
+
+def construct_ticker_to_series_of_prices_map_from_simulated_prices(
+        simulated_prices: np.ndarray,
+        tickers: tp.Sequence[str]) \
+        -> tp.Dict[str, np.ndarray]:
+    ticker_to_time_series_of_prices_map = \
+        {ticker: simulated_prices[0, :, i] for i, ticker in enumerate(tickers)}
+
+    return ticker_to_time_series_of_prices_map

@@ -23,3 +23,23 @@ class TimeResolution(Enum):
     @property
     def in_seconds(self) -> int:
         return TIME_RESOLUTION_TO_SECONDS_MAP[self.value]
+
+
+class TimeScale(Enum):
+    SECONDS = 'seconds'
+    MINUTES = 'minutes'
+    HOURS = 'hours'
+    DAYS = 'days'
+    MONTHS = 'months'
+    YEARS = 'years'
+
+    def in_seconds(self) -> int:
+        time_scale_to_seconds_map = \
+            {TimeScale.SECONDS: 1,
+             TimeScale.MINUTES: 60,
+             TimeScale.HOURS: 60 * 60,
+             TimeScale.DAYS: 24 * 60 * 60,
+             TimeScale.MONTHS: 365.25 * 24 * 60 * 60 / 12,
+             TimeScale.YEARS: 365.25 * 24 * 60 * 60}
+
+        return time_scale_to_seconds_map[self]

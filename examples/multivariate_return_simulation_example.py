@@ -77,6 +77,7 @@ def main():
 
     plot_multivariate_simulation(simulated_data=simulated_prices,
                                  series_names=series_names,
+                                 time_resolution=time_resolution,
                                  title='Exchange Rates')
 
     store_simulated_price_series_in_output_directory(
