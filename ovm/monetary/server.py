@@ -61,9 +61,11 @@ for ticker in TICKERS:
         sims[ticker] = f.transpose().values.tolist()[0]
 
 total_supply = 100000  # OVL
-base_wealth = 0.0001*100000  # OVL
+base_wealth = 0.001*100000  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
+base_liquidate_reward = 0.1
+base_maintenance = 0.6
 time_liquidity_mine = STEPS_MONTH
 
 # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
@@ -73,10 +75,12 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
 
 num_arbitrageurs = int(total_supply*0.05/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.01/base_wealth)
+num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
 num_snipers = int(total_supply*0.15/base_wealth)
-num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
+num_liquidators = int(total_supply*0.005/base_wealth)
+num_agents = num_arbitrageurs + num_keepers + \
+    num_traders + num_holders + num_liquidators
 
 DATA_COLLECTOR_NAME = 'data_collector'
 
@@ -157,9 +161,12 @@ MODEL_KWARGS = {
     "num_traders": num_traders,
     "num_holders": num_holders,
     "num_snipers": num_snipers,
+    "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
+    "base_liquidate_reward": base_liquidate_reward,
+    "base_maintenance": base_maintenance,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": 0.285*total_supply,
     "liquidity_supply_emission": liquidity_supply_emission,
@@ -175,6 +182,7 @@ print(f"num_snipers = {MODEL_KWARGS['num_snipers']}")
 print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
 print(f"num_traders = {MODEL_KWARGS['num_traders']}")
 print(f"num_holders = {MODEL_KWARGS['num_holders']}")
+print(f"num_liquidators = {MODEL_KWARGS['num_liquidators']}")
 print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 print(f"base_wealth = {total_supply}")
 

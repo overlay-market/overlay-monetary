@@ -110,14 +110,30 @@ class MonetaryLiquidator(MonetaryAgent):
         fprice = self.fmarket.price
 
         for pid, pos in self.fmarket.positions.items():
-            print("pid {} on market {}".format(pid, self.fmarket.unique_id))
+            print("Checking if liquidatable ... pid {}, amount {}, leverage {}, long {}, lock_price {}, market_price {}, trader id {}".format(pos.id, pos.amount, pos.leverage, pos.long, pos.lock_price, self.fmarket.price, pos.trader.unique_id))
+            side=1 if pos.long else -1
+            open_position_notional = pos.amount*pos.leverage*(1 + \
+                side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
+            value = pos.amount*(1 + \
+                pos.leverage*side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
+            open_leverage = open_position_notional/value
+            open_margin = 1/open_leverage
+            maintenance_margin = self.fmarket.maintenance/pos.leverage
+            print("Open leverage {}, leverage {}, open margin {}, maintenance margin {}".format(open_leverage, pos.leverage, open_margin, maintenance_margin))
+            print("Is liquidatable? {}".format(self.fmarket.liquidatable(pid)))
             if self.fmarket.liquidatable(pid) and pos.amount > 0.0:
+                print("Liquidating!")
                 reward = self.fmarket.liquidate(pid)
+                print("self.inventory['OVL']", self.inventory['OVL'])
                 self.inventory["OVL"] += reward
                 self.wealth += reward
-                pos.agent.locked -= pos.amount
-                pos.agent.wealth -= pos.amount
                 self.last_trade_idx = self.model.schedule.steps
+                pos.trader.locked -= pos.amount
+                pos.trader.wealth -= pos.amount
+                print("self.inventory['OVL']", self.inventory['OVL'])
+                print("self.wealth", self.wealth)
+                print("pos.trader.locked", pos.trader.locked)
+                print("pos.trader.wealth", pos.trader.wealth)
                 return
 
     def step(self):

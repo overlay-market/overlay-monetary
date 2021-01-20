@@ -15,7 +15,6 @@ class MonetaryFPosition:
     amount: float = 0.0
     long: bool = True
     leverage: float = 1.0
-    maintenance: float = 0.6 # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0
     trader: Any = None
     # TODO: Link this to the trader who entered otherwise no way to know how wealth changes after liquidate
 
@@ -34,6 +33,8 @@ class MonetaryFMarket:
                  py: float,
                  base_fee: float,
                  max_leverage: float,
+                 liquidate_reward: float,
+                 maintenance: float, # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0
                  model: MonetaryModel):
         self.unique_id = unique_id  # ticker
         self.nx = nx
@@ -45,6 +46,8 @@ class MonetaryFMarket:
         self.k = self.x*self.y
         self.base_fee = base_fee
         self.max_leverage = max_leverage
+        self.liquidate_reward = liquidate_reward
+        self.maintenance = maintenance
         self.model = model
         self.positions = {}  # { id: [MonetaryFPosition] }
         self.base_currency = unique_id[:-len("-USD")]
@@ -479,10 +482,11 @@ class MonetaryFMarket:
         side=1 if pos.long else -1
         open_position_notional = pos.amount*pos.leverage*(1 + \
             side*(self.price - pos.lock_price)/pos.lock_price)
-        collateral = pos.amount
-        open_leverage = open_position_notional/collateral
+        value = pos.amount*(1 + \
+            pos.leverage*side*(self.price - pos.lock_price)/pos.lock_price)
+        open_leverage = open_position_notional/value
         open_margin = 1/open_leverage
-        maintenance_margin = self.maintenance/self.leverage
+        maintenance_margin = self.maintenance/pos.leverage
         return open_margin < maintenance_margin
 
     def liquidate(self, pid: uuid.UUID) -> float:

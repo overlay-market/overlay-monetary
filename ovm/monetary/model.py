@@ -24,10 +24,13 @@ class MonetaryModel(Model):
         num_traders: int,
         num_holders: int,
         num_snipers: int,
+        num_liquidators: int,
         sims: tp.Dict[str, tp.List[float]],
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
+        base_maintenance: float,
+        base_liquidate_reward: float,
         liquidity: float,
         liquidity_supply_emission: tp.List[float],
         treasury: float,
@@ -38,7 +41,8 @@ class MonetaryModel(Model):
             MonetaryKeeper,
             MonetaryHolder,
             MonetaryTrader,
-            MonetarySniper
+            MonetarySniper,
+            MonetaryLiquidator,
         )
 
         from markets import MonetaryFMarket
@@ -57,15 +61,17 @@ class MonetaryModel(Model):
 
         super().__init__()
         self.num_agents = num_arbitrageurs + num_keepers + \
-            num_traders + num_holders + num_snipers
+            num_traders + num_holders + num_snipers + num_liquidators
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
         self.num_holders = num_holders
         self.num_snipers = num_snipers
+        self.num_liquidators = num_liquidators
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
         self.base_max_leverage = base_max_leverage
+        self.base_maintenance = base_maintenance
         self.liquidity = liquidity
         self.treasury = treasury
         self.sampling_interval = sampling_interval
@@ -93,6 +99,8 @@ class MonetaryModel(Model):
                 py=prices_ovlusd[0]/prices[0],  # py = px/p
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
+                liquidate_reward=base_liquidate_reward,
+                maintenance=base_maintenance,
                 model=self,
             )
             for ticker, prices in self.sims.items()
@@ -117,7 +125,7 @@ class MonetaryModel(Model):
                     'USD': self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
-            leverage_max = (i % 3.0) + 1.0
+            leverage_max = (i % 9.0) + 1.0
 
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -159,13 +167,19 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max,
                     trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
-                    size_increment=0.1,
+                    size_increment=0.01,
                     min_edge=0.0,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
                     max_funding_unwind=0.02  # unwind immediately when funding reaches 2% against position
-
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators:
+                agent = MonetaryLiquidator(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
                 )
             else:
                 from .agents import MonetaryAgent
@@ -241,8 +255,12 @@ class MonetaryModel(Model):
         from agents import (
             MonetaryArbitrageur,
             MonetarySniper,
+            MonetaryLiquidator,
         )
         self.data_collector.collect(self)
+
+        # Snipers
+        print("========================================")
         top_10_snipers = sorted(
             [a for a in self.schedule.agents if type(a) == MonetarySniper],
             key=lambda item: item.wealth,
@@ -261,6 +279,8 @@ class MonetaryModel(Model):
               for a in bottom_10_snipers
              })
 
+        # Arbs
+        print("========================================")
         top_10_arbs = sorted(
             [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
             key=lambda item: item.wealth,
@@ -278,4 +298,25 @@ class MonetaryModel(Model):
               a.unique_id: a.wealth
               for a in bottom_10_arbs
              })
+
+        # Liquidators
+        print("========================================")
+        top_10_liqs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_liqs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Liqs wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_liqs
+             })
+        print("Liqs wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_liqs
+             })
+
         self.schedule.step()
