@@ -1,31 +1,17 @@
 from functools import partial
-import logging
 import typing as tp
 
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from ovm.debug_level import DEBUG_LEVEL
-
-from ovm.tickers import (
-    USD_TICKER,
-    OVL_TICKER,
-    OVL_USD_TICKER
-)
-
-# set up logging
-logger = logging.getLogger(__name__)
-
 
 class MonetaryModel(Model):
     """
     The model class holds the model-level attributes, manages the agents, and generally handles
     the global level of our model.
-
     There is only one model-level parameter: how many agents the model contains. When a new model
     is started, we want it to populate itself with the given number of agents.
-
     The scheduler is a special model component which controls the order in which agents are activated.
     """
 
@@ -46,10 +32,9 @@ class MonetaryModel(Model):
         liquidity: float,
         liquidity_supply_emission: tp.List[float],
         treasury: float,
-        sampling_interval: int,
-        collect_data: bool = True
+        sampling_interval: int
     ):
-        from ovm.monetary.agents import (
+        from agents import (
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
@@ -58,19 +43,18 @@ class MonetaryModel(Model):
             MonetaryLiquidator,
         )
 
-        from ovm.monetary.markets import MonetaryFMarket
+        from markets import MonetaryFMarket
 
-        from ovm.monetary.reporters import (
+        from reporters import (
             compute_gini,
-            compute_price_difference,
-            compute_futures_price,
-            compute_spot_price,
+            compute_price_diff,
+            compute_fprice,
+            compute_sprice,
             compute_supply,
             compute_liquidity,
             compute_treasury,
-            compute_wealth_for_agent_type,
-            compute_inventory_wealth_for_agent_type,
-            compute_positional_imbalance_by_market
+            compute_wealth,
+            compute_inventory_wealth,
         )
 
         super().__init__()
@@ -89,10 +73,9 @@ class MonetaryModel(Model):
         self.liquidity = liquidity
         self.treasury = treasury
         self.sampling_interval = sampling_interval
-        self.collect_data = collect_data
-        self.supply_of_ovl = base_wealth * self.num_agents + liquidity
+        self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
-        self.ticker_to_time_series_of_prices_map = ticker_to_time_series_of_prices_map  # { k: [ time_series_of_prices ] }
+        self.sims = sims  # { k: [ prices ] }
 
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
@@ -101,7 +84,7 @@ class MonetaryModel(Model):
         prices_ovlusd = self.sims["OVL-USD"]
         # print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
-            list(ticker_to_time_series_of_prices_map.keys())[i]: 1
+            list(sims.keys())[i]: 1
             for i in range(n)
         }
         # print(f"liquidity_weight = {liquidity_weight}")
@@ -111,66 +94,67 @@ class MonetaryModel(Model):
                 nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 ny=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 px=prices_ovlusd[0],  # px = n_usd/n_ovl
-                py=prices_ovlusd[0]/time_series_of_prices[0],  # py = px/p
+                py=prices_ovlusd[0]/prices[0],  # py = px/p
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
                 liquidate_reward=base_liquidate_reward,
                 maintenance=base_maintenance,
                 model=self,
             )
-            for ticker, time_series_of_prices
-            in self.ticker_to_time_series_of_prices_map.items()
+            for ticker, prices in self.sims.items()
         }
 
-        tickers = list(self.ticker_to_futures_market_map.keys())
+        tickers = list(self.fmarkets.keys())
         for i in range(self.num_agents):
-            futures_market = self.ticker_to_futures_market_map[tickers[i % len(tickers)]]
-            base_curr = futures_market.unique_id[:-len(f"-{USD_TICKER}")]
-            base_quote_price = self.ticker_to_time_series_of_prices_map[futures_market.unique_id][0]
-            if base_curr != OVL_TICKER:
-                inventory: tp.Dict[str, float] = {
-                    OVL_TICKER: self.base_wealth,
-                    USD_TICKER: self.base_wealth*prices_ovlusd[0],
+            agent = None
+            fmarket = self.fmarkets[tickers[i % len(tickers)]]
+            base_curr = fmarket.unique_id[:-len("-USD")]
+            base_quote_price = self.sims[fmarket.unique_id][0]
+            inventory: tp.Dict[str, float] = {}
+            if base_curr != 'OVL':
+                inventory = {
+                    'OVL': self.base_wealth,
+                    'USD': self.base_wealth*prices_ovlusd[0],
                     base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
                 }  # 50/50 inventory of base and quote curr (3x base_wealth for total in OVL)
             else:
-                inventory: tp.Dict[str, float] = {
-                    OVL_TICKER: self.base_wealth*2,  # 2x since using for both spot and futures
-                    USD_TICKER: self.base_wealth*prices_ovlusd[0]
+                inventory = {
+                    'OVL': self.base_wealth*2,  # 2x since using for both spot and futures
+                    'USD': self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 9.0) + 1.0
             sniper_leverage_max = (i % 3.0) + 1.0
 
-            if i < self.num_arbitrageurs:
+            if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
                     unique_id=i,
                     model=self,
-                    futures_market=futures_market,
+                    fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitrageurs + self.num_keepers:
+            elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
                     unique_id=i,
                     model=self,
-                    futures_market=futures_market,
+                    fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitrageurs + self.num_keepers + self.num_holders:
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
                 agent = MonetaryHolder(
                     unique_id=i,
                     model=self,
-                    futures_market=futures_market,
+                    fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            elif i < self.num_arbitrageurs + self.num_keepers + self.num_holders + self.num_traders:
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
                 agent = MonetaryTrader(
                     unique_id=i,
                     model=self,
-                    futures_market=futures_market,
+                    fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -197,11 +181,11 @@ class MonetaryModel(Model):
                     inventory=inventory,
                 )
             else:
-                from ovm.monetary.agents import MonetaryAgent
+                from .agents import MonetaryAgent
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,
-                    futures_market=futures_market,
+                    fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
@@ -261,8 +245,7 @@ class MonetaryModel(Model):
         )
 
         self.running = True
-        if self.collect_data:
-            self.data_collector.collect(self)
+        self.data_collector.collect(self)
 
     def step(self):
         """
