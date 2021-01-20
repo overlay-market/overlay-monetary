@@ -126,6 +126,7 @@ class MonetaryModel(Model):
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 9.0) + 1.0
+            sniper_leverage_max = (i % 3.0) + 1.0
 
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -165,7 +166,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=leverage_max,
+                    leverage_max=sniper_leverage_max,
                     trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
                     size_increment=0.01,
                     min_edge=0.0,

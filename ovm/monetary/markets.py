@@ -262,12 +262,12 @@ class MonetaryFMarket:
                pid: uuid.UUID):
         pos = self.positions.get(pid)
         if pos is None:
-            # print(f"No position with pid {pid} exists on market {self.unique_id}")
-            return
+            #print(f"No position with pid {pid} exists on market {self.unique_id}")
+            return None, 0.0
         elif pos.amount < dn:
-            # print(f"Unwind amount {dn} is too large for locked position with pid {pid} "
+            #print(f"Unwind amount {dn} is too large for locked position with pid {pid} "
             #      f"amount {pos.amount}")
-            return
+            return None, 0.0
 
         # TODO: Account for pro-rata share of funding!
         # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
