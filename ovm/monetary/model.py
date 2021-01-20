@@ -35,10 +35,14 @@ class MonetaryModel(Model):
         num_keepers: int,
         num_traders: int,
         num_holders: int,
-        ticker_to_time_series_of_prices_map: tp.Dict[str, tp.List[float]],
+        num_snipers: int,
+        num_liquidators: int,
+        sims: tp.Dict[str, tp.List[float]],
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
+        base_maintenance: float,
+        base_liquidate_reward: float,
         liquidity: float,
         liquidity_supply_emission: tp.List[float],
         treasury: float,
@@ -49,7 +53,9 @@ class MonetaryModel(Model):
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
-            MonetaryTrader
+            MonetaryTrader,
+            MonetarySniper,
+            MonetaryLiquidator,
         )
 
         from ovm.monetary.markets import MonetaryFMarket
@@ -68,14 +74,18 @@ class MonetaryModel(Model):
         )
 
         super().__init__()
-        self.num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
-        self.num_arbitrageurs = num_arbitrageurs
+        self.num_agents = num_arbitrageurs + num_keepers + \
+            num_traders + num_holders + num_snipers + num_liquidators
+        self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
         self.num_holders = num_holders
+        self.num_snipers = num_snipers
+        self.num_liquidators = num_liquidators
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
         self.base_max_leverage = base_max_leverage
+        self.base_maintenance = base_maintenance
         self.liquidity = liquidity
         self.treasury = treasury
         self.sampling_interval = sampling_interval
@@ -87,18 +97,15 @@ class MonetaryModel(Model):
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
-        n = len(ticker_to_time_series_of_prices_map.keys())
-        prices_ovlusd = self.ticker_to_time_series_of_prices_map[OVL_USD_TICKER]
+        n = len(sims.keys())
+        prices_ovlusd = self.sims["OVL-USD"]
+        # print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
             list(ticker_to_time_series_of_prices_map.keys())[i]: 1
             for i in range(n)
         }
-        if logging.root.level <= DEBUG_LEVEL:
-            logger.debug(f"OVL-USD first sim price: {prices_ovlusd[0]}")
-            logger.debug(f"liquidity_weight = {liquidity_weight}")
-
-        # initialize futures markers (Overlay)
-        self.ticker_to_futures_market_map = {
+        # print(f"liquidity_weight = {liquidity_weight}")
+        self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
                 nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
@@ -107,7 +114,9 @@ class MonetaryModel(Model):
                 py=prices_ovlusd[0]/time_series_of_prices[0],  # py = px/p
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
-                model=self
+                liquidate_reward=base_liquidate_reward,
+                maintenance=base_maintenance,
+                model=self,
             )
             for ticker, time_series_of_prices
             in self.ticker_to_time_series_of_prices_map.items()
@@ -130,7 +139,8 @@ class MonetaryModel(Model):
                     USD_TICKER: self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
-            leverage_max = (i % 3.0) + 1.0
+            leverage_max = (i % 9.0) + 1.0
+            sniper_leverage_max = (i % 3.0) + 1.0
 
             if i < self.num_arbitrageurs:
                 agent = MonetaryArbitrageur(
@@ -164,6 +174,28 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
+                agent = MonetarySniper(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    leverage_max=sniper_leverage_max,
+                    trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
+                    size_increment=0.01,
+                    min_edge=0.0,
+                    max_edge=0.1,  # max deploy at 10% edge
+                    funding_multiplier=1.0,  # applied to funding cost when considering exiting position
+                    min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
+                    max_funding_unwind=0.02  # unwind immediately when funding reaches 2% against position
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators:
+                agent = MonetaryLiquidator(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                )
             else:
                 from ovm.monetary.agents import MonetaryAgent
                 agent = MonetaryAgent(
@@ -173,61 +205,60 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max
                 )
-            if logging.root.level <= DEBUG_LEVEL:
-                logger.debug("MonetaryModel.init: Adding agent to schedule ...")
-                logger.debug(f"MonetaryModel.init: agent type={type(agent)}")
-                logger.debug(f"MonetaryModel.init: unique_id={agent.unique_id}")
-                logger.debug(f"MonetaryModel.init: futures market={agent.futures_market.unique_id}")
-                logger.debug(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
-                logger.debug(f"MonetaryModel.init: inventory={agent.inventory}")
+
+            # print("MonetaryModel.init: Adding agent to schedule ...")
+            # print(f"MonetaryModel.init: agent type={type(agent)}")
+            # print(f"MonetaryModel.init: unique_id={agent.unique_id}")
+            # print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
+            # print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
+            # print(f"MonetaryModel.init: inventory={agent.inventory}")
 
             self.schedule.add(agent)
 
         # simulation collector
         # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
-        # TODO: What happens if not enough OVL to sway the market time_series_of_prices on the platform? (i.e. all locked up)
-        if self.collect_data:
-            model_reporters = {
-                f"d-{ticker}": partial(compute_price_difference, ticker=ticker)
-                for ticker in tickers
-            }
-            model_reporters.update({
-                f"s-{ticker}": partial(compute_spot_price, ticker=ticker)
-                for ticker in tickers
-            })
-            model_reporters.update({
-                f"f-{ticker}": partial(compute_futures_price, ticker=ticker)
-                for ticker in tickers
-            })
-            model_reporters.update({
-                f"Skew {ticker}": partial(compute_positional_imbalance_by_market, ticker=ticker)
-                for ticker in tickers
-            })
-
-            model_reporters.update({
-                "Gini": compute_gini,
-                "Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
-                "Supply": compute_supply,
-                "Treasury": compute_treasury,
-                "Liquidity": compute_liquidity,
-                "Agent": partial(compute_wealth_for_agent_type, agent_type=None),
-                "Arbitrageurs Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
-                "Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur),
-                "Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryArbitrageur, in_usd=True),
-                "Keepers Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryKeeper),
-                "Keepers Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
-                "Keepers Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
-                "Traders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryTrader),
-                "Traders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper),
-                "Traders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryKeeper, in_usd=True),
-                "Holders Wealth (OVL)": partial(compute_wealth_for_agent_type, agent_type=MonetaryHolder),
-                "Holders Inventory (OVL)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder),
-                "Holders Inventory (USD)": partial(compute_inventory_wealth_for_agent_type, agent_type=MonetaryHolder, in_usd=True),
-            })
-            self.data_collector = DataCollector(
-                model_reporters=model_reporters,
-                agent_reporters={"Wealth": "wealth"},
-            )
+        # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
+        model_reporters = {
+            f"d-{ticker}": partial(compute_price_diff, ticker=ticker)
+            for ticker in tickers
+        }
+        model_reporters.update({
+            f"s-{ticker}": partial(compute_sprice, ticker=ticker)
+            for ticker in tickers
+        })
+        model_reporters.update({
+            f"f-{ticker}": partial(compute_fprice, ticker=ticker)
+            for ticker in tickers
+        })
+        model_reporters.update({
+            "Gini": compute_gini,
+            #"Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
+            "Supply": compute_supply,
+            "Treasury": compute_treasury,
+            #"Liquidity": compute_liquidity,
+            #"Agent": partial(compute_wealth, agent_type=None),
+            #"Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
+            #"Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
+            #"Arbitrageurs OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, inventory_type="OVL"),
+            #"Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
+            #"Snipers Wealth (OVL)": partial(compute_wealth, agent_type=MonetarySniper),
+            #"Snipers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper),
+            #"Snipers OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper, inventory_type="OVL"),
+            #"Snipers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetarySniper, in_usd=True),
+            #"Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
+            #"Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            #"Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            #"Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
+            #"Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
+            #"Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
+            #"Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
+            #"Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
+            #"Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
+        })
+        self.data_collector = DataCollector(
+            model_reporters=model_reporters,
+            agent_reporters={"Wealth": "wealth"},
+        )
 
         self.running = True
         if self.collect_data:
@@ -237,6 +268,71 @@ class MonetaryModel(Model):
         """
         A model step. Used for collecting simulation and advancing the schedule
         """
-        if self.collect_data:
-            self.data_collector.collect(self)
+        from agents import (
+            MonetaryArbitrageur,
+            MonetarySniper,
+            MonetaryLiquidator,
+        )
+        self.data_collector.collect(self)
+
+        # Snipers
+        print("========================================")
+        top_10_snipers = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetarySniper],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_snipers = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetarySniper],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Sniper wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_snipers
+             })
+        print("Sniper wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_snipers
+             })
+
+        # Arbs
+        print("========================================")
+        top_10_arbs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_arbs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Arbs wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_arbs
+             })
+        print("Arbs wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_arbs
+             })
+
+        # Liquidators
+        print("========================================")
+        top_10_liqs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+            key=lambda item: item.wealth,
+            reverse=True
+        )[:10]
+        bottom_10_liqs = sorted(
+            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+            key=lambda item: item.wealth
+        )[:10]
+        print("Liqs wealths top 10", {
+              a.unique_id: a.wealth
+              for a in top_10_liqs
+             })
+        print("Liqs wealths bottom 10", {
+              a.unique_id: a.wealth
+              for a in bottom_10_liqs
+             })
+
         self.schedule.step()

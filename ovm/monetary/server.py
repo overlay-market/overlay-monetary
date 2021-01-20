@@ -52,9 +52,12 @@ ticker_to_time_series_of_prices_map = \
                                              tickers=TICKERS)
 
 total_supply = 100000  # OVL
-base_wealth = 0.0001*100000  # OVL
+base_wealth = 0.0003*100000  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
+base_liquidate_reward = 0.1
+base_maintenance = 0.6
+liquidity = 0.2*total_supply
 time_liquidity_mine = STEPS_MONTH
 
 # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
@@ -62,12 +65,14 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
                              for i
                              in range(time_liquidity_mine)]
 
-num_arbitrageurs = max(len(ticker_to_time_series_of_prices_map.keys()) * 5,
-                       int(total_supply*0.01/base_wealth))
-num_keepers = max(len(ticker_to_time_series_of_prices_map.keys()), int(total_supply * 0.005 / base_wealth))
-num_traders = int(total_supply*0.2/base_wealth)
+num_arbitrageurs = int(total_supply*0.14/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.0/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
+num_snipers = int(total_supply*0.15/base_wealth)
+num_liquidators = int(total_supply*0.005/base_wealth)
+num_agents = num_arbitrageurs + num_keepers + \
+    num_traders + num_holders + num_snipers + num_liquidators
 
 DATA_COLLECTOR_NAME = 'data_collector'
 
@@ -87,31 +92,49 @@ def construct_chart_elements(tickers) -> tp.List:
         ChartModule([{"Label": f"Skew {ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Arbitrageurs Wealth (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Arbitrageurs OVL Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers Wealth (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Snipers OVL Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Snipers Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
+
+        #ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
 
         ChartModule([{"Label": "Gini", "Color": "Black"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+        #ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
+        #            data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
@@ -132,11 +155,15 @@ MODEL_KWARGS = {
     "num_keepers": num_keepers,
     "num_traders": num_traders,
     "num_holders": num_holders,
+    "num_snipers": num_snipers,
+    "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
+    "base_liquidate_reward": base_liquidate_reward,
+    "base_maintenance": base_maintenance,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
-    "liquidity": 0.285*total_supply,
+    "liquidity": liquidity,
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
@@ -151,7 +178,19 @@ if logging.root.level <= DEBUG_LEVEL:
     logger.debug(f"num_holders = {MODEL_KWARGS['num_holders']}")
     logger.debug(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
-chart_elements = construct_chart_elements(ticker_to_time_series_of_prices_map.keys())
+print("Model kwargs for initial conditions of sim:")
+print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+print(f"num_snipers = {MODEL_KWARGS['num_snipers']}")
+print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
+print(f"num_traders = {MODEL_KWARGS['num_traders']}")
+print(f"num_holders = {MODEL_KWARGS['num_holders']}")
+print(f"num_liquidators = {MODEL_KWARGS['num_liquidators']}")
+print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
+print(f"total_supply = {total_supply}")
+print(
+    f"num_agents * base_wealth + liquidity = {num_agents*base_wealth + liquidity}")
+
+chart_elements = construct_chart_elements(sims.keys())
 
 server = ModularServer(
     MonetaryModel,

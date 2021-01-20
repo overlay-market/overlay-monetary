@@ -59,33 +59,50 @@ def compute_wealth_for_agent_type(model,
     return sum(wealths)
 
 
-def compute_inventory_wealth_for_agent(model,
-                                       agent: MonetaryAgent,
-                                       in_usd: bool = False):
-    spot_price_ovl_usd = model.ticker_to_time_series_of_prices_map["OVL-USD"][model.schedule.steps]
-    spot_price = \
-        model.ticker_to_time_series_of_prices_map[agent.futures_market.unique_id][model.schedule.steps]
-    base_curr = agent.futures_market.base_currency
+def calc_inventory_wealth(model,
+                          agent: MonetaryAgent,
+                          inventory_type: tp.Optional[str] = None,
+                          in_usd: bool = False):
+    idx = model.schedule.steps
+    sprice_ovlusd = model.sims["OVL-USD"][idx]
+    sprice = model.sims[agent.fmarket.unique_id][idx]
+    base_curr = agent.fmarket.base_currency
 
+    p_constants_ovl = {
+        'OVL': 1.0,
+        'USD': 1.0/sprice_ovlusd,
+        base_curr: sprice/sprice_ovlusd,
+    }
+    p_constants_usd = {
+        k: sprice_ovlusd * v
+        for k, v in p_constants_ovl.items()
+    }
+    p_constants = {}
     if not in_usd:
-        return agent.inventory["OVL"] + agent.inventory["USD"]/spot_price_ovl_usd \
-            + agent.inventory[base_curr]*spot_price/spot_price_ovl_usd
+        p_constants = p_constants_ovl
     else:
-        return agent.inventory["OVL"]*spot_price_ovl_usd + agent.inventory["USD"] \
-            + agent.inventory[base_curr]*spot_price
+        p_constants = p_constants_usd
+
+    if inventory_type in agent.inventory:
+        return p_constants[inventory_type] * agent.inventory[inventory_type]
+
+    return sum([v*p_constants[k] for k, v in agent.inventory.items()])
 
 
-def compute_inventory_wealth_for_agent_type(model,
-                                            agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
-                                            in_usd: bool = False):
+def compute_inventory_wealth(model,
+                             agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
+                             inventory_type: tp.Optional[str] = None,
+                             in_usd: bool = False):
     if not agent_type:
         wealths = [
-            compute_inventory_wealth_for_agent(model, a, in_usd=in_usd)
+            calc_inventory_wealth(
+                model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents
         ]
     else:
         wealths = [
-            compute_inventory_wealth_for_agent(model, a, in_usd=in_usd)
+            calc_inventory_wealth(
+                model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents if type(a) == agent_type
         ]
 
