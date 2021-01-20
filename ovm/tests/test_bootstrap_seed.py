@@ -16,7 +16,16 @@ from ovm.historical.data_io import (
 
 from ovm.paths import HISTORICAL_DATA_DIRECTORY
 
-from ovm.utils import TimeResolution
+from ovm.tickers import (
+    BTC_USD_TICKER,
+    ETH_USD_TICKER,
+    YFI_USD_TICKER,
+    BAL_USD_TICKER,
+    COMP_USD_TICKER,
+    LINK_USD_TICKER
+)
+
+from ovm.time_resolution import TimeResolution
 
 from recombinator import (
     stationary_bootstrap
@@ -24,22 +33,19 @@ from recombinator import (
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, time_resolution.value)
+directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, str(time_resolution.value))
 
 # Number of paths to simulate
 number_of_paths = 1
 
-# Use ETH/USD exchange rate
-price_history_file_name = 'ETH-USD'
-
 # The exchange rate series we want to simulate returns for (in that order)
 series_names = \
-    ['BTC-USD',
-     'ETH-USD',
-     'YFI-USD',
-     'BAL-USD',
-     'COMP-USD',
-     'LINK-USD']
+    [BTC_USD_TICKER,
+     ETH_USD_TICKER,
+     YFI_USD_TICKER,
+     BAL_USD_TICKER,
+     COMP_USD_TICKER,
+     LINK_USD_TICKER]
 
 # specify numpy seed for simulations
 NUMPY_SEED = 42

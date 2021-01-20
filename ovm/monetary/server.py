@@ -1,64 +1,55 @@
 """
 Configure visualization elements and instantiate a server
 """
-import os
+import logging
 import random
 import typing as tp
-from pathlib import Path
+
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
-import pandas as pd
 
-from model import MonetaryModel
+from ovm.debug_level import DEBUG_LEVEL
+from ovm.monetary.model import MonetaryModel
+from ovm.monetary.data_io import construct_ticker_to_series_of_prices_map
 
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.tickers import (
+    ETH_USD_TICKER,
+    COMP_USD_TICKER,
+    LINK_USD_TICKER,
+    YFI_USD_TICKER
+)
+
+from ovm.time_resolution import TimeResolution
+
+
+# set up logging
+logger = logging.getLogger(__name__)
 
 
 def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-# Data frequencies in seconds
-DATA_FREQUENCIES = {
-    '15s': 15,
-    '1m': 60,
-    '5m': 300,
-    '15m': 900,
-}
-
-DATA_FREQ_KEY = '15s'
+TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
 DATA_SIM_RNG = 42
-DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
-STEPS_MONTH = int((86400*30)/DATA_FREQ)
-BASE_DIRECTORY = Path(__file__).resolve().parents[1]
+STEPS_MONTH = int((86400*30) / TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
-TICKERS = ["ETH-USD",
+TICKERS = [ETH_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "COMP-USD",
+           COMP_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "LINK-USD",
+           LINK_USD_TICKER,
            # less than half a year of simulation (can we use a different token instead)
-           "YFI-USD"
+           YFI_USD_TICKER
            ]
 
-OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
-sims = {}
-for ticker in TICKERS:
-    rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
-                         str(DATA_FREQ_KEY),
-                         f'sims-{DATA_SIM_RNG}',
-                         f'sim-{ticker}.csv')
-
-    # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
-    print(f"Reading in sim simulation from {rpath}")
-    f = pd.read_csv(rpath)
-    if ticker == OVL_TICKER:
-        sims["OVL-USD"] = f.transpose().values.tolist()[0]
-    else:
-        sims[ticker] = f.transpose().values.tolist()[0]
+ticker_to_time_series_of_prices_map = \
+    construct_ticker_to_series_of_prices_map(data_sim_rng=DATA_SIM_RNG,
+                                             time_resolution=TIME_RESOLUTION,
+                                             tickers=TICKERS)
 
 total_supply = 100000  # OVL
 base_wealth = 0.0003*100000  # OVL
@@ -95,7 +86,10 @@ def construct_chart_elements(tickers) -> tp.List:
         ChartModule([{"Label": "Treasury", "Color": "Green"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()],
+        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+
+        ChartModule([{"Label": f"Skew {ticker}", "Color": random_color()} for ticker in ticker_to_time_series_of_prices_map.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
         #ChartModule([{"Label": "Arbitrageurs Wealth (OVL)", "Color": random_color()}],
@@ -156,7 +150,7 @@ def construct_chart_elements(tickers) -> tp.List:
 
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 MODEL_KWARGS = {
-    "sims": sims,
+    "ticker_to_time_series_of_prices_map": ticker_to_time_series_of_prices_map,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,
@@ -176,6 +170,13 @@ MODEL_KWARGS = {
     "sampling_interval": 240,
 }
 
+if logging.root.level <= DEBUG_LEVEL:
+    logger.debug("Model kwargs for initial conditions of sim:")
+    logger.debug(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
+    logger.debug(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
+    logger.debug(f"num_traders = {MODEL_KWARGS['num_traders']}")
+    logger.debug(f"num_holders = {MODEL_KWARGS['num_holders']}")
+    logger.debug(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
 
 print("Model kwargs for initial conditions of sim:")
 print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")

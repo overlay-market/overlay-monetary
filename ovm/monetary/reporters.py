@@ -1,6 +1,5 @@
 import typing as tp
-
-from agents import MonetaryAgent
+from ovm.monetary.agents import MonetaryAgent
 
 
 def compute_gini(model,
@@ -16,27 +15,26 @@ def compute_gini(model,
     return 1.0 + (1.0 / N) - 2.0*B
 
 
-def compute_price_diff(model,
+def compute_price_difference(model,
+                             ticker: str):
+    spot_price = model.ticker_to_time_series_of_prices_map[ticker][model.schedule.steps]
+    futures_price = model.ticker_to_futures_market_map[ticker].price
+    return (futures_price - spot_price) / spot_price
+
+
+def compute_futures_price(model,
+                          ticker: str):
+    return model.ticker_to_futures_market_map[ticker].price
+
+
+def compute_spot_price(model,
                        ticker: str):
-    idx = model.schedule.steps
-    sprice = model.sims[ticker][idx]
-    fprice = model.fmarkets[ticker].price
-    return (fprice - sprice) / sprice
-
-
-def compute_fprice(model,
-                   ticker: str):
-    return model.fmarkets[ticker].price
-
-
-def compute_sprice(model,
-                   ticker: str):
-    idx = model.schedule.steps
-    return model.sims[ticker][idx]
+    # model.schedule.steps represents the number of time-steps simulated so far
+    return model.ticker_to_time_series_of_prices_map[ticker][model.schedule.steps]
 
 
 def compute_supply(model):
-    return model.supply
+    return model.supply_of_ovl
 
 
 def compute_liquidity(model):
@@ -47,8 +45,8 @@ def compute_treasury(model):
     return model.treasury
 
 
-def compute_wealth(model,
-                   agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
+def compute_wealth_for_agent_type(model,
+                                  agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
     if not agent_type:
         wealths = [a.wealth for a in model.schedule.agents]
     else:
@@ -109,3 +107,29 @@ def compute_inventory_wealth(model,
         ]
 
     return sum(wealths)
+
+
+def compute_positional_imbalance_by_market(model, ticker: str) -> float:
+    from ovm.monetary.markets import MonetaryFPosition
+    monetary_futures_market = model.ticker_to_futures_market_map[ticker]
+    uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
+    if len(uuid_to_position_map) > 0:
+        # import numpy as np
+
+        # positional_imbalance_1 = \
+        #     sum(position.directional_size for position in uuid_to_position_map.values())
+
+        positional_imbalance_2 = \
+            monetary_futures_market.locked_long - monetary_futures_market.locked_short
+
+        # assert np.isclose(positional_imbalance_1, positional_imbalance_2)
+
+        # positional_imbalance_3 = \
+        #     monetary_futures_market.nx - monetary_futures_market.ny
+
+        # print(f'positional_imbalance_1={positional_imbalance_1}')
+        # print(f'positional_imbalance_2={positional_imbalance_2}')
+        # print(f'positional_imbalance_3={positional_imbalance_3}')
+        return positional_imbalance_2
+    else:
+        return 0.0

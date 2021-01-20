@@ -1,18 +1,25 @@
 from typing import Any
 from dataclasses import dataclass
-import numpy as np
+import logging
+import typing as tp
 import uuid
 
+import numpy as np
 
 # nx, ny: OVL locked in x and y token
 # dn: amount added to either bucket for the long/short position
 
-# ToDo: frozen=True if it turns out that the instance variables never need to change
+from ovm.debug_level import DEBUG_LEVEL
+
+# set up logging
+logger = logging.getLogger(__name__)
+
+
 @dataclass(frozen=False)
 class MonetaryFPosition:
-    fmarket_ticker: str
+    futures_market_ticker: str
     lock_price: float = 0.0
-    amount: float = 0.0
+    amount_of_ovl_locked: float = 0.0  # this is non-negative
     long: bool = True
     leverage: float = 1.0
     trader: Any = None
@@ -21,9 +28,16 @@ class MonetaryFPosition:
     def __post_init__(self):
         self.id = uuid.uuid4()
 
+    @property
+    def directional_size(self):
+        if self.long:
+            return self.amount_of_ovl_locked * self.leverage
+        else:
+            return -self.amount_of_ovl_locked * self.leverage
 
-class MonetaryFMarket:
-    from model import MonetaryModel
+
+class MonetaryFMarket:  # This is Overlay
+    from ovm.monetary.model import MonetaryModel
 
     def __init__(self,
                  unique_id: str,
@@ -49,7 +63,7 @@ class MonetaryFMarket:
         self.liquidate_reward = liquidate_reward
         self.maintenance = maintenance
         self.model = model
-        self.positions = {}  # { id: [MonetaryFPosition] }
+        self.positions: tp.Dict[tp.Any, MonetaryFPosition] = {} # { id: [MonetaryFPosition] }
         self.base_currency = unique_id[:-len("-USD")]
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
@@ -61,7 +75,7 @@ class MonetaryFMarket:
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
         self.cum_price = self.x / self.y
-        self.cum_price_idx = 0
+        self.cum_price_time_step = 0
         self.last_cum_price = self.x / self.y
         self.last_liquidity = model.liquidity  # For liquidity adjustments
         self.last_funding_idx = 0
@@ -81,10 +95,10 @@ class MonetaryFMarket:
     def _update_cum_price(self):
         # TODO: cum_price and time_elapsed setters ...
         # TODO: Need to check that this is the last swap for given timestep ... (slightly different than Uniswap in practice)
-        idx = self.model.schedule.steps
-        if idx > self.cum_price_idx:  # and last swap for idx ...
-            self.cum_price += (idx - self.cum_price_idx) * self.price
-            self.cum_price_idx = idx
+        current_time_step = self.model.schedule.steps
+        if current_time_step > self.cum_price_time_step:  # and last swap for current_time_step ...
+            self.cum_price += (current_time_step - self.cum_price_time_step) * self.price
+            self.cum_price_time_step = current_time_step
 
     def _update_cum_locked_long(self):
         idx = self.model.schedule.steps
@@ -183,7 +197,6 @@ class MonetaryFMarket:
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
         assert leverage < self.max_leverage, "_swap: leverage exceeds max_leverage"
-        avg_price = 0.0
         if (build and long) or (not build and not long):
             # print("dn = +px*dx")
             dx = self.px*dn*leverage
@@ -227,8 +240,7 @@ class MonetaryFMarket:
         # print(f"_swap: ny -> {self.ny}")
         # print(f"_swap: y -> {self.y}")
         self._update_cum_price()
-        idx = self.model.schedule.steps
-        self.last_trade_idx = idx
+        self.last_trade_time_step = self.model.schedule.steps
         return self.price
 
     def build(self,
@@ -250,12 +262,12 @@ class MonetaryFMarket:
 
         # Lock into long/short pool last
         if long:
-            self.locked_long += amount
+            self.locked_long += amount_of_ovl_locked
             self._update_cum_locked_long()
         else:
-            self.locked_short += amount
+            self.locked_short += amount_of_ovl_locked
             self._update_cum_locked_short()
-        return pos
+        return position
 
     def unwind(self,
                dn: float,
@@ -314,7 +326,7 @@ class MonetaryFMarket:
             pos.amount -= amount
             self.positions[pid]=pos
 
-        return pos, ds
+        return position, ds
 
     def funding(self):
         # View for current estimate of the funding rate over current sampling period
@@ -419,6 +431,10 @@ class MonetaryFMarket:
             self.locked_long -= funding_long
             # print(f"fund: Adding ds={funding_short} OVL to shorts")
             self.locked_short += funding_short
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"fund: Adding ds={funding_short - funding_long} OVL to total supply")
+                logger.debug(f"fund: Adding ds={-funding_long} OVL to longs")
+                logger.debug(f"fund: Adding ds={funding_short} OVL to shorts")
         else:
             funding=max(funding, -1.0)
             funding_long=abs(twao_long*funding)
@@ -430,6 +446,10 @@ class MonetaryFMarket:
             self.locked_long += funding_long
             # print(f"fund: Adding ds={-funding_short} OVL to shorts")
             self.locked_short -= funding_short
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"fund: Adding ds={funding_long - funding_short} OVL to total supply")
+                logger.debug(f"fund: Adding ds={funding_long} OVL to longs")
+                logger.debug(f"fund: Adding ds={-funding_short} OVL to shorts")
 
         # Update virtual liquidity reserves
         # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
@@ -514,7 +534,8 @@ class MonetaryFMarket:
         return reward
 
 
-class MonetarySMarket:
+# ToDo: This code is not used yet. Do not delete but ignore for now.
+class MonetarySMarket:  # This is UniSwap
     def __init__(self,
                  unique_id: str,
                  x: float,
