@@ -9,11 +9,7 @@ from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
 from ovm.debug_level import DEBUG_LEVEL
-from ovm.tickers import (
-    USD_TICKER,
-    OVL_TICKER,
-    OVL_USD_TICKER
-)
+from ovm.tickers import OVL_USD_TICKER
 
 from ovm.monetary.options import DataCollectionOptions
 from ovm.monetary.plot_labels import (
@@ -311,7 +307,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if logger.getEffectiveLevel() <= DEBUG_LEVEL:
+        if logger.getEffectiveLevel() <= 10:
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],
