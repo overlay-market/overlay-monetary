@@ -35,6 +35,7 @@ REQUIRED = [
     "pytest",
     "recombinator",
     "scipy",
+    "seaborn",
     "statsmodels",
     "tqdm"
 ]
