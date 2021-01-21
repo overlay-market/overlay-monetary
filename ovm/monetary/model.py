@@ -1,9 +1,15 @@
+import logging
 from functools import partial
 import typing as tp
+
+from logs import console_log
 
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
+
+# set up logging
+logger = logging.getLogger(__name__)
 
 
 class MonetaryModel(Model):
@@ -77,17 +83,28 @@ class MonetaryModel(Model):
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
+        console_log(logger, [
+            "Model kwargs for initial conditions of sim:",
+            f"num_arbitrageurs = {num_arbitrageurs}",
+            f"num_snipers = {num_snipers}",
+            f"num_keepers = {num_keepers}",
+            f"num_traders = {num_traders}",
+            f"num_holders = {num_holders}",
+            f"num_liquidators = {num_liquidators}",
+            f"base_wealth = {base_wealth}",
+            f"total_supply = {self.supply}",
+            f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}",
+        ], level=logging.INFO)
+
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
         n = len(sims.keys())
         prices_ovlusd = self.sims["OVL-USD"]
-        # print(f"OVL-USD first sim price: {prices_ovlusd[0]}")
         liquidity_weight = {
             list(sims.keys())[i]: 1
             for i in range(n)
         }
-        # print(f"liquidity_weight = {liquidity_weight}")
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
@@ -190,13 +207,6 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
 
-            # print("MonetaryModel.init: Adding agent to schedule ...")
-            # print(f"MonetaryModel.init: agent type={type(agent)}")
-            # print(f"MonetaryModel.init: unique_id={agent.unique_id}")
-            # print(f"MonetaryModel.init: fmarket={agent.fmarket.unique_id}")
-            # print(f"MonetaryModel.init: leverage_max={agent.leverage_max}")
-            # print(f"MonetaryModel.init: inventory={agent.inventory}")
-
             self.schedule.add(agent)
 
         # simulation collector
@@ -259,7 +269,6 @@ class MonetaryModel(Model):
         self.data_collector.collect(self)
 
         # Snipers
-        print("========================================")
         top_10_snipers = sorted(
             [a for a in self.schedule.agents if type(a) == MonetarySniper],
             key=lambda item: item.wealth,
@@ -269,37 +278,47 @@ class MonetaryModel(Model):
             [a for a in self.schedule.agents if type(a) == MonetarySniper],
             key=lambda item: item.wealth
         )[:10]
-        print("Sniper wealths top 10", {
-              a.unique_id: a.wealth
-              for a in top_10_snipers
-             })
-        print("Sniper wealths bottom 10", {
-              a.unique_id: a.wealth
-              for a in bottom_10_snipers
-             })
+        top_10_snipers_wealth = {
+            a.unique_id: a.wealth
+            for a in top_10_snipers
+        }
+        bottom_10_snipers_wealth = {
+            a.unique_id: a.wealth
+            for a in bottom_10_snipers
+        }
+        console_log(logger, [
+            "========================================",
+            f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}",
+            f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}",
+        ], level=logging.INFO)
 
         # Arbs
-        print("========================================")
         top_10_arbs = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            [a for a in self.schedule.agents if type(
+                a) == MonetaryArbitrageur],
             key=lambda item: item.wealth,
             reverse=True
         )[:10]
         bottom_10_arbs = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetaryArbitrageur],
+            [a for a in self.schedule.agents if type(
+                a) == MonetaryArbitrageur],
             key=lambda item: item.wealth
         )[:10]
-        print("Arbs wealths top 10", {
-              a.unique_id: a.wealth
-              for a in top_10_arbs
-             })
-        print("Arbs wealths bottom 10", {
-              a.unique_id: a.wealth
-              for a in bottom_10_arbs
-             })
+        top_10_arbs_wealth = {
+            a.unique_id: a.wealth
+            for a in top_10_arbs
+        }
+        bottom_10_arbs_wealth = {
+            a.unique_id: a.wealth
+            for a in bottom_10_arbs
+        }
+        console_log(logger, [
+            "========================================",
+            f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}",
+            f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}",
+        ], level=logging.INFO)
 
         # Liquidators
-        print("========================================")
         top_10_liqs = sorted(
             [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
             key=lambda item: item.wealth,
@@ -309,13 +328,18 @@ class MonetaryModel(Model):
             [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
             key=lambda item: item.wealth
         )[:10]
-        print("Liqs wealths top 10", {
-              a.unique_id: a.wealth
-              for a in top_10_liqs
-             })
-        print("Liqs wealths bottom 10", {
-              a.unique_id: a.wealth
-              for a in bottom_10_liqs
-             })
+        top_10_liqs_wealth = {
+            a.unique_id: a.wealth
+            for a in top_10_liqs
+        }
+        bottom_10_liqs_wealth = {
+            a.unique_id: a.wealth
+            for a in bottom_10_liqs
+        }
+        console_log(logger, [
+            "========================================",
+            f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}",
+            f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}",
+        ], level=logging.INFO)
 
         self.schedule.step()
