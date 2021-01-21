@@ -4,7 +4,7 @@ import numpy as np
 
 from mesa import Agent
 
-from logs import console_log
+from ovm.monetary.logs import console_log
 
 from ovm.tickers import (
     USD_TICKER,
@@ -22,8 +22,8 @@ class MonetaryAgent(Agent):
     Add in position hodlers as a different agent
     later (maybe also with stop losses)
     """
-    from model import MonetaryModel
-    from markets import MonetaryFMarket
+    from ovm.monetary.model import MonetaryModel
+    from ovm.monetary.markets import MonetaryFMarket
 
     def __init__(
         self,

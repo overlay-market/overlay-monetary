@@ -6,11 +6,7 @@ import uuid
 
 from ovm.monetary.logs import console_log
 
-from ovm.tickers import (
-    USD_TICKER,
-    OVL_TICKER,
-    OVL_USD_TICKER
-)
+from ovm.tickers import OVL_USD_TICKER
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -41,7 +37,7 @@ class MonetaryFPosition:
 
 
 class MonetaryFMarket:
-    from model import MonetaryModel
+    from ovm.monetary.model import MonetaryModel
 
     def __init__(self,
                  unique_id: str,

@@ -2,7 +2,7 @@ import logging
 from functools import partial
 import typing as tp
 
-from logs import console_log
+from ovm.monetary.logs import console_log
 
 from mesa import Model
 from mesa.time import RandomActivation
