@@ -8,6 +8,29 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
+from ovm.debug_level import DEBUG_LEVEL
+from ovm.tickers import (
+    USD_TICKER,
+    OVL_TICKER,
+    OVL_USD_TICKER
+)
+
+from options import DataCollectionOptions
+from plot_labels import (
+    price_deviation_label,
+    spot_price_label,
+    futures_price_label,
+    skew_label,
+    inventory_wealth_ovl_label,
+    inventory_wealth_usd_label,
+    agent_wealth_ovl_label,
+    GINI_LABEL,
+    GINI_ARBITRAGEURS_LABEL,
+    SUPPLY_LABEL,
+    TREASURY_LABEL,
+    LIQUIDITY_LABEL
+)
+
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -38,7 +61,8 @@ class MonetaryModel(Model):
         liquidity: float,
         liquidity_supply_emission: tp.List[float],
         treasury: float,
-        sampling_interval: int
+        sampling_interval: int,
+        data_collection_options: DataCollectionOptions = DataCollectionOptions()
     ):
         from agents import (
             MonetaryArbitrageur,
@@ -53,14 +77,15 @@ class MonetaryModel(Model):
 
         from reporters import (
             compute_gini,
-            compute_price_diff,
-            compute_fprice,
-            compute_sprice,
+            compute_price_difference,
+            compute_futures_price,
+            compute_spot_price,
             compute_supply,
             compute_liquidity,
             compute_treasury,
-            compute_wealth,
-            compute_inventory_wealth,
+            compute_wealth_for_agent_type,
+            compute_inventory_wealth_for_agent_type,
+            compute_positional_imbalance_by_market,
         )
 
         super().__init__()
@@ -78,6 +103,7 @@ class MonetaryModel(Model):
         self.base_maintenance = base_maintenance
         self.liquidity = liquidity
         self.treasury = treasury
+        self.data_collection_options = data_collection_options
         self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
@@ -141,7 +167,6 @@ class MonetaryModel(Model):
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 9.0) + 1.0
-            sniper_leverage_max = (i % 3.0) + 1.0
 
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -176,14 +201,15 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
+                sniper_leverage_max = (i % 3.0) + 1.0
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=sniper_leverage_max,
+                    leverage_max=leverage_max,
                     trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
-                    size_increment=0.01,
+                    size_increment=0.05,
                     min_edge=0.0,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
@@ -209,53 +235,68 @@ class MonetaryModel(Model):
 
             self.schedule.add(agent)
 
-        # simulation collector
-        # TODO: Why are OVL-USD and ETH-USD futures markets not doing anything in terms of arb bots?
-        # TODO: What happens if not enough OVL to sway the market prices on the platform? (i.e. all locked up)
-        model_reporters = {
-            f"d-{ticker}": partial(compute_price_diff, ticker=ticker)
-            for ticker in tickers
-        }
-        model_reporters.update({
-            f"s-{ticker}": partial(compute_sprice, ticker=ticker)
-            for ticker in tickers
-        })
-        model_reporters.update({
-            f"f-{ticker}": partial(compute_fprice, ticker=ticker)
-            for ticker in tickers
-        })
-        model_reporters.update({
-            "Gini": compute_gini,
-            #"Gini (Arbitrageurs)": partial(compute_gini, agent_type=MonetaryArbitrageur),
-            "Supply": compute_supply,
-            "Treasury": compute_treasury,
-            #"Liquidity": compute_liquidity,
-            #"Agent": partial(compute_wealth, agent_type=None),
-            #"Arbitrageurs Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryArbitrageur),
-            #"Arbitrageurs Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur),
-            #"Arbitrageurs OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, inventory_type="OVL"),
-            #"Arbitrageurs Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryArbitrageur, in_usd=True),
-            #"Snipers Wealth (OVL)": partial(compute_wealth, agent_type=MonetarySniper),
-            #"Snipers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper),
-            #"Snipers OVL Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetarySniper, inventory_type="OVL"),
-            #"Snipers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetarySniper, in_usd=True),
-            #"Keepers Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryKeeper),
-            #"Keepers Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            #"Keepers Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            #"Traders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryTrader),
-            #"Traders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper),
-            #"Traders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryKeeper, in_usd=True),
-            #"Holders Wealth (OVL)": partial(compute_wealth, agent_type=MonetaryHolder),
-            #"Holders Inventory (OVL)": partial(compute_inventory_wealth, agent_type=MonetaryHolder),
-            #"Holders Inventory (USD)": partial(compute_inventory_wealth, agent_type=MonetaryHolder, in_usd=True),
-        })
-        self.data_collector = DataCollector(
-            model_reporters=model_reporters,
-            agent_reporters={"Wealth": "wealth"},
-        )
+        if self.data_collection_options.perform_data_collection:
+            model_reporters = {
+                price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
+                for ticker in tickers
+            }
+            model_reporters.update({
+                spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+                futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+                skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                for ticker in tickers
+            })
+
+            if self.data_collection_options.compute_gini_coefficient:
+                model_reporters.update({
+                    GINI_LABEL: compute_gini,
+                    GINI_ARBITRAGEURS_LABEL: partial(
+                        compute_gini, agent_type=MonetaryArbitrageur)
+                })
+
+            model_reporters.update({
+                SUPPLY_LABEL: compute_supply,
+                TREASURY_LABEL: compute_treasury,
+                LIQUIDITY_LABEL: compute_liquidity
+            })
+
+            if self.data_collection_options.compute_wealth:
+                model_reporters.update({
+                    "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
+                })
+
+            for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
+                                                ("Keepers", MonetaryKeeper),
+                                                ("Traders", MonetaryTrader),
+                                                ("Holders", MonetaryHolder)]:
+                if self.data_collection_options.compute_wealth:
+                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
+                        compute_wealth_for_agent_type, agent_type=agent_type)
+
+                if self.data_collection_options.compute_inventory_wealth:
+                    model_reporters.update({
+                        inventory_wealth_ovl_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
+                        inventory_wealth_usd_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_usd=True)
+                    })
+
+            self.data_collector = DataCollector(
+                model_reporters=model_reporters,
+                agent_reporters={"Wealth": "wealth"},
+            )
 
         self.running = True
-        self.data_collector.collect(self)
+        if self.data_collection_options.perform_data_collection:
+            self.data_collector.collect(self)
+
+    @property
+    def number_of_markets(self) -> int:
+        return len(self.sims)
 
     def step(self):
         """
@@ -266,7 +307,9 @@ class MonetaryModel(Model):
             MonetarySniper,
             MonetaryLiquidator,
         )
-        self.data_collector.collect(self)
+        if self.data_collection_options.perform_data_collection and \
+           self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
+            self.data_collector.collect(self)
 
         # Snipers
         top_10_snipers = sorted(
