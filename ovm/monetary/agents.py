@@ -6,7 +6,11 @@ from mesa import Agent
 
 from logs import console_log
 
-from ovm.debug_level import DEBUG_LEVEL
+from ovm.tickers import (
+    USD_TICKER,
+    OVL_TICKER,
+    OVL_USD_TICKER
+)
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -136,7 +140,7 @@ class MonetaryLiquidator(MonetaryAgent):
                     f"self.inventory['OVL'] -> {self.inventory['OVL']}",
                 ])
                 reward = self.fmarket.liquidate(pid)
-                self.inventory["OVL"] += reward
+                self.inventory[OVL_TICKER] += reward
                 self.wealth += reward
                 self.last_trade_idx = self.model.schedule.steps
                 pos.trader.locked -= pos.amount
@@ -173,7 +177,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         # TODO: rebalance inventory on unwind!
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice_ovlusd = self.model.sims[OVL_USD_TICKER][idx]
         for pid, pos in self.positions.items():
             fees = self.fmarket.fees(pos.amount, build=False, long=(
                 not pos.long), leverage=pos.leverage)
@@ -182,7 +186,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}",
                 f"Unwound: ds -> {ds}",
             ])
-            self.inventory["OVL"] += pos.amount + ds - fees
+            self.inventory[OVL_TICKER] += pos.amount + ds - fees
             self.locked -= pos.amount
             self.wealth += ds - fees
             self.last_trade_idx = self.model.schedule.steps
@@ -196,7 +200,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 spot_sell_received = (spot_sell_amount - spot_sell_fees)*sprice
                 # TODO: this is wrong because of the leverage! fix
                 self.inventory[self.fmarket.base_currency] -= spot_sell_amount
-                self.inventory["USD"] += spot_sell_received
+                self.inventory[USD_TICKER] += spot_sell_received
                 console_log(logger, [
                     "Arb._unwind_positions: Selling base curr on spot to unwind arb ...",
                     f"Arb._unwind_positions: spot sell amount (OVL) -> {pos.amount}",
@@ -210,7 +214,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                 spot_buy_fees = min(
                     spot_buy_amount*self.fmarket.base_fee, pos.amount)
                 spot_buy_received = (spot_buy_amount - spot_buy_fees)/sprice
-                self.inventory["USD"] -= spot_buy_amount
+                self.inventory[USD_TICKER] -= spot_buy_amount
                 self.inventory[self.fmarket.base_currency] += spot_buy_received
                 console_log(logger, [
                     "Arb._unwind_positions: Buying base curr on spot to lock in arb ...",
@@ -250,7 +254,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         # Get ready to arb current spreads
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice_ovlusd = self.model.sims[OVL_USD_TICKER][idx]
         fprice = self.fmarket.price
 
         # TODO: Check arbs are making money on the spot .... Implement spot USD basis
@@ -296,7 +300,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                         f"Arb.trade: pos.lock_price -> {pos.lock_price}",
                     ])
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
+                    self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
                     self.wealth -= fees
                     self.last_trade_idx = idx
@@ -312,7 +316,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_sell_amount - spot_sell_fees)*sprice
 
                     self.inventory[self.fmarket.base_currency] -= spot_sell_amount
-                    self.inventory["USD"] += spot_sell_received
+                    self.inventory[USD_TICKER] += spot_sell_received
 
                     console_log(logger, [
                         "Arb.trade: Selling base curr on spot to lock in arb ...",
@@ -361,7 +365,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                         f"Arb.trade: pos.lock_price -> {pos.lock_price}"
                     ])
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
+                    self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
                     self.wealth -= fees
                     self.last_trade_idx = idx
@@ -375,7 +379,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                         spot_buy_amount*self.fmarket.base_fee, pos.amount)
                     spot_buy_received = (
                         spot_buy_amount - spot_buy_fees)/sprice
-                    self.inventory["USD"] -= spot_buy_amount
+                    self.inventory[USD_TICKER] -= spot_buy_amount
                     self.inventory[self.fmarket.base_currency] += spot_buy_received
 
                     # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
@@ -443,7 +447,7 @@ class MonetarySniper(MonetaryAgent):
         # TODO: rebalance inventory on unwind!
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice_ovlusd = self.model.sims[OVL_USD_TICKER][idx]
         unwound_pids = []
         for pid, pos in self.positions.items():
             unwind_amount = self._get_unwind_amount(self.fmarket.funding(), pos.amount, pos.long)
@@ -460,7 +464,7 @@ class MonetarySniper(MonetaryAgent):
             if pos == None:
                 unwound_pids.append(pid)
                 continue
-            self.inventory["OVL"] += unwind_amount + ds - fees
+            self.inventory[OVL_TICKER] += unwind_amount + ds - fees
             self.locked -= unwind_amount
             self.wealth += ds - fees
             self.last_trade_idx = self.model.schedule.steps
@@ -475,7 +479,7 @@ class MonetarySniper(MonetaryAgent):
 
                 # TODO: this is wrong because of the leverage! fix
                 self.inventory[self.fmarket.base_currency] -= spot_sell_amount
-                self.inventory["USD"] += spot_sell_received
+                self.inventory[USD_TICKER] += spot_sell_received
                 console_log(logger, [
                     "Arb._unwind_positions: Selling base curr on spot to unwind arb ...",
                     f"Arb._unwind_positions: spot sell amount (OVL) -> {unwind_amount}",
@@ -489,7 +493,7 @@ class MonetarySniper(MonetaryAgent):
                 spot_buy_fees = min(
                     spot_buy_amount*self.fmarket.base_fee, unwind_amount)
                 spot_buy_received = (spot_buy_amount - spot_buy_fees)/sprice
-                self.inventory["USD"] -= spot_buy_amount
+                self.inventory[USD_TICKER] -= spot_buy_amount
                 self.inventory[self.fmarket.base_currency] += spot_buy_received
                 console_log(logger, [
                     "Arb._unwind_positions: Buying base curr on spot to lock in arb ...",
@@ -549,7 +553,7 @@ class MonetarySniper(MonetaryAgent):
         # Get ready to arb current spreads
         idx = self.model.schedule.steps
         sprice = self.model.sims[self.fmarket.unique_id][idx]
-        sprice_ovlusd = self.model.sims["OVL-USD"][idx]
+        sprice_ovlusd = self.model.sims[OVL_USD_TICKER][idx]
         fprice = self.fmarket.price
 
         # TODO: Check arbs are making money on the spot .... Implement spot USD basis
@@ -602,7 +606,7 @@ class MonetarySniper(MonetaryAgent):
                         f"Arb.trade: pos.lock_price -> {pos.lock_price}",
                     ])
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
+                    self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
                     self.wealth -= fees
                     self.last_trade_idx = idx
@@ -617,7 +621,7 @@ class MonetarySniper(MonetaryAgent):
                         spot_sell_amount - spot_sell_fees)*sprice
 
                     self.inventory[self.fmarket.base_currency] -= spot_sell_amount
-                    self.inventory["USD"] += spot_sell_received
+                    self.inventory[USD_TICKER] += spot_sell_received
                     # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)
                     # PnL (OVL) = - pos.amount * (sprice_ovlusd/sprice_ovlusd_t) * (price_t - s_price)/s_price + pos.amount * (price_t - lock_price)/lock_price
                     #           = pos.amount * [ - (sprice_ovlusd/sprice_ovlusd_t) * (price_t/s_price - 1 ) + (price_t/lock_price - 1) ]
@@ -669,7 +673,7 @@ class MonetarySniper(MonetaryAgent):
                         f"Arb.trade: pos.lock_price -> {pos.lock_price}",
                     ])
                     self.positions[pos.id] = pos
-                    self.inventory["OVL"] -= pos.amount + fees
+                    self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
                     self.wealth -= fees
                     self.last_trade_idx = idx
@@ -683,7 +687,7 @@ class MonetarySniper(MonetaryAgent):
                         spot_buy_amount*self.fmarket.base_fee, pos.amount)
                     spot_buy_received = (
                         spot_buy_amount - spot_buy_fees)/sprice
-                    self.inventory["USD"] -= spot_buy_amount
+                    self.inventory[USD_TICKER] -= spot_buy_amount
                     self.inventory[self.fmarket.base_currency] += spot_buy_received
 
                     # Calculate amount profit locked in in OVL and USD terms ... (This is rough for now since not accounting for OVL exposure and actual PnL forms ... and assuming spot/futures converge with funding doing it)

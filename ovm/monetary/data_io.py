@@ -1,6 +1,7 @@
 import os
 import typing as tp
 
+import numpy as np
 import pandas as pd
 
 from ovm.paths import SIMULATED_DATA_DIRECTORY
@@ -16,9 +17,8 @@ def construct_sims_map(
         data_sim_rng: int,
         time_resolution: TimeResolution,
         tickers: tp.Sequence[str],
-        # for sim source, since OVL doesn't actually exist yet
-        ovl_ticker: str = YFI_USD_TICKER,
-        verbose: bool = False) -> tp.Dict[str, tp.List[float]]:
+        ovl_ticker: str = YFI_USD_TICKER,   # for sim source, since OVL doesn't actually exist yet
+        verbose: bool = False) -> tp.Dict[str, np.ndarray]:
 
     ticker_to_time_series_of_prices_map = {}
     for ticker in tickers:
@@ -31,10 +31,18 @@ def construct_sims_map(
             print(f"Reading in sim simulation from {rpath}")
         f = pd.read_csv(rpath)
         if ticker == ovl_ticker:
-            ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.tolist()[
-                                                                              0]
+            ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.reshape((-1, ))
         else:
-            ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.tolist()[
-                                                                      0]
+            ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.reshape((-1, ))
+
+    return ticker_to_time_series_of_prices_map
+
+
+def construct_ticker_to_series_of_prices_map_from_simulated_prices(
+        simulated_prices: np.ndarray,
+        tickers: tp.Sequence[str]) \
+        -> tp.Dict[str, np.ndarray]:
+    ticker_to_time_series_of_prices_map = \
+        {ticker: simulated_prices[0, :, i] for i, ticker in enumerate(tickers)}
 
     return ticker_to_time_series_of_prices_map

@@ -15,8 +15,8 @@ from ovm.tickers import (
     OVL_USD_TICKER
 )
 
-from options import DataCollectionOptions
-from plot_labels import (
+from ovm.monetary.options import DataCollectionOptions
+from ovm.monetary.plot_labels import (
     price_deviation_label,
     spot_price_label,
     futures_price_label,
@@ -64,7 +64,7 @@ class MonetaryModel(Model):
         sampling_interval: int,
         data_collection_options: DataCollectionOptions = DataCollectionOptions()
     ):
-        from agents import (
+        from ovm.monetary.agents import (
             MonetaryArbitrageur,
             MonetaryKeeper,
             MonetaryHolder,
@@ -73,9 +73,9 @@ class MonetaryModel(Model):
             MonetaryLiquidator,
         )
 
-        from markets import MonetaryFMarket
+        from ovm.monetary.markets import MonetaryFMarket
 
-        from reporters import (
+        from ovm.monetary.reporters import (
             compute_gini,
             compute_price_difference,
             compute_futures_price,
@@ -126,7 +126,7 @@ class MonetaryModel(Model):
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
         n = len(sims.keys())
-        prices_ovlusd = self.sims["OVL-USD"]
+        prices_ovlusd = self.sims[OVL_USD_TICKER]
         liquidity_weight = {
             list(sims.keys())[i]: 1
             for i in range(n)
@@ -224,7 +224,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                 )
             else:
-                from .agents import MonetaryAgent
+                from ovm.monetary.agents import MonetaryAgent
                 agent = MonetaryAgent(
                     unique_id=i,
                     model=self,
@@ -302,7 +302,7 @@ class MonetaryModel(Model):
         """
         A model step. Used for collecting simulation and advancing the schedule
         """
-        from agents import (
+        from ovm.monetary.agents import (
             MonetaryArbitrageur,
             MonetarySniper,
             MonetaryLiquidator,
@@ -311,78 +311,79 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        # Snipers
-        top_10_snipers = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetarySniper],
-            key=lambda item: item.wealth,
-            reverse=True
-        )[:10]
-        bottom_10_snipers = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetarySniper],
-            key=lambda item: item.wealth
-        )[:10]
-        top_10_snipers_wealth = {
-            a.unique_id: a.wealth
-            for a in top_10_snipers
-        }
-        bottom_10_snipers_wealth = {
-            a.unique_id: a.wealth
-            for a in bottom_10_snipers
-        }
-        console_log(logger, [
-            "========================================",
-            f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}",
-            f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}",
-        ], level=logging.INFO)
+        if logger.getEffectiveLevel() <= DEBUG_LEVEL:
+            # Snipers
+            top_10_snipers = sorted(
+                [a for a in self.schedule.agents if type(a) == MonetarySniper],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_snipers = sorted(
+                [a for a in self.schedule.agents if type(a) == MonetarySniper],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_snipers_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_snipers
+            }
+            bottom_10_snipers_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_snipers
+            }
+            console_log(logger, [
+                "========================================",
+                f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}",
+                f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}",
+            ], level=logging.INFO)
 
-        # Arbs
-        top_10_arbs = sorted(
-            [a for a in self.schedule.agents if type(
-                a) == MonetaryArbitrageur],
-            key=lambda item: item.wealth,
-            reverse=True
-        )[:10]
-        bottom_10_arbs = sorted(
-            [a for a in self.schedule.agents if type(
-                a) == MonetaryArbitrageur],
-            key=lambda item: item.wealth
-        )[:10]
-        top_10_arbs_wealth = {
-            a.unique_id: a.wealth
-            for a in top_10_arbs
-        }
-        bottom_10_arbs_wealth = {
-            a.unique_id: a.wealth
-            for a in bottom_10_arbs
-        }
-        console_log(logger, [
-            "========================================",
-            f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}",
-            f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}",
-        ], level=logging.INFO)
+            # Arbs
+            top_10_arbs = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryArbitrageur],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_arbs = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryArbitrageur],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_arbs_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_arbs
+            }
+            bottom_10_arbs_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_arbs
+            }
+            console_log(logger, [
+                "========================================",
+                f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}",
+                f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}",
+            ], level=logging.INFO)
 
-        # Liquidators
-        top_10_liqs = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
-            key=lambda item: item.wealth,
-            reverse=True
-        )[:10]
-        bottom_10_liqs = sorted(
-            [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
-            key=lambda item: item.wealth
-        )[:10]
-        top_10_liqs_wealth = {
-            a.unique_id: a.wealth
-            for a in top_10_liqs
-        }
-        bottom_10_liqs_wealth = {
-            a.unique_id: a.wealth
-            for a in bottom_10_liqs
-        }
-        console_log(logger, [
-            "========================================",
-            f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}",
-            f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}",
-        ], level=logging.INFO)
+            # Liquidators
+            top_10_liqs = sorted(
+                [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_liqs = sorted(
+                [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_liqs_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_liqs
+            }
+            bottom_10_liqs_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_liqs
+            }
+            console_log(logger, [
+                "========================================",
+                f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}",
+                f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}",
+            ], level=logging.INFO)
 
         self.schedule.step()

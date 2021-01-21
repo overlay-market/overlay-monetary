@@ -4,7 +4,13 @@ from dataclasses import dataclass
 import numpy as np
 import uuid
 
-from logs import console_log
+from ovm.monetary.logs import console_log
+
+from ovm.tickers import (
+    USD_TICKER,
+    OVL_TICKER,
+    OVL_USD_TICKER
+)
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -12,7 +18,7 @@ logger = logging.getLogger(__name__)
 # nx, ny: OVL locked in x and y token
 # dn: amount added to either bucket for the long/short position
 
-# ToDo: frozen=True if it turns out that the instance variables never need to change
+
 @dataclass(frozen=False)
 class MonetaryFPosition:
     fmarket_ticker: str
@@ -25,6 +31,13 @@ class MonetaryFPosition:
 
     def __post_init__(self):
         self.id = uuid.uuid4()
+
+    @property
+    def directional_size(self):
+        if self.long:
+            return self.amount * self.leverage
+        else:
+            return -self.amount * self.leverage
 
 
 class MonetaryFMarket:
@@ -539,7 +552,7 @@ class MonetaryFMarket:
 
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
         cum_ovlusd_feed=np.sum(np.array(
-            self.model.sims["OVL-USD"][idx-self.model.sampling_interval:idx]
+            self.model.sims[OVL_USD_TICKER][idx-self.model.sampling_interval:idx]
         ))
         twap_ovlusd_feed=cum_ovlusd_feed / self.model.sampling_interval
         self.px=twap_ovlusd_feed  # px = n_usd/n_ovl
