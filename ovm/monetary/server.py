@@ -1,6 +1,7 @@
 """
 Configure visualization elements and instantiate a server
 """
+import logging
 import os
 import random
 import typing as tp
@@ -9,30 +10,28 @@ from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 import pandas as pd
 
-from model import MonetaryModel
-
+from ovm.debug_level import DEBUG_LEVEL
 from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.time_resolution import TimeResolution
+
+from model import MonetaryModel
+from data_io import construct_sims_map
+from logs import console_log
+
+
+# set up logging
+logger = logging.getLogger(__name__)
 
 
 def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-# Data frequencies in seconds
-DATA_FREQUENCIES = {
-    '15s': 15,
-    '1m': 60,
-    '5m': 300,
-    '15m': 900,
-}
-
-DATA_FREQ_KEY = '15s'
+TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
 DATA_SIM_RNG = 42
-DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
-STEPS_MONTH = int((86400*30)/DATA_FREQ)
-BASE_DIRECTORY = Path(__file__).resolve().parents[1]
+STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
 TICKERS = ["ETH-USD",
@@ -45,20 +44,11 @@ TICKERS = ["ETH-USD",
            ]
 
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
-sims = {}
-for ticker in TICKERS:
-    rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
-                         str(DATA_FREQ_KEY),
-                         f'sims-{DATA_SIM_RNG}',
-                         f'sim-{ticker}.csv')
+sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
+                          time_resolution=TIME_RESOLUTION,
+                          tickers=TICKERS,
+                          ovl_ticker=OVL_TICKER)
 
-    # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
-    print(f"Reading in sim simulation from {rpath}")
-    f = pd.read_csv(rpath)
-    if ticker == OVL_TICKER:
-        sims["OVL-USD"] = f.transpose().values.tolist()[0]
-    else:
-        sims[ticker] = f.transpose().values.tolist()[0]
 
 total_supply = 100000  # OVL
 base_wealth = 0.0003*100000  # OVL
@@ -175,19 +165,6 @@ MODEL_KWARGS = {
     # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
     "sampling_interval": 240,
 }
-
-
-print("Model kwargs for initial conditions of sim:")
-print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
-print(f"num_snipers = {MODEL_KWARGS['num_snipers']}")
-print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
-print(f"num_traders = {MODEL_KWARGS['num_traders']}")
-print(f"num_holders = {MODEL_KWARGS['num_holders']}")
-print(f"num_liquidators = {MODEL_KWARGS['num_liquidators']}")
-print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
-print(f"total_supply = {total_supply}")
-print(
-    f"num_agents * base_wealth + liquidity = {num_agents*base_wealth + liquidity}")
 
 chart_elements = construct_chart_elements(sims.keys())
 
