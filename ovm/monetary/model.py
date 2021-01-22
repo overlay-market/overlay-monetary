@@ -5,6 +5,7 @@ import typing as tp
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
+import numpy as np
 
 from ovm.debug_level import PERFORM_INFO_LOGGING
 from ovm.tickers import OVL_TICKER, USD_TICKER, OVL_USD_TICKER
@@ -46,7 +47,7 @@ class MonetaryModel(Model):
         num_holders: int,
         num_snipers: int,
         num_liquidators: int,
-        sims: tp.Dict[str, tp.List[float]],
+        sims: tp.Dict[str, np.ndarray],
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
