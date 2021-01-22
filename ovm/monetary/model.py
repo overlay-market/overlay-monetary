@@ -304,7 +304,6 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        PERFORM_INFO_LOGGING = True
         if logger.getEffectiveLevel() <= 10:
             # Snipers
             top_10_snipers = sorted(
