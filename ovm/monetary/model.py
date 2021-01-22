@@ -8,7 +8,7 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from ovm.debug_level import DEBUG_LEVEL, INFO_LEVEL
+from ovm.debug_level import PERFORM_INFO_LOGGING
 from ovm.tickers import OVL_USD_TICKER
 
 from ovm.monetary.options import DataCollectionOptions
@@ -105,7 +105,7 @@ class MonetaryModel(Model):
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
-        if logging.root.level <= INFO_LEVEL:
+        if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
             logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
             logger.info(f"num_snipers = {num_snipers}")
@@ -325,7 +325,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_snipers
             }
-            if logging.root.level <= INFO_LEVEL:
+            if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
                 logger.info(f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
                 logger.info(f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}")
@@ -350,7 +350,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_arbs
             }
-            if logging.root.level <= INFO_LEVEL:
+            if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
                 logger.info(f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
                 logger.info(f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
@@ -373,7 +373,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_liqs
             }
-            if logging.root.level <= INFO_LEVEL:
+            if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
                 logger.info(f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
                 logger.info(f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
