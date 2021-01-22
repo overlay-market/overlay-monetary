@@ -2,14 +2,12 @@ import logging
 from functools import partial
 import typing as tp
 
-from ovm.monetary.logs import console_log
-
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
 from ovm.debug_level import PERFORM_INFO_LOGGING
-from ovm.tickers import OVL_USD_TICKER
+from ovm.tickers import OVL_TICKER, USD_TICKER, OVL_USD_TICKER
 
 from ovm.monetary.options import DataCollectionOptions
 from ovm.monetary.plot_labels import (
@@ -149,16 +147,16 @@ class MonetaryModel(Model):
             base_curr = fmarket.unique_id[:-len("-USD")]
             base_quote_price = self.sims[fmarket.unique_id][0]
             inventory: tp.Dict[str, float] = {}
-            if base_curr != 'OVL':
+            if base_curr != OVL_TICKER:
                 inventory = {
-                    'OVL': self.base_wealth,
-                    'USD': self.base_wealth*prices_ovlusd[0],
+                    OVL_TICKER: self.base_wealth,
+                    USD_TICKER: self.base_wealth*prices_ovlusd[0],
                     base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
                 }  # 50/50 inventory of base and quote curr (3x base_wealth for total in OVL)
             else:
                 inventory = {
-                    'OVL': self.base_wealth*2,  # 2x since using for both spot and futures
-                    'USD': self.base_wealth*prices_ovlusd[0]
+                    OVL_TICKER: self.base_wealth*2,  # 2x since using for both spot and futures
+                    USD_TICKER: self.base_wealth*prices_ovlusd[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 9.0) + 1.0

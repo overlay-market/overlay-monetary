@@ -1,6 +1,7 @@
 import typing as tp
 
 from ovm.monetary.agents import MonetaryAgent
+from ovm.tickers import OVL_TICKER, USD_TICKER
 
 
 def compute_gini(model,
@@ -69,8 +70,8 @@ def compute_inventory_wealth_for_agent(model,
     base_curr = agent.fmarket.base_currency
 
     p_constants_ovl = {
-        'OVL': 1.0,
-        'USD': 1.0/sprice_ovlusd,
+        OVL_TICKER: 1.0,
+        USD_TICKER: 1.0/sprice_ovlusd,
         base_curr: sprice/sprice_ovlusd,
     }
     p_constants_usd = {

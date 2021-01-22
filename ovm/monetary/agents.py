@@ -4,8 +4,7 @@ import numpy as np
 
 from mesa import Agent
 
-from ovm.debug_level import PERFORM_DEBUG_LOGGING, PERFORM_INFO_LOGGING
-from ovm.monetary.logs import console_log
+from ovm.debug_level import PERFORM_DEBUG_LOGGING
 
 from ovm.tickers import (
     USD_TICKER,
@@ -137,7 +136,7 @@ class MonetaryLiquidator(MonetaryAgent):
             if self.fmarket.liquidatable(pid) and pos.amount > 0.0:
                 if PERFORM_DEBUG_LOGGING:
                     logger.debug("Liquidating ...")
-                    logger.debug(f"self.inventory['OVL'] -> {self.inventory['OVL']}")
+                    logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
                 reward = self.fmarket.liquidate(pid)
                 self.inventory[OVL_TICKER] += reward
                 self.wealth += reward
@@ -146,7 +145,7 @@ class MonetaryLiquidator(MonetaryAgent):
                 pos.trader.wealth -= pos.amount
                 if PERFORM_DEBUG_LOGGING:
                     logger.debug("Liquidated ...")
-                    logger.debug(f"self.inventory['OVL'] -> {self.inventory['OVL']}")
+                    logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
                     logger.debug(f"self.wealth -> {self.wealth}")
                     logger.debug(f"pos.trader.locked -> {pos.trader.locked}")
                     logger.debug(f"pos.trader.wealth -> {pos.trader.wealth}")

@@ -4,8 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import uuid
 
-from ovm.debug_level import PERFORM_DEBUG_LOGGING, PERFORM_INFO_LOGGING
-from ovm.monetary.logs import console_log
+from ovm.debug_level import PERFORM_DEBUG_LOGGING
 
 from ovm.tickers import OVL_USD_TICKER
 

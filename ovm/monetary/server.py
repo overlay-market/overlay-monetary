@@ -2,16 +2,11 @@
 Configure visualization elements and instantiate a server
 """
 import logging
-import os
 import random
 import typing as tp
-from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
-import pandas as pd
 
-from ovm.debug_level import DEBUG_LEVEL
-from ovm.paths import SIMULATED_DATA_DIRECTORY
 from ovm.time_resolution import TimeResolution
 from ovm.tickers import (
     ETH_USD_TICKER,
@@ -20,10 +15,9 @@ from ovm.tickers import (
     YFI_USD_TICKER
 )
 
-from model import MonetaryModel
-from data_io import construct_sims_map
-from logs import console_log
-from options import DataCollectionOptions
+from ovm.monetary.model import MonetaryModel
+from ovm.monetary.data_io import construct_sims_map
+from ovm.monetary.options import DataCollectionOptions
 from plot_labels import (
     price_deviation_label,
     spot_price_label,
