@@ -1,6 +1,6 @@
 import os
 import typing as tp
-
+import numpy as np
 import pandas as pd
 
 from ovm.paths import SIMULATED_DATA_DIRECTORY
@@ -32,10 +32,8 @@ def construct_sims_map(
             print(f"Reading in sim simulation from {rpath}")
         f = pd.read_csv(rpath)
         if ticker == ovl_ticker:
-            ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.tolist()[
-                                                                              0]
+            ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.reshape((-1, ))
         else:
-            ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.tolist()[
-                                                                      0]
+            ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.reshape((-1, ))
 
     return ticker_to_time_series_of_prices_map
