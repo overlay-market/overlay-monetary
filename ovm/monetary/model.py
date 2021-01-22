@@ -195,7 +195,6 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
-                sniper_leverage_max = (i % 3.0) + 1.0
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
@@ -203,8 +202,8 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max,
                     trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
-                    size_increment=0.05,
-                    min_edge=0.0,
+                    size_increment=0.1,
+                    min_edge=0.02,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -305,6 +304,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
+        PERFORM_INFO_LOGGING = True
         if logger.getEffectiveLevel() <= 10:
             # Snipers
             top_10_snipers = sorted(
