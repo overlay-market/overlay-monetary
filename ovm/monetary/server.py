@@ -1,9 +1,11 @@
 """
 Configure visualization elements and instantiate a server
 """
+import os
 import logging
 import random
 import typing as tp
+from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
 
@@ -57,10 +59,14 @@ TICKERS = [ETH_USD_TICKER,
            YFI_USD_TICKER
            ]
 
+
+BASE_DIR = str(Path(os.path.dirname(__file__)).parents[1])
+SIM_DATA_DIR = os.path.join(BASE_DIR, 'data', 'simulation')
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
                           time_resolution=TIME_RESOLUTION,
                           tickers=TICKERS,
+                          sim_data_dir=SIM_DATA_DIR,
                           ovl_ticker=YFI_USD_TICKER)
 
 

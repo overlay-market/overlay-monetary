@@ -292,4 +292,3 @@ def plot_spot_vs_futures_price(
 
     plt.legend();
     plt.title(f'Spot Price vs Futures Price for {ticker}')
-

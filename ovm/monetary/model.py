@@ -113,7 +113,8 @@ class MonetaryModel(Model):
             logger.info(f"num_liquidators = {num_liquidators}")
             logger.info(f"base_wealth = {base_wealth}")
             logger.info(f"total_supply = {self.supply}")
-            logger.info(f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
+            logger.info(
+                f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
@@ -325,8 +326,10 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
-                logger.info(f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}")
+                logger.info(
+                    f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
+                logger.info(
+                    f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}")
 
             # Arbs
             top_10_arbs = sorted(
@@ -350,17 +353,21 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
-                logger.info(f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
+                logger.info(
+                    f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
+                logger.info(
+                    f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
 
             # Liquidators
             top_10_liqs = sorted(
-                [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryLiquidator],
                 key=lambda item: item.wealth,
                 reverse=True
             )[:10]
             bottom_10_liqs = sorted(
-                [a for a in self.schedule.agents if type(a) == MonetaryLiquidator],
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryLiquidator],
                 key=lambda item: item.wealth
             )[:10]
             top_10_liqs_wealth = {
@@ -373,7 +380,9 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
-                logger.info(f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
+                logger.info(
+                    f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
+                logger.info(
+                    f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
 
         self.schedule.step()
