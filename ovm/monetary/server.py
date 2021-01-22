@@ -1,72 +1,76 @@
 """
 Configure visualization elements and instantiate a server
 """
-import os
+import logging
 import random
 import typing as tp
-from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule
-import pandas as pd
 
-from model import MonetaryModel
+from ovm.time_resolution import TimeResolution
+from ovm.tickers import (
+    ETH_USD_TICKER,
+    COMP_USD_TICKER,
+    LINK_USD_TICKER,
+    YFI_USD_TICKER
+)
 
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.monetary.model import MonetaryModel
+from ovm.monetary.data_io import construct_sims_map
+from ovm.monetary.options import DataCollectionOptions
+from plot_labels import (
+    price_deviation_label,
+    spot_price_label,
+    futures_price_label,
+    skew_label,
+    inventory_wealth_ovl_label,
+    inventory_wealth_usd_label,
+    GINI_LABEL,
+    GINI_ARBITRAGEURS_LABEL,
+    SUPPLY_LABEL,
+    TREASURY_LABEL,
+    LIQUIDITY_LABEL
+)
+
+
+# set up logging
+logger = logging.getLogger(__name__)
 
 
 def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-# Data frequencies in seconds
-DATA_FREQUENCIES = {
-    '15s': 15,
-    '1m': 60,
-    '5m': 300,
-    '15m': 900,
-}
-
-DATA_FREQ_KEY = '15s'
+TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
 DATA_SIM_RNG = 42
-DATA_FREQ = DATA_FREQUENCIES[DATA_FREQ_KEY]
 
 # Constants
-STEPS_MONTH = int((86400*30)/DATA_FREQ)
-BASE_DIRECTORY = Path(__file__).resolve().parents[1]
-
-print(f'{BASE_DIRECTORY=}')
-print(f"{SIMULATED_DATA_DIRECTORY=}")
+STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
-TICKERS = ["ETH-USD",
+TICKERS = [ETH_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "COMP-USD",
+           COMP_USD_TICKER,
            # not a long history of simulation (can we use a different token instead)
-           "LINK-USD",
+           LINK_USD_TICKER,
            # less than half a year of simulation (can we use a different token instead)
-           "YFI-USD"
+           YFI_USD_TICKER
            ]
 
 OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
-sims = {}
-for ticker in TICKERS:
-    rpath = os.path.join(SIMULATED_DATA_DIRECTORY,
-                         str(DATA_FREQ_KEY),
-                         f'sims-{DATA_SIM_RNG}',
-                         f'sim-{ticker}.csv')
+sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
+                          time_resolution=TIME_RESOLUTION,
+                          tickers=TICKERS,
+                          ovl_ticker=YFI_USD_TICKER)
 
-    # rpath = f'./sims/{DATA_FREQ_KEY}/sims-{DATA_SIM_RNG}/sim-{ticker}.csv'
-    print(f"Reading in sim simulation from {rpath}")
-    f = pd.read_csv(rpath)
-    if ticker == OVL_TICKER:
-        sims["OVL-USD"] = f.transpose().values.tolist()[0]
-    else:
-        sims[ticker] = f.transpose().values.tolist()[0]
 
 total_supply = 100000  # OVL
-base_wealth = 0.0001*100000  # OVL
+base_wealth = 0.0002*100000  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
+base_liquidate_reward = 0.1
+base_maintenance = 0.6
+liquidity = 0.285*total_supply
 time_liquidity_mine = STEPS_MONTH
 
 # For the first 30 days, emit until reach 100% of total supply; ONLY USE IN LIQUDITIY FOR NOW JUST AS TEST!
@@ -74,61 +78,69 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
                              for i
                              in range(time_liquidity_mine)]
 
-num_arbitrageurs = max(len(sims.keys()) * 5,
-                       int(total_supply*0.01/base_wealth))
-num_keepers = max(len(sims.keys()), int(total_supply*0.005/base_wealth))
-num_traders = int(total_supply*0.2/base_wealth)
+num_arbitrageurs = int(total_supply*0.1/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = 1
-num_agents = num_arbitrageurs + num_keepers + num_traders + num_holders
+num_snipers = int(total_supply*0.1/base_wealth)
+num_liquidators = int(total_supply*0.005/base_wealth)
+num_agents = num_arbitrageurs + num_keepers + \
+    num_traders + num_holders + num_snipers + num_liquidators
 
 DATA_COLLECTOR_NAME = 'data_collector'
+data_collection_options = \
+    DataCollectionOptions(compute_gini_coefficient=True,
+                          compute_wealth=True,
+                          compute_inventory_wealth=True)
 
 
 # TODO: Have separate lines for each bot along with the aggregate!
-def construct_chart_elements(tickers) -> tp.List:
+def construct_chart_elements(tickers, data_collection_options: DataCollectionOptions) -> tp.List:
     chart_elements = [
-        ChartModule([{"Label": "Supply", "Color": "Black"}],
+        ChartModule([{"Label": SUPPLY_LABEL, "Color": "Black"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Treasury", "Color": "Green"}],
+        ChartModule([{"Label": TREASURY_LABEL, "Color": "Green"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": f"d-{ticker}", "Color": random_color()} for ticker in sims.keys()],
+        ChartModule([{"Label": price_deviation_label(ticker), "Color": random_color()}
+                     for ticker
+                     in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (OVL)", "Color": random_color()}],
+        ChartModule([{"Label": skew_label(ticker), "Color": random_color()}
+                     for ticker
+                     in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
+    ]
 
-        ChartModule([{"Label": "Arbitrageurs Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+    if data_collection_options.compute_inventory_wealth:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders"]:
+            chart_elements += [
+                ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                            data_collector_name=DATA_COLLECTOR_NAME),
+                ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
+                            data_collector_name=DATA_COLLECTOR_NAME),
+            ]
 
-        ChartModule([{"Label": "Traders Inventory (OVL)", "Color": random_color()}],
+    chart_elements += [
+        ChartModule([{"Label": LIQUIDITY_LABEL, "Color": "Blue"}],
                     data_collector_name=DATA_COLLECTOR_NAME),
+    ]
 
-        ChartModule([{"Label": "Traders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-
-        ChartModule([{"Label": "Holders Inventory (OVL)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-
-        ChartModule([{"Label": "Holders Inventory (USD)", "Color": random_color()}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-
-        ChartModule([{"Label": "Liquidity", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-
-        ChartModule([{"Label": "Gini", "Color": "Black"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": "Gini (Arbitrageurs)", "Color": "Blue"}],
-                    data_collector_name=DATA_COLLECTOR_NAME),
+    if data_collection_options.compute_gini_coefficient:
+        chart_elements += [
+            ChartModule([{"Label": GINI_LABEL, "Color": "Black"}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
+            ChartModule([{"Label": GINI_ARBITRAGEURS_LABEL, "Color": "Blue"}],
+                        data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
         chart_elements.append(
             ChartModule([
-                {"Label": f"s-{ticker}", "Color": "Black"},
-                {"Label": f"f-{ticker}", "Color": "Red"},
+                {"Label": spot_price_label(ticker), "Color": "Black"},
+                {"Label": futures_price_label(ticker), "Color": "Red"},
             ], data_collector_name='data_collector')
         )
 
@@ -143,26 +155,22 @@ MODEL_KWARGS = {
     "num_traders": num_traders,
     "num_holders": num_holders,
     "num_snipers": num_snipers,
+    "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
+    "base_liquidate_reward": base_liquidate_reward,
+    "base_maintenance": base_maintenance,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
-    "liquidity": 0.285*total_supply,
+    "liquidity": liquidity,
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
     # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
     "sampling_interval": 240,
 }
 
-
-print("Model kwargs for initial conditions of sim:")
-print(f"num_arbitrageurs = {MODEL_KWARGS['num_arbitrageurs']}")
-print(f"num_keepers = {MODEL_KWARGS['num_keepers']}")
-print(f"num_traders = {MODEL_KWARGS['num_traders']}")
-print(f"num_holders = {MODEL_KWARGS['num_holders']}")
-print(f"base_wealth = {MODEL_KWARGS['base_wealth']}")
-
-chart_elements = construct_chart_elements(sims.keys())
+chart_elements = construct_chart_elements(sims.keys(),
+                                          data_collection_options=data_collection_options)
 
 server = ModularServer(
     MonetaryModel,
