@@ -1,13 +1,8 @@
-import logging
-logFormatter = '%(asctime)s - %(levelname)s - %(message)s'
-logging.basicConfig(format=logFormatter,
-                    # level=logging.DEBUG
-                    )
+from logs import start_logging
+from server import server  # noqa
 
-# logging.basicConfig()
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
+# Logs
+start_logging()
 
-from ovm.monetary.server import server  # noqa
-
+# Server
 server.launch()

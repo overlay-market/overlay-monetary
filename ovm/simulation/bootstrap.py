@@ -11,6 +11,10 @@ from recombinator.optimal_block_length import (
 from tqdm import tqdm
 
 from ovm.historical.data_io import PriceHistory
+from ovm.time_resolution import (
+    TimeResolution,
+    TimeScale
+)
 
 
 def estimate_optimal_block_lengths_for_multiple_price_series(
@@ -36,9 +40,14 @@ def convert_block_lenghts_to_seconds(
     return series_name_to_block_lengths_in_seconds_map
 
 
-def convert_block_length_from_seconds_to_blocks(block_length_in_seconds: float,
-                                                period_length_in_seconds: float) -> int:
-    return np.ceil(block_length_in_seconds / period_length_in_seconds)
+def convert_and_ceil_time_period_from_seconds_to_number_of_periods(
+        time_periods_in_seconds: float,
+        period_length_in_seconds: float) -> int:
+    # Example:
+    # period length = 15s
+    # block length = 60s
+    # That means 4 steps
+    return int(np.ceil(time_periods_in_seconds / period_length_in_seconds))
 
 
 def estimate_optimal_block_lengths_in_seconds_for_multiple_price_series(
@@ -66,18 +75,32 @@ def max_optimal_block_length_in_seconds_for_selected_series(
 
 def plot_multivariate_simulation(simulated_data: np.ndarray,
                                  series_names: tp.Sequence[str],
+                                 time_resolution: TimeResolution,
+                                 plot_time_scale: TimeScale = TimeScale.YEARS,
                                  title: tp.Optional[str] = None):
     # simulated_data is an array with shape
     # (number of monte carlo replications,
     # length of simulated time series,
     # number of cryptocurrencies simulated)
 
+    # time_axis = \
+    #     np.linspace(0, simulated_data.shape[1], simulated_data.shape[1]) * \
+    #     time_resolution.in_seconds / (60 * 60 * 24 * 365.25)
+
+    time_axis = \
+        np.linspace(0, simulated_data.shape[1], simulated_data.shape[1]) * \
+        time_resolution.in_seconds / plot_time_scale.in_seconds()
+
     fig, axs = plt.subplots(simulated_data.shape[-1], figsize=(16, 9))
     for i, series_name in enumerate(series_names):
-        axs[i].plot(simulated_data[0, :, i])
+        axs[i].plot(time_axis, simulated_data[0, :, i])
         axs[i].set_title(series_name)
+        # axs[i].xaxis.set_label(f'Time in {plot_time_scale}')
+        axs[i].set_xlabel(f'Time in {plot_time_scale.value}')
 
     if title is not None:
-        plt.title(title)
+        fig.suptitle(title)
+
+    # plt.xlabel(f'Time in {plot_time_scale}')
 
     plt.show()

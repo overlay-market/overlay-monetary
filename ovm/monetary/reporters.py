@@ -1,5 +1,7 @@
 import typing as tp
+
 from ovm.monetary.agents import MonetaryAgent
+from ovm.tickers import OVL_TICKER, USD_TICKER
 
 
 def compute_gini(model,
@@ -17,24 +19,23 @@ def compute_gini(model,
 
 def compute_price_difference(model,
                              ticker: str):
-    spot_price = model.ticker_to_time_series_of_prices_map[ticker][model.schedule.steps]
-    futures_price = model.ticker_to_futures_market_map[ticker].price
-    return (futures_price - spot_price) / spot_price
+    idx = model.schedule.steps
+    sprice = model.sims[ticker][idx]
+    fprice = model.fmarkets[ticker].price
+    return (fprice - sprice) / sprice
 
 
-def compute_futures_price(model,
-                          ticker: str):
-    return model.ticker_to_futures_market_map[ticker].price
+def compute_futures_price(model, ticker: str):
+    return model.fmarkets[ticker].price
 
 
-def compute_spot_price(model,
-                       ticker: str):
-    # model.schedule.steps represents the number of time-steps simulated so far
-    return model.ticker_to_time_series_of_prices_map[ticker][model.schedule.steps]
+def compute_spot_price(model, ticker: str):
+    idx = model.schedule.steps
+    return model.sims[ticker][idx]
 
 
 def compute_supply(model):
-    return model.supply_of_ovl
+    return model.supply
 
 
 def compute_liquidity(model):
@@ -59,18 +60,18 @@ def compute_wealth_for_agent_type(model,
     return sum(wealths)
 
 
-def calc_inventory_wealth(model,
-                          agent: MonetaryAgent,
-                          inventory_type: tp.Optional[str] = None,
-                          in_usd: bool = False):
+def compute_inventory_wealth_for_agent(model,
+                                       agent: MonetaryAgent,
+                                       inventory_type: tp.Optional[str] = None,
+                                       in_usd: bool = False):
     idx = model.schedule.steps
     sprice_ovlusd = model.sims["OVL-USD"][idx]
     sprice = model.sims[agent.fmarket.unique_id][idx]
     base_curr = agent.fmarket.base_currency
 
     p_constants_ovl = {
-        'OVL': 1.0,
-        'USD': 1.0/sprice_ovlusd,
+        OVL_TICKER: 1.0,
+        USD_TICKER: 1.0/sprice_ovlusd,
         base_curr: sprice/sprice_ovlusd,
     }
     p_constants_usd = {
@@ -89,19 +90,19 @@ def calc_inventory_wealth(model,
     return sum([v*p_constants[k] for k, v in agent.inventory.items()])
 
 
-def compute_inventory_wealth(model,
-                             agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
-                             inventory_type: tp.Optional[str] = None,
-                             in_usd: bool = False):
+def compute_inventory_wealth_for_agent_type(model,
+                                            agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
+                                            inventory_type: tp.Optional[str] = None,
+                                            in_usd: bool = False):
     if not agent_type:
         wealths = [
-            calc_inventory_wealth(
+            compute_inventory_wealth_for_agent(
                 model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents
         ]
     else:
         wealths = [
-            calc_inventory_wealth(
+            compute_inventory_wealth_for_agent(
                 model, a, inventory_type=inventory_type, in_usd=in_usd)
             for a in model.schedule.agents if type(a) == agent_type
         ]
@@ -111,7 +112,7 @@ def compute_inventory_wealth(model,
 
 def compute_positional_imbalance_by_market(model, ticker: str) -> float:
     from ovm.monetary.markets import MonetaryFPosition
-    monetary_futures_market = model.ticker_to_futures_market_map[ticker]
+    monetary_futures_market = model.fmarkets[ticker]
     uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
     if len(uuid_to_position_map) > 0:
         # import numpy as np
