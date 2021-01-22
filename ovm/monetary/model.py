@@ -8,7 +8,7 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from ovm.debug_level import DEBUG_LEVEL
+from ovm.debug_level import DEBUG_LEVEL, INFO_LEVEL
 from ovm.tickers import OVL_USD_TICKER
 
 from ovm.monetary.options import DataCollectionOptions
@@ -105,18 +105,17 @@ class MonetaryModel(Model):
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
 
-        console_log(logger, [
-            "Model kwargs for initial conditions of sim:",
-            f"num_arbitrageurs = {num_arbitrageurs}",
-            f"num_snipers = {num_snipers}",
-            f"num_keepers = {num_keepers}",
-            f"num_traders = {num_traders}",
-            f"num_holders = {num_holders}",
-            f"num_liquidators = {num_liquidators}",
-            f"base_wealth = {base_wealth}",
-            f"total_supply = {self.supply}",
-            f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}",
-        ], level=logging.INFO)
+        if logging.root.level <= INFO_LEVEL:
+            logger.info("Model kwargs for initial conditions of sim:")
+            logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
+            logger.info(f"num_snipers = {num_snipers}")
+            logger.info(f"num_keepers = {num_keepers}")
+            logger.info(f"num_traders = {num_traders}")
+            logger.info(f"num_holders = {num_holders}")
+            logger.info(f"num_liquidators = {num_liquidators}")
+            logger.info(f"base_wealth = {base_wealth}")
+            logger.info(f"total_supply = {self.supply}")
+            logger.info(f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 
         # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
@@ -326,11 +325,10 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_snipers
             }
-            console_log(logger, [
-                "========================================",
-                f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}",
-                f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}",
-            ], level=logging.INFO)
+            if logging.root.level <= INFO_LEVEL:
+                logger.info("========================================")
+                logger.info(f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
+                logger.info(f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}")
 
             # Arbs
             top_10_arbs = sorted(
@@ -352,11 +350,10 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_arbs
             }
-            console_log(logger, [
-                "========================================",
-                f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}",
-                f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}",
-            ], level=logging.INFO)
+            if logging.root.level <= INFO_LEVEL:
+                logger.info("========================================")
+                logger.info(f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
+                logger.info(f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
 
             # Liquidators
             top_10_liqs = sorted(
@@ -376,10 +373,9 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_liqs
             }
-            console_log(logger, [
-                "========================================",
-                f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}",
-                f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}",
-            ], level=logging.INFO)
+            if logging.root.level <= INFO_LEVEL:
+                logger.info("========================================")
+                logger.info(f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
+                logger.info(f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
 
         self.schedule.step()

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import uuid
 
+from ovm.debug_level import DEBUG_LEVEL
 from ovm.monetary.logs import console_log
 
 from ovm.tickers import OVL_USD_TICKER
@@ -81,14 +82,13 @@ class MonetaryFMarket:
         self.last_funding_idx = 0
         self.last_trade_idx = 0
         self.last_funding_rate = 0
-        console_log(logger, [
-            f"Init'ing FMarket {self.unique_id}",
-            f"FMarket {self.unique_id} has x = {self.x}",
-            f"FMarket {self.unique_id} has nx={self.nx} OVL",
-            f"FMarket {self.unique_id} has y={self.y}",
-            f"FMarket {self.unique_id} has ny={self.ny} OVL",
-            f"FMarket {self.unique_id} has k={self.k}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"Init'ing FMarket {self.unique_id}")
+            logger.debug(f"FMarket {self.unique_id} has x = {self.x}")
+            logger.debug(f"FMarket {self.unique_id} has nx={self.nx} OVL")
+            logger.debug(f"FMarket {self.unique_id} has y={self.y}")
+            logger.debug(f"FMarket {self.unique_id} has ny={self.ny} OVL")
+            logger.debug(f"FMarket {self.unique_id} has k={self.k}")
 
     @property
     def price(self) -> float:
@@ -148,67 +148,61 @@ class MonetaryFMarket:
         # dy = y - k/(x+dx)
         assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
         slippage = 0.0
-        console_log(logger, [
-            f"FMarket.slippage: market -> {self.unique_id}",
-            f"FMarket.slippage: margin (OVL) -> {dn}",
-            f"FMarket.slippage: leverage -> {leverage}",
-            f"FMarket.slippage: is long? -> {long}",
-            f"FMarket.slippage: build? -> {build}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"FMarket.slippage: market -> {self.unique_id}")
+            logger.debug(f"FMarket.slippage: margin (OVL) -> {dn}")
+            logger.debug(f"FMarket.slippage: leverage -> {leverage}")
+            logger.debug(f"FMarket.slippage: is long? -> {long}")
+            logger.debug(f"FMarket.slippage: build? -> {build}")
+
         if (build and long) or (not build and not long):
-            console_log(logger, [
-                "FMarket.slippage: dn = +px*dx; (x+dx)*(y-dy) = k",
-                f"FMarket.slippage: px -> {self.px}",
-                f"FMarket.slippage: py -> {self.py}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug("FMarket.slippage: dn = +px*dx; (x+dx)*(y-dy) = k")
+                logger.debug(f"FMarket.slippage: px -> {self.px}")
+                logger.debug(f"FMarket.slippage: py -> {self.py}")
 
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
 
-            console_log(logger, [
-                f"FMarket.slippage: reserves (Quote: x) -> {self.x}",
-                f"FMarket.slippage: position impact (Quote: dx) -> {dx}",
-                f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}",
-                f"FMarket.slippage: reserves (Base: y) -> {self.y}",
-                f"FMarket.slippage: position impact (Base: dy) -> {dy}",
-                f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"FMarket.slippage: reserves (Quote: x) -> {self.x}")
+                logger.debug(f"FMarket.slippage: position impact (Quote: dx) -> {dx}")
+                logger.debug(f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}")
+                logger.debug(f"FMarket.slippage: reserves (Base: y) -> {self.y}")
+                logger.debug(f"FMarket.slippage: position impact (Base: dy) -> {dy}")
+                logger.debug(f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}")
 
             assert dy < self.y, "slippage: Not enough liquidity in self.y for swap"
             slippage = ((self.x+dx)/(self.y-dy) - self.price) / self.price
 
-            console_log(logger, [
-                f"FMarket.slippage: price before -> {self.price}",
-                f"FMarket.slippage: price after -> {(self.x+dx)/(self.y-dy)}",
-                f"FMarket.slippage: slippage -> {slippage}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"FMarket.slippage: price before -> {self.price}")
+                logger.debug(f"FMarket.slippage: price after -> {(self.x+dx)/(self.y-dy)}")
+                logger.debug(f"FMarket.slippage: slippage -> {slippage}")
         else:
-            console_log(logger, [
-                "FMarket.slippage: dn = -px*dx; (x-dx)*(y+dy) = k",
-                f"FMarket.slippage: px -> {self.px}",
-                f"FMarket.slippage: py -> {self.py}",
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug("FMarket.slippage: dn = -px*dx; (x-dx)*(y+dy) = k")
+                logger.debug(f"FMarket.slippage: px -> {self.px}")
+                logger.debug(f"FMarket.slippage: py -> {self.py}")
 
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
 
-            console_log(logger, [
-                f"FMarket.slippage: reserves (Quote: x) -> {self.x}",
-                f"FMarket.slippage: position impact (Quote: dx) -> {dx}",
-                f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}",
-                f"FMarket.slippage: reserves (Base: y) -> {self.y}",
-                f"FMarket.slippage: position impact (Base: dy) -> {dy}",
-                f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}",
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"FMarket.slippage: reserves (Quote: x) -> {self.x}")
+                logger.debug(f"FMarket.slippage: position impact (Quote: dx) -> {dx}")
+                logger.debug(f"FMarket.slippage: position impact % (Quote: dx/x) -> {dx/self.x}")
+                logger.debug(f"FMarket.slippage: reserves (Base: y) -> {self.y}")
+                logger.debug(f"FMarket.slippage: position impact (Base: dy) -> {dy}")
+                logger.debug(f"FMarket.slippage: position impact % (Base: dy/y) -> {dy/self.y}")
 
             assert dx < self.x, "slippage: Not enough liquidity in self.x for swap"
             slippage = ((self.x-dx)/(self.y+dy) - self.price) / self.price
 
-            console_log(logger, [
-                f"FMarket.slippage: price before -> {self.price}",
-                f"FMarket.slippage: price after -> {(self.x-dx)/(self.y+dy)}",
-                f"FMarket.slippage: slippage -> {slippage}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"FMarket.slippage: price before -> {self.price}")
+                logger.debug(f"FMarket.slippage: price after -> {(self.x-dx)/(self.y+dy)}")
+                logger.debug(f"FMarket.slippage: slippage -> {slippage}")
 
         return slippage
 
@@ -227,11 +221,10 @@ class MonetaryFMarket:
             dx = self.px*dn*leverage
             dy = self.y - self.k/(self.x + dx)
 
-            console_log(logger, [
-                f"_swap: position size (OVL) -> {dn*leverage}",
-                f"_swap: position impact (Quote: dx) -> {dx}",
-                f"_swap: position impact (Base: dy) -> {dy}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"_swap: position size (OVL) -> {dn*leverage}")
+                logger.debug(f"_swap: position impact (Quote: dx) -> {dx}")
+                logger.debug(f"_swap: position impact (Base: dy) -> {dy}")
 
             assert dy < self.y, "_swap: Not enough liquidity in self.y for swap"
             assert dy/self.py < self.ny, "_swap: Not enough liquidity in self.ny for swap"
@@ -245,11 +238,10 @@ class MonetaryFMarket:
             dy = self.py*dn*leverage
             dx = self.x - self.k/(self.y + dy)
 
-            console_log(logger, [
-                f"_swap: position size (OVL) -> {dn*leverage}",
-                f"_swap: position impact (Quote: dx) -> {dx}",
-                f"_swap: position impact (Base: dy) -> {dy}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"_swap: position size (OVL) -> {dn*leverage}")
+                logger.debug(f"_swap: position impact (Quote: dx) -> {dx}")
+                logger.debug(f"_swap: position impact (Base: dy) -> {dy}")
 
             assert dx < self.x, "_swap: Not enough liquidity in self.x for swap"
             assert dx/self.px < self.nx, "_swap: Not enough liquidity in self.nx for swap"
@@ -259,16 +251,15 @@ class MonetaryFMarket:
             self.x -= dx
             self.nx -= dx/self.px
 
-        console_log(logger, [
-            f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position on {self.unique_id} of size {dn*leverage} OVL at avg price of {1/avg_price}, with lock price {self.price}",
-            f"_swap: Percent diff bw avg and lock price is {100*(1/avg_price - self.price)/self.price}%",
-            f"_swap: locked_long -> {self.locked_long} OVL",
-            f"_swap: nx -> {self.nx}",
-            f"_swap: x -> {self.x}",
-            f"_swap: locked_short -> {self.locked_short} OVL",
-            f"_swap: ny -> {self.ny}",
-            f"_swap: y -> {self.y}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"_swap: {'Built' if build else 'Unwound'} {'long' if long else 'short'} position on {self.unique_id} of size {dn*leverage} OVL at avg price of {1/avg_price}, with lock price {self.price}")
+            logger.debug(f"_swap: Percent diff bw avg and lock price is {100*(1/avg_price - self.price)/self.price}%")
+            logger.debug(f"_swap: locked_long -> {self.locked_long} OVL")
+            logger.debug(f"_swap: nx -> {self.nx}")
+            logger.debug(f"_swap: x -> {self.x}")
+            logger.debug(f"_swap: locked_short -> {self.locked_short} OVL")
+            logger.debug(f"_swap: ny -> {self.ny}")
+            logger.debug(f"_swap: y -> {self.y}")
 
         self._update_cum_price()
         idx = self.model.schedule.steps
@@ -306,14 +297,13 @@ class MonetaryFMarket:
                pid: uuid.UUID):
         pos = self.positions.get(pid)
         if pos is None:
-            console_log(logger, [
-                f"No position with pid {pid} exists on market {self.unique_id}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"No position with pid {pid} exists on market {self.unique_id}")
+
             return None, 0.0
         elif pos.amount < dn:
-            console_log(logger, [
-                f"Unwind amount {dn} is too large for locked position with pid {pid} amount {pos.amount}"
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"Unwind amount {dn} is too large for locked position with pid {pid} amount {pos.amount}")
             return None, 0.0
 
         # TODO: Account for pro-rata share of funding!
@@ -321,12 +311,11 @@ class MonetaryFMarket:
         # TODO: Locked long seems to go negative which is wrong. Why here?
 
         # Unlock from long/short pool first
-        console_log(logger, [
-            f"unwind: dn = {dn}",
-            f"unwind: pos = {pos.id}",
-            f"unwind: locked_long = {self.locked_long}",
-            f"unwind: locked_short = {self.locked_short}"
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"unwind: dn = {dn}")
+            logger.debug(f"unwind: pos = {pos.id}")
+            logger.debug(f"unwind: locked_long = {self.locked_long}")
+            logger.debug(f"unwind: locked_short = {self.locked_short}")
 
         # TODO: Fix for funding pro-rata logic .... for now just min it ...
         if pos.long:
@@ -374,9 +363,7 @@ class MonetaryFMarket:
             return 0.0
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
-        cum_price_feed=np.sum(np.array(
-            self.model.sims[self.unique_id][self.last_funding_idx:idx]
-        ))
+        cum_price_feed=np.sum(self.model.sims[self.unique_id][self.last_funding_idx:idx])
         twap_feed=cum_price_feed / dt
 
         # Calculate twap of market ... update cum price value first
@@ -385,15 +372,14 @@ class MonetaryFMarket:
         twap_market=self.price
         funding=(twap_market - twap_feed) / twap_feed
 
-        console_log(logger, [
-            f"funding: Checking funding for {self.unique_id}",
-            f"funding: cum_price_feed = {cum_price_feed}",
-            f"funding: Time since last funding (dt) = {dt}",
-            f"funding: twap_feed = {twap_feed}",
-            f"funding: cum_price = {self.cum_price}",
-            f"funding: last_cum_price = {self.last_cum_price}",
-            f"funding: twap_market = {twap_market}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"funding: Checking funding for {self.unique_id}")
+            logger.debug(f"funding: cum_price_feed = {cum_price_feed}")
+            logger.debug(f"funding: Time since last funding (dt) = {dt}")
+            logger.debug(f"funding: twap_feed = {twap_feed}")
+            logger.debug(f"funding: cum_price = {self.cum_price}")
+            logger.debug(f"funding: last_cum_price = {self.last_cum_price}")
+            logger.debug(f"funding: twap_market = {twap_market}")
 
         return funding
 
@@ -406,33 +392,30 @@ class MonetaryFMarket:
             return
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
-        cum_price_feed=np.sum(np.array(
-            self.model.sims[self.unique_id][idx - \
-                self.model.sampling_interval:idx]
-        ))
+        cum_price_feed = \
+            np.sum(self.model.sims[self.unique_id][idx - self.model.sampling_interval:idx])
 
         twap_feed=cum_price_feed / self.model.sampling_interval
 
-        console_log(logger, [
-            f"fund: Paying out funding for {self.unique_id}",
-            f"fund: cum_price_feed = {cum_price_feed}",
-            f"fund: sampling_interval = {self.model.sampling_interval}",
-            f"fund: twap_feed = {twap_feed}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: Paying out funding for {self.unique_id}")
+            logger.debug(f"fund: cum_price_feed = {cum_price_feed}")
+            logger.debug(f"fund: sampling_interval = {self.model.sampling_interval}")
+            logger.debug(f"fund: twap_feed = {twap_feed}")
 
         # Calculate twap of market ... update cum price value first
         self._update_cum_price()
 
-        console_log(logger, [
-            f"fund: cum_price = {self.cum_price}",
-            f"fund: last_cum_price = {self.last_cum_price}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: cum_price = {self.cum_price}")
+            logger.debug(f"fund: last_cum_price = {self.last_cum_price}")
 
         twap_market=(self.cum_price - self.last_cum_price) / \
                      self.model.sampling_interval
         self.last_cum_price=self.cum_price
 
-        console_log(logger, [f"fund: twap_market = {twap_market}"])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: twap_market = {twap_market}")
 
         # Calculate twa open interest for each side over sampling interval
         self._update_cum_locked_long()
@@ -440,15 +423,14 @@ class MonetaryFMarket:
         twao_long=(self.cum_locked_long - self.last_cum_locked_long) / \
                    self.model.sampling_interval
 
-        console_log(logger, [
-            f"fund: nx={self.nx}",
-            f"fund: px={self.px}",
-            f"fund: x={self.x}",
-            f"fund: locked_long={self.locked_long}",
-            f"fund: cum_locked_long={self.cum_locked_long}",
-            f"fund: last_cum_locked_long={self.last_cum_locked_long}",
-            f"fund: twao_long={twao_long}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: nx={self.nx}")
+            logger.debug(f"fund: px={self.px}")
+            logger.debug(f"fund: x={self.x}")
+            logger.debug(f"fund: locked_long={self.locked_long}")
+            logger.debug(f"fund: cum_locked_long={self.cum_locked_long}")
+            logger.debug(f"fund: last_cum_locked_long={self.last_cum_locked_long}")
+            logger.debug(f"fund: twao_long={twao_long}")
 
         self.last_cum_locked_long=self.cum_locked_long
 
@@ -457,15 +439,14 @@ class MonetaryFMarket:
         twao_short=(self.cum_locked_short - \
                     self.last_cum_locked_short) / self.model.sampling_interval
 
-        console_log(logger, [
-            f"fund: ny={self.ny}",
-            f"fund: py={self.py}",
-            f"fund: y={self.y}",
-            f"fund: locked_short={self.locked_short}",
-            f"fund: cum_locked_short={self.cum_locked_short}",
-            f"fund: last_cum_locked_short={self.last_cum_locked_short}",
-            f"fund: twao_short={twao_short}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: ny={self.ny}")
+            logger.debug(f"fund: py={self.py}")
+            logger.debug(f"fund: y={self.y}")
+            logger.debug(f"fund: locked_short={self.locked_short}")
+            logger.debug(f"fund: cum_locked_short={self.cum_locked_short}")
+            logger.debug(f"fund: last_cum_locked_short={self.last_cum_locked_short}")
+            logger.debug(f"fund: twao_short={twao_short}")
 
         self.last_cum_locked_short=self.cum_locked_short
 
@@ -486,11 +467,10 @@ class MonetaryFMarket:
             self.model.supply += funding_short - funding_long
             self.locked_long -= funding_long
             self.locked_short += funding_short
-            console_log(logger, [
-                f"fund: Adding ds={funding_short - funding_long} OVL to total supply",
-                f"fund: Adding ds={-funding_long} OVL to longs",
-                f"fund: Adding ds={funding_short} OVL to shorts",
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug(f"fund: Adding ds={funding_short - funding_long} OVL to total supply")
+                logger.debug(f"fund: Adding ds={-funding_long} OVL to longs")
+                logger.debug(f"fund: Adding ds={funding_short} OVL to shorts")
         else:
             funding=max(funding, -1.0)
             funding_long=abs(twao_long*funding)
@@ -502,34 +482,31 @@ class MonetaryFMarket:
             self.locked_long += funding_long
             # print(f"fund: Adding ds={-funding_short} OVL to shorts")
             self.locked_short -= funding_short
-            console_log(logger, [
-                f"fund: Adding ds={funding_long - funding_short} OVL to total supply",
-                f"fund: Adding ds={funding_long} OVL to longs",
-                f"fund: Adding ds={-funding_short} OVL to shorts",
-            ])
+            if logging.root.level <= DEBUG_LEVEL:
+                logger.debug("fund: Adding ds={funding_long - funding_short} OVL to total supply")
+                logger.debug(f"fund: Adding ds={funding_long} OVL to longs")
+                logger.debug(f"fund: Adding ds={-funding_short} OVL to shorts")
 
         # Update virtual liquidity reserves
         # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
         # n_y = (1/p_y)*(n_x*p_x)/(p_market) ... nx + n_x*(p_x/p_y)(1/p_market) = L/n
         # n_x = L/n * (1/(1 + (p_x/p_y)*(1/p_market)))
-        console_log(logger, [
-            f"fund: Adjusting virtual liquidity constants for {self.unique_id}",
-            f"fund: nx (prior) = {self.nx}",
-            f"fund: ny (prior) = {self.ny}",
-            f"fund: x (prior) = {self.x}",
-            f"fund: y (prior) = {self.y}",
-            f"fund: price (prior) = {self.price}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: Adjusting virtual liquidity constants for {self.unique_id}")
+            logger.debug(f"fund: nx (prior) = {self.nx}")
+            logger.debug(f"fund: ny (prior) = {self.ny}")
+            logger.debug(f"fund: x (prior) = {self.x}")
+            logger.debug(f"fund: y (prior) = {self.y}")
+            logger.debug(f"fund: price (prior) = {self.price}")
 
         # TODO: use liquidity_supply_emission ...
         liquidity=self.model.liquidity
         liq_scale_factor=liquidity / self.last_liquidity
 
-        console_log(logger, [
-            f"fund: last_liquidity = {self.last_liquidity}",
-            f"fund: new liquidity = {liquidity}",
-            f"fund: liquidity scale factor = {liq_scale_factor}"
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: last_liquidity = {self.last_liquidity}")
+            logger.debug(f"fund: new liquidity = {liquidity}")
+            logger.debug(f"fund: liquidity scale factor = {liq_scale_factor}")
 
         self.last_liquidity=liquidity
         self.nx *= liq_scale_factor
@@ -538,30 +515,28 @@ class MonetaryFMarket:
         self.y=self.ny*self.py
         self.k=self.x * self.y
 
-        console_log(logger, [
-            f"fund: nx (updated) = {self.nx}",
-            f"fund: ny (updated) = {self.ny}",
-            f"fund: x (updated) = {self.x}",
-            f"fund: y (updated) = {self.y}",
-            f"fund: price (updated... should be same) = {self.price}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: nx (updated) = {self.nx}")
+            logger.debug(f"fund: ny (updated) = {self.ny}")
+            logger.debug(f"fund: x (updated) = {self.x}")
+            logger.debug(f"fund: y (updated) = {self.y}")
+            logger.debug(f"fund: price (updated... should be same) = {self.price}")
 
         # Calculate twap for ovlusd oracle feed to use in px, py adjustment
-        cum_ovlusd_feed=np.sum(np.array(
-            self.model.sims[OVL_USD_TICKER][idx-self.model.sampling_interval:idx]
-        ))
+        cum_ovlusd_feed = \
+            np.sum(self.model.sims[OVL_USD_TICKER][idx-self.model.sampling_interval:idx])
+
         twap_ovlusd_feed=cum_ovlusd_feed / self.model.sampling_interval
         self.px=twap_ovlusd_feed  # px = n_usd/n_ovl
         self.py=twap_ovlusd_feed/twap_feed  # py = px/p
 
-        console_log(logger, [
-            f"fund: Adjusting price sensitivity constants for {self.unique_id}",
-            f"fund: cum_price_feed = {cum_ovlusd_feed}",
-            f"fund: twap_ovlusd_feed = {twap_ovlusd_feed}",
-            f"fund: px (updated) = {self.px}",
-            f"fund: py (updated) = {self.py}",
-            f"fund: price (updated... should be same) = {self.price}",
-        ])
+        if logging.root.level <= DEBUG_LEVEL:
+            logger.debug(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
+            logger.debug(f"fund: cum_price_feed = {cum_ovlusd_feed}")
+            logger.debug(f"fund: twap_ovlusd_feed = {twap_ovlusd_feed}")
+            logger.debug(f"fund: px (updated) = {self.px}")
+            logger.debug(f"fund: py (updated) = {self.py}")
+            logger.debug(f"fund: price (updated... should be same) = {self.price}")
 
     def liquidatable(self, pid: uuid.UUID) -> bool:
         pos = self.positions.get(pid)
