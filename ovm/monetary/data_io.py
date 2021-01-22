@@ -19,7 +19,7 @@ def construct_sims_map(
         # for sim source, since OVL doesn't actually exist yet
         ovl_ticker: str = YFI_USD_TICKER,
         sim_data_dir: str = SIMULATED_DATA_DIRECTORY,
-        verbose: bool = False) -> tp.Dict[str, tp.List[float]]:
+        verbose: bool = False) -> tp.Dict[str, np.ndarray]:
 
     ticker_to_time_series_of_prices_map = {}
     for ticker in tickers:
