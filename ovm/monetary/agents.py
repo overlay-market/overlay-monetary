@@ -503,12 +503,15 @@ class MonetarySniper(MonetaryAgent):
         for pid in unwound_pids:
             self.positions.pop(pid)
 
-    def _get_filled_price(self, price, amount, long):
+    def _get_filled_price(self,
+                          price: float,
+                          amount: float,
+                          long: bool):
         fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
         slippage = self.fmarket.slippage(amount-fees,
-                                            build=True,
-                                            long=True,
-                                            leverage=self.leverage_max)
+                                         build=True,
+                                         long=True,
+                                         leverage=self.leverage_max)
 
         fee_perc = fees/amount
         if long:
@@ -520,7 +523,7 @@ class MonetarySniper(MonetaryAgent):
         sizes = np.arange(self.size_increment*self.wealth, max_size, self.size_increment*self.wealth)
         edge_map = {}
         for size in sizes:
-            filled_price = self._get_filled_price(fprice, size, long)
+            filled_price = self._get_filled_price(price=fprice, amount=size, long=long)
             if long:
                 edge_map[self._get_effective_edge(sprice - filled_price, self.fmarket.funding(), long)] = size
             else:

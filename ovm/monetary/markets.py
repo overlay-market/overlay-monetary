@@ -1,11 +1,12 @@
+from dataclasses import dataclass
 import logging
 from typing import Any
-from dataclasses import dataclass
-import numpy as np
 import uuid
 
-from ovm.debug_level import PERFORM_DEBUG_LOGGING
+import numba
+import numpy as np
 
+from ovm.debug_level import PERFORM_DEBUG_LOGGING
 from ovm.tickers import OVL_USD_TICKER
 
 # set up logging
@@ -13,6 +14,33 @@ logger = logging.getLogger(__name__)
 
 # nx, ny: OVL locked in x and y token
 # dn: amount added to either bucket for the long/short position
+
+
+@numba.njit
+def _funding_internal(idx: int,
+                      last_funding_idx: int,
+                      cum_price_idx: int,
+                      price: float,
+                      simulated_price_series: np.ndarray) -> float:
+    dt = idx - last_funding_idx
+    if dt == 0 or cum_price_idx == last_funding_idx:
+        return 0.0
+
+    # Calculate twap of oracle feed ... each step is value 1 in time weight
+    cum_price_feed: float = 0.0
+    for i in range(last_funding_idx, idx):
+        cum_price_feed += simulated_price_series[i]
+
+    # cum_price_feed = np.sum(self.model.sims[self.unique_id][self.last_funding_idx:idx])
+    twap_feed = cum_price_feed / dt
+
+    # Calculate twap of market ... update cum price value first
+    # twap_market = (self.cum_price - self.last_cum_price) / dt
+    # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
+    twap_market = price
+    funding = (twap_market - twap_feed) / twap_feed
+
+    return funding
 
 
 @dataclass(frozen=False)
@@ -357,29 +385,34 @@ class MonetaryFMarket:
     def funding(self):
         # View for current estimate of the funding rate over current sampling period
         idx=self.model.schedule.steps
-        dt=idx - self.last_funding_idx
-        if dt == 0 or self.cum_price_idx == self.last_funding_idx:
-            return 0.0
+        # dt=idx - self.last_funding_idx
+        # if dt == 0 or self.cum_price_idx == self.last_funding_idx:
+        #     return 0.0
+        #
+        # # Calculate twap of oracle feed ... each step is value 1 in time weight
+        # cum_price_feed=np.sum(self.model.sims[self.unique_id][self.last_funding_idx:idx])
+        # twap_feed=cum_price_feed / dt
+        #
+        # # Calculate twap of market ... update cum price value first
+        # #twap_market = (self.cum_price - self.last_cum_price) / dt
+        # # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
+        # twap_market=self.price
+        # funding=(twap_market - twap_feed) / twap_feed
+        #
+        # if PERFORM_DEBUG_LOGGING:
+        #     logger.debug(f"funding: Checking funding for {self.unique_id}")
+        #     logger.debug(f"funding: cum_price_feed = {cum_price_feed}")
+        #     logger.debug(f"funding: Time since last funding (dt) = {dt}")
+        #     logger.debug(f"funding: twap_feed = {twap_feed}")
+        #     logger.debug(f"funding: cum_price = {self.cum_price}")
+        #     logger.debug(f"funding: last_cum_price = {self.last_cum_price}")
+        #     logger.debug(f"funding: twap_market = {twap_market}")
 
-        # Calculate twap of oracle feed ... each step is value 1 in time weight
-        cum_price_feed=np.sum(self.model.sims[self.unique_id][self.last_funding_idx:idx])
-        twap_feed=cum_price_feed / dt
-
-        # Calculate twap of market ... update cum price value first
-        #twap_market = (self.cum_price - self.last_cum_price) / dt
-        # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
-        twap_market=self.price
-        funding=(twap_market - twap_feed) / twap_feed
-
-        if PERFORM_DEBUG_LOGGING:
-            logger.debug(f"funding: Checking funding for {self.unique_id}")
-            logger.debug(f"funding: cum_price_feed = {cum_price_feed}")
-            logger.debug(f"funding: Time since last funding (dt) = {dt}")
-            logger.debug(f"funding: twap_feed = {twap_feed}")
-            logger.debug(f"funding: cum_price = {self.cum_price}")
-            logger.debug(f"funding: last_cum_price = {self.last_cum_price}")
-            logger.debug(f"funding: twap_market = {twap_market}")
-
+        funding = _funding_internal(idx=idx,
+                                    last_funding_idx=self.last_funding_idx,
+                                    cum_price_idx=self.cum_price_idx,
+                                    price=self.price,
+                                    simulated_price_series=self.model.sims[self.unique_id])
         return funding
 
     def fund(self):
