@@ -120,37 +120,42 @@ class MonetaryLiquidator(MonetaryAgent):
         # Finds a position to liquidate, then liquidates it
         idx = self.model.schedule.steps
 
-        for pid, pos in self.fmarket.positions.items():
-            side=1 if pos.long else -1
-            open_position_notional = pos.amount*pos.leverage*(1 + \
-                side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
-            value = pos.amount*(1 + \
-                pos.leverage*side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
-            open_leverage = open_position_notional/value
-            open_margin = 1/open_leverage
-            maintenance_margin = self.fmarket.maintenance/pos.leverage
-            if PERFORM_DEBUG_LOGGING:
-                logger.debug(f"Checking if liquidatable ... pid {pos.id}, amount {pos.amount}, leverage {pos.leverage}, long {pos.long}, lock_price {pos.lock_price}, market_price {self.fmarket.price}, trader id {pos.trader.unique_id}")
-                logger.debug(f"Open leverage {open_leverage}, leverage {pos.leverage}, open margin {open_margin}, maintenance margin {maintenance_margin}")
-                logger.debug(f"Is liquidatable? {self.fmarket.liquidatable(pid)}")
-            if self.fmarket.liquidatable(pid) and pos.amount > 0.0:
-                if PERFORM_DEBUG_LOGGING:
-                    logger.debug("Liquidating ...")
-                    logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
-                reward = self.fmarket.liquidate(pid)
-                self.inventory[OVL_TICKER] += reward
-                self.wealth += reward
-                self.last_trade_idx = self.model.schedule.steps
-                pos.trader.locked -= pos.amount
-                pos.trader.wealth -= pos.amount
-                if PERFORM_DEBUG_LOGGING:
-                    logger.debug("Liquidated ...")
-                    logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
-                    logger.debug(f"self.wealth -> {self.wealth}")
-                    logger.debug(f"pos.trader.locked -> {pos.trader.locked}")
-                    logger.debug(f"pos.trader.wealth -> {pos.trader.wealth}")
+        # Choose one of the keys in the positions items
+        # to possibly liquidate (increases performance v.s. loop)
+        pos_keys = list(self.fmarket.positions.keys())
+        if len(pos_keys) == 0:
+            return
+        pid = pos_keys[(idx % len(pos_keys))]
+        pos = self.fmarket.positions[pid]
 
-                return
+        side=1 if pos.long else -1
+        open_position_notional = pos.amount*pos.leverage*(1 + \
+            side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
+        value = pos.amount*(1 + \
+            pos.leverage*side*(self.fmarket.price - pos.lock_price)/pos.lock_price)
+        open_leverage = open_position_notional/value
+        open_margin = 1/open_leverage
+        maintenance_margin = self.fmarket.maintenance/pos.leverage
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"Checking if liquidatable ... pid {pos.id}, amount {pos.amount}, leverage {pos.leverage}, long {pos.long}, lock_price {pos.lock_price}, market_price {self.fmarket.price}, trader id {pos.trader.unique_id}")
+            logger.debug(f"Open leverage {open_leverage}, leverage {pos.leverage}, open margin {open_margin}, maintenance margin {maintenance_margin}")
+            logger.debug(f"Is liquidatable? {self.fmarket.liquidatable(pid)}")
+        if self.fmarket.liquidatable(pid) and pos.amount > 0.0:
+            if PERFORM_DEBUG_LOGGING:
+                logger.debug("Liquidating ...")
+                logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
+            reward = self.fmarket.liquidate(pid)
+            self.inventory[OVL_TICKER] += reward
+            self.wealth += reward
+            self.last_trade_idx = self.model.schedule.steps
+            pos.trader.locked -= pos.amount
+            pos.trader.wealth -= pos.amount
+            if PERFORM_DEBUG_LOGGING:
+                logger.debug("Liquidated ...")
+                logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
+                logger.debug(f"self.wealth -> {self.wealth}")
+                logger.debug(f"pos.trader.locked -> {pos.trader.locked}")
+                logger.debug(f"pos.trader.wealth -> {pos.trader.wealth}")
 
     def step(self):
         """
