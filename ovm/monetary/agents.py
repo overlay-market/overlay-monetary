@@ -84,7 +84,7 @@ class MonetaryAgent(Agent):
         Modify this method to change what an individual agent will do during each step.
         Can include logic based on neighbors states.
         """
-        if logger.getEffectiveLevel() <= DEBUG_LEVEL:
+        if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Trader agent {self.unique_id} activated")
 
         if self.wealth > 0 and self.locked / self.wealth < self.deploy_max:
@@ -229,7 +229,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         if len(self.positions.keys()) == 0:
             self.unwinding = False
             return
-        if logger.getEffectiveLevel() <= DEBUG_LEVEL:
+        if PERFORM_DEBUG_LOGGING:
             logger.debug(f'Arb._unwind_next_position: positions (prior) {self.positions}')
             logger.debug(f'Arb._unwind_next_position: locked (prior) {self.locked}')
 
@@ -239,7 +239,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         self.locked -= pos.amount
         self.last_trade_idx = self.model.schedule.steps
         del self.positions[pid]
-        if logger.getEffectiveLevel() <= DEBUG_LEVEL:
+        if PERFORM_DEBUG_LOGGING:
             logger.debug(f'Arb._unwind_next_position: positions (updated) {self.positions}')
             logger.debug(f'Arb._unwind_next_position: locked (updated) {self.locked}')
 
