@@ -9,6 +9,7 @@ from ovm.monetary.plot_labels import (
     spot_price_label,
     futures_price_label,
     skew_label,
+    open_positions_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     GINI_LABEL,
@@ -180,6 +181,32 @@ def plot_skews(
 
     plt.legend();
     plt.title('Positional Imbalance in Terms of OVL');
+
+
+def plot_open_positions(
+        model_vars_df: pd.DataFrame,
+        tickers: tp.Sequence[str],
+        plot_time_scale: TimeScale,
+        time_resolution: TimeResolution,
+        time_interval_to_plot_in_seconds: tp.Optional[
+            tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
+        figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
+        data_interval: int = 1):
+    column_name_to_label_map = \
+        {open_positions_label(ticker): open_positions_label(ticker)
+         for ticker in tickers}
+
+    plot_multiple_variables_over_time(
+        model_vars_df=model_vars_df,
+        column_name_to_label_map=column_name_to_label_map,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    plt.legend();
+    plt.title('Number of Open Positions');
 
 
 def plot_single_variable_over_time(

@@ -16,6 +16,7 @@ from ovm.monetary.plot_labels import (
     spot_price_label,
     futures_price_label,
     skew_label,
+    open_positions_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     agent_wealth_ovl_label,
@@ -82,6 +83,7 @@ class MonetaryModel(Model):
             compute_wealth_for_agent_type,
             compute_inventory_wealth_for_agent_type,
             compute_positional_imbalance_by_market,
+            compute_open_positions_per_market
         )
 
         super().__init__(seed=seed)
@@ -245,6 +247,10 @@ class MonetaryModel(Model):
             })
             model_reporters.update({
                 skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+                open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
                 for ticker in tickers
             })
 

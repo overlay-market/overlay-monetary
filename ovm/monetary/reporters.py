@@ -134,3 +134,8 @@ def compute_positional_imbalance_by_market(model, ticker: str) -> float:
         return positional_imbalance_2
     else:
         return 0.0
+
+
+def compute_open_positions_per_market(model, ticker: str) -> int:
+    monetary_futures_market = model.fmarkets[ticker]
+    return len(monetary_futures_market.positions)
