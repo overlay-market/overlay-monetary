@@ -57,7 +57,8 @@ class MonetaryModel(Model):
         liquidity_supply_emission: tp.List[float],
         treasury: float,
         sampling_interval: int,
-        data_collection_options: DataCollectionOptions = DataCollectionOptions()
+        data_collection_options: DataCollectionOptions = DataCollectionOptions(),
+        seed: tp.Optional[int] = None
     ):
         from ovm.monetary.agents import (
             MonetaryArbitrageur,
@@ -83,7 +84,7 @@ class MonetaryModel(Model):
             compute_positional_imbalance_by_market,
         )
 
-        super().__init__()
+        super().__init__(seed=seed)
         self.num_agents = num_arbitrageurs + num_keepers + \
             num_traders + num_holders + num_snipers + num_liquidators
         self.num_arbitraguers = num_arbitrageurs

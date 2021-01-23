@@ -5,8 +5,9 @@ import os
 from ovm.simulation.bootstrap import plot_multivariate_simulation
 
 from ovm.paths import (
-    HISTORICAL_DATA_DIRECTORY,
-    SIMULATED_DATA_DIRECTORY
+    SIMULATED_DATA_DIRECTORY,
+    HistoricalDataSource,
+    construct_historical_data_directory
 )
 
 from ovm.simulation.resampling import (
@@ -28,7 +29,10 @@ from ovm.time_resolution import TimeResolution
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, str(time_resolution.value))
+directory_path = \
+    construct_historical_data_directory(
+        historical_data_source=HistoricalDataSource.FTX,
+        time_resolution=time_resolution)
 
 # Make the block size approximately 6 hours
 block_length = np.ceil(6 * 60 * 60 / time_resolution.in_seconds)

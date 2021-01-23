@@ -14,7 +14,11 @@ from ovm.historical.data_io import (
     compute_log_return_df
 )
 
-from ovm.paths import HISTORICAL_DATA_DIRECTORY
+from ovm.paths import (
+    SIMULATED_DATA_DIRECTORY,
+    HistoricalDataSource,
+    construct_historical_data_directory
+)
 
 from ovm.tickers import (
     BTC_USD_TICKER,
@@ -33,7 +37,10 @@ from recombinator import (
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
-directory_path = os.path.join(HISTORICAL_DATA_DIRECTORY, str(time_resolution.value))
+directory_path = \
+    construct_historical_data_directory(
+        historical_data_source=HistoricalDataSource.FTX,
+        time_resolution=time_resolution)
 
 # Number of paths to simulate
 number_of_paths = 1
