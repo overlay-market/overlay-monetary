@@ -21,10 +21,12 @@ from ovm.monetary.model import MonetaryModel
 from ovm.monetary.data_io import construct_sims_map
 from ovm.monetary.options import DataCollectionOptions
 from plot_labels import (
+    agent_wealth_ovl_label,
     price_deviation_label,
     spot_price_label,
     futures_price_label,
     skew_label,
+    position_count_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     GINI_LABEL,
@@ -44,7 +46,7 @@ def random_color():
 
 
 TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
-DATA_SIM_RNG = 42
+DATA_SIM_RNG = 115
 
 # Constants
 STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
@@ -118,15 +120,21 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                      for ticker
                      in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
+        ChartModule([{"Label": position_count_label(ticker), "Color": random_color()}
+                     for ticker
+                     in sims.keys()],
+                    data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        for agent_type_name in ["Arbitrageurs", "Traders", "Holders"]:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Snipers"]:
             chart_elements += [
-                ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                ChartModule([{"Label": agent_wealth_ovl_label(agent_type_name), "Color": random_color()}],
                             data_collector_name=DATA_COLLECTOR_NAME),
-                ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
-                            data_collector_name=DATA_COLLECTOR_NAME),
+                #ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                #            data_collector_name=DATA_COLLECTOR_NAME),
+                #ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
+                #            data_collector_name=DATA_COLLECTOR_NAME),
             ]
 
     chart_elements += [

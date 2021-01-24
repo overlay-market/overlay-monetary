@@ -31,7 +31,7 @@ class MonetaryAgent(Agent):
         model: MonetaryModel,
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
-        pos_max: float = 0.2,
+        pos_max: float = 0.9,
         deploy_max: float = 0.95,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
@@ -528,7 +528,7 @@ class MonetarySniper(MonetaryAgent):
         if len(edge_map.keys()) == 0:
             return 0.0
         best_size = edge_map[max(edge_map.keys())]
-        return best_size
+        return best_size # min(best_size, self.pos_max)
 
     def _get_effective_edge(self, raw_edge, funding_rate, long):
         # Assume negative funding favors longs

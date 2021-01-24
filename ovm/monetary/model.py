@@ -16,6 +16,7 @@ from ovm.monetary.plot_labels import (
     spot_price_label,
     futures_price_label,
     skew_label,
+    position_count_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     agent_wealth_ovl_label,
@@ -82,6 +83,7 @@ class MonetaryModel(Model):
             compute_wealth_for_agent_type,
             compute_inventory_wealth_for_agent_type,
             compute_positional_imbalance_by_market,
+            compute_position_count_by_market,
         )
 
         super().__init__(seed=seed)
@@ -170,7 +172,8 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=leverage_max
+                    leverage_max=leverage_max,
+                    trade_delay=4*1,
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -197,13 +200,14 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
+                sniper_leverage_max = (i % 4.0) + 1.0
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=leverage_max,
-                    trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
+                    leverage_max=sniper_leverage_max,
+                    trade_delay=4*1,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
                     size_increment=0.1,
                     min_edge=0.02,
                     max_edge=0.1,  # max deploy at 10% edge
@@ -247,6 +251,10 @@ class MonetaryModel(Model):
                 skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
                 for ticker in tickers
             })
+            model_reporters.update({
+                position_count_label(ticker): partial(compute_position_count_by_market, ticker=ticker)
+                for ticker in tickers
+            })
 
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
@@ -269,7 +277,9 @@ class MonetaryModel(Model):
             for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
                                                 ("Keepers", MonetaryKeeper),
                                                 ("Traders", MonetaryTrader),
-                                                ("Holders", MonetaryHolder)]:
+                                                ("Holders", MonetaryHolder),
+                                                ("Liquidators", MonetaryLiquidator),
+                                                ("Snipers", MonetarySniper)]:
                 if self.data_collection_options.compute_wealth:
                     model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
                         compute_wealth_for_agent_type, agent_type=agent_type)
@@ -306,7 +316,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if logger.getEffectiveLevel() <= 10:
+        if logger.getEffectiveLevel() <= 10 and self.schedule.steps % 10 == 0:
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],

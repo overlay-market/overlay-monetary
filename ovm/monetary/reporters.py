@@ -134,3 +134,9 @@ def compute_positional_imbalance_by_market(model, ticker: str) -> float:
         return positional_imbalance_2
     else:
         return 0.0
+
+
+def compute_position_count_by_market(model, ticker: str) -> int:
+    fmarket = model.fmarkets[ticker]
+    pos_map = fmarket.positions
+    return len(pos_map)

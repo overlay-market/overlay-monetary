@@ -20,6 +20,10 @@ def skew_label(ticker: str) -> str:
     return f"{SKEW_LABEL_START} {ticker}"
 
 
+def position_count_label(ticker: str) -> str:
+    return f"{futures_price_label(ticker)} Position Count"
+
+
 def inventory_wealth_ovl_label(agent_type_name: str) -> str:
     return f"{agent_type_name} Inventory (OVL)"
 
