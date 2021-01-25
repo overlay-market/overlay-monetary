@@ -27,6 +27,12 @@ from ovm.time_resolution import (
 DEFAULT_FIGURE_SIZE = (16, 9)
 
 
+def convert_time_in_seconds_to_index(
+    time_resolution: TimeResolution,
+    time_in_seconds: float) -> int:
+    return int(np.floor(time_in_seconds / time_resolution.in_seconds))
+
+
 def convert_time_interval_in_seconds_to_indices(
         data_length: int,
         time_resolution: TimeResolution,
@@ -209,6 +215,31 @@ def plot_open_positions(
     plt.title('Number of Open Positions');
 
 
+def plot_single_variable_over_time_from_numpy_array(
+        array: np.ndarray,
+        plot_time_scale: TimeScale,
+        time_resolution: TimeResolution,
+        time_interval_to_plot_in_seconds: tp.Optional[
+            tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
+        figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
+        data_interval: int = 1):
+    if array.ndim != 1:
+        raise ValueError(f'array must be a NumPy array with one axis but has shape {array.shape}')
+
+    begin_index, end_index, time_axis_to_plot = \
+        get_indices_and_time_axis_to_plot(
+            data_length=array.shape[0],
+            plot_time_scale=plot_time_scale,
+            time_resolution=time_resolution,
+            time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+            data_interval=data_interval)
+    data_to_plot = array[begin_index:end_index]
+
+    plt.figure(figsize=figure_size);
+    plt.plot(time_axis_to_plot, data_to_plot);
+    plt.xlabel(f'time in {plot_time_scale.value}');
+
+
 def plot_single_variable_over_time(
         model_vars_df: pd.DataFrame,
         column_name: str,
@@ -218,18 +249,26 @@ def plot_single_variable_over_time(
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
         data_interval: int = 1):
-    begin_index, end_index, time_axis_to_plot = \
-        get_indices_and_time_axis_to_plot(
-            data_length=model_vars_df.shape[0],
-            plot_time_scale=plot_time_scale,
-            time_resolution=time_resolution,
-            time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
-            data_interval=data_interval)
-    data_to_plot = model_vars_df.loc[:, column_name].values[begin_index:end_index]
+    plot_single_variable_over_time_from_numpy_array(
+        array=model_vars_df.loc[:, column_name].values,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
 
-    plt.figure(figsize=figure_size);
-    plt.plot(time_axis_to_plot, data_to_plot);
-    plt.xlabel(f'time in {plot_time_scale.value}');
+    # begin_index, end_index, time_axis_to_plot = \
+    #     get_indices_and_time_axis_to_plot(
+    #         data_length=model_vars_df.shape[0],
+    #         plot_time_scale=plot_time_scale,
+    #         time_resolution=time_resolution,
+    #         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+    #         data_interval=data_interval)
+    # data_to_plot = model_vars_df.loc[:, column_name].values[begin_index:end_index]
+    #
+    # plt.figure(figsize=figure_size);
+    # plt.plot(time_axis_to_plot, data_to_plot);
+    # plt.xlabel(f'time in {plot_time_scale.value}');
 
 
 def plot_supply(
@@ -300,10 +339,11 @@ def plot_spot_vs_futures_price(
         ticker: str,
         plot_time_scale: TimeScale,
         time_resolution: TimeResolution,
-        time_interval_to_plot_in_seconds: tp.Optional[
-            tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
+        time_interval_to_plot_in_seconds:
+        tp.Optional[tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+):
     column_name_to_label_map = \
         {futures_price_label(ticker): futures_price_label(ticker),
          spot_price_label(ticker): spot_price_label(ticker)}
