@@ -2,6 +2,7 @@ DEVIATION_LABEL_START = 'd-'
 SPOT_PRICE_LABEL_START = 's-'
 FUTURES_PRICE_LABEL_START = 'f-'
 SKEW_LABEL_START = 'Skew'
+OPEN_POSITIONS_LABEL_START = 'Number of Open Positions on'
 
 
 def price_deviation_label(ticker: str) -> str:
@@ -20,8 +21,8 @@ def skew_label(ticker: str) -> str:
     return f"{SKEW_LABEL_START} {ticker}"
 
 
-def position_count_label(ticker: str) -> str:
-    return f"{futures_price_label(ticker)} Position Count"
+def open_positions_label(ticker: str) -> str:
+    return f"{OPEN_POSITIONS_LABEL_START} {ticker}"
 
 
 def inventory_wealth_ovl_label(agent_type_name: str) -> str:
