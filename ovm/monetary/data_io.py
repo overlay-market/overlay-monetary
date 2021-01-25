@@ -6,7 +6,9 @@ import pandas as pd
 from ovm.paths import SIMULATED_DATA_DIRECTORY
 from ovm.tickers import (
     OVL_USD_TICKER,
-    YFI_USD_TICKER
+    YFI_USD_TICKER,
+    ETH_TICKER,
+    USD_TICKER,
 )
 
 from ovm.time_resolution import TimeResolution
@@ -18,6 +20,7 @@ def construct_sims_map(
         tickers: tp.Sequence[str],
         # for sim source, since OVL doesn't actually exist yet
         ovl_ticker: str = YFI_USD_TICKER,
+        ovl_quote_ticker: str = OVL_USD_TICKER,
         sim_data_dir: str = SIMULATED_DATA_DIRECTORY,
         verbose: bool = False) -> tp.Dict[str, np.ndarray]:
 
@@ -32,9 +35,11 @@ def construct_sims_map(
             print(f"Reading in sim simulation from {rpath}")
         f = pd.read_csv(rpath)
         if ticker == ovl_ticker:
-            ticker_to_time_series_of_prices_map[OVL_USD_TICKER] = f.transpose().values.reshape((-1, ))
+            ticker_to_time_series_of_prices_map[ovl_quote_ticker] = f.transpose(
+            ).values.reshape((-1, ))
         else:
-            ticker_to_time_series_of_prices_map[ticker] = f.transpose().values.reshape((-1, ))
+            ticker_to_time_series_of_prices_map[ticker] = f.transpose(
+            ).values.reshape((-1, ))
 
     return ticker_to_time_series_of_prices_map
 

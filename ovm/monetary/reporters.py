@@ -1,7 +1,7 @@
 import typing as tp
 
 from ovm.monetary.agents import MonetaryAgent
-from ovm.tickers import OVL_TICKER, USD_TICKER
+from ovm.tickers import OVL_TICKER
 
 
 def compute_gini(model,
@@ -63,26 +63,26 @@ def compute_wealth_for_agent_type(model,
 def compute_inventory_wealth_for_agent(model,
                                        agent: MonetaryAgent,
                                        inventory_type: tp.Optional[str] = None,
-                                       in_usd: bool = False):
+                                       in_quote: bool = False):
     idx = model.schedule.steps
-    sprice_ovlusd = model.sims["OVL-USD"][idx]
+    sprice_ovl_quote = model.sims[model.ovl_quote_ticker][idx]
     sprice = model.sims[agent.fmarket.unique_id][idx]
     base_curr = agent.fmarket.base_currency
 
     p_constants_ovl = {
         OVL_TICKER: 1.0,
-        USD_TICKER: 1.0/sprice_ovlusd,
-        base_curr: sprice/sprice_ovlusd,
+        model.quote_ticker: 1.0/sprice_ovl_quote,
+        base_curr: sprice/sprice_ovl_quote,
     }
-    p_constants_usd = {
-        k: sprice_ovlusd * v
+    p_constants_quote = {
+        k: sprice_ovl_quote * v
         for k, v in p_constants_ovl.items()
     }
     p_constants = {}
-    if not in_usd:
+    if not in_quote:
         p_constants = p_constants_ovl
     else:
-        p_constants = p_constants_usd
+        p_constants = p_constants_quote
 
     if inventory_type in agent.inventory:
         return p_constants[inventory_type] * agent.inventory[inventory_type]
@@ -93,17 +93,17 @@ def compute_inventory_wealth_for_agent(model,
 def compute_inventory_wealth_for_agent_type(model,
                                             agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
                                             inventory_type: tp.Optional[str] = None,
-                                            in_usd: bool = False):
+                                            in_quote: bool = False):
     if not agent_type:
         wealths = [
             compute_inventory_wealth_for_agent(
-                model, a, inventory_type=inventory_type, in_usd=in_usd)
+                model, a, inventory_type=inventory_type, in_quote=in_quote)
             for a in model.schedule.agents
         ]
     else:
         wealths = [
             compute_inventory_wealth_for_agent(
-                model, a, inventory_type=inventory_type, in_usd=in_usd)
+                model, a, inventory_type=inventory_type, in_quote=in_quote)
             for a in model.schedule.agents if type(a) == agent_type
         ]
 

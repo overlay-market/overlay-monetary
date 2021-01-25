@@ -6,8 +6,6 @@ import uuid
 
 from ovm.debug_level import PERFORM_DEBUG_LOGGING
 
-from ovm.tickers import OVL_USD_TICKER
-
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -64,7 +62,7 @@ class MonetaryFMarket:
         self.maintenance = maintenance
         self.model = model
         self.positions = {}  # { id: [MonetaryFPosition] }
-        self.base_currency = unique_id[:-len("-USD")]
+        self.base_currency = unique_id[:-len(f"-{model.quote_ticker}")]
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
@@ -85,8 +83,10 @@ class MonetaryFMarket:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
             logger.debug(f"FMarket {self.unique_id} has x = {self.x}")
             logger.debug(f"FMarket {self.unique_id} has nx={self.nx} OVL")
+            logger.debug(f"FMarket {self.unique_id} has px={self.px}")
             logger.debug(f"FMarket {self.unique_id} has y={self.y}")
             logger.debug(f"FMarket {self.unique_id} has ny={self.ny} OVL")
+            logger.debug(f"FMarket {self.unique_id} has px={self.py}")
             logger.debug(f"FMarket {self.unique_id} has k={self.k}")
 
     @property
@@ -521,18 +521,18 @@ class MonetaryFMarket:
             logger.debug(f"fund: y (updated) = {self.y}")
             logger.debug(f"fund: price (updated... should be same) = {self.price}")
 
-        # Calculate twap for ovlusd oracle feed to use in px, py adjustment
-        cum_ovlusd_feed = \
-            np.sum(self.model.sims[OVL_USD_TICKER][idx-self.model.sampling_interval:idx])
+        # Calculate twap for ovl_quote oracle feed to use in px, py adjustment
+        cum_ovl_quote_feed = \
+            np.sum(self.model.sims[self.model.ovl_quote_ticker][idx-self.model.sampling_interval:idx])
 
-        twap_ovlusd_feed=cum_ovlusd_feed / self.model.sampling_interval
-        self.px=twap_ovlusd_feed  # px = n_usd/n_ovl
-        self.py=twap_ovlusd_feed/twap_feed  # py = px/p
+        twap_ovl_quote_feed=cum_ovl_quote_feed / self.model.sampling_interval
+        self.px=twap_ovl_quote_feed  # px = n_quote/n_ovl
+        self.py=twap_ovl_quote_feed/twap_feed  # py = px/p
 
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
-            logger.debug(f"fund: cum_price_feed = {cum_ovlusd_feed}")
-            logger.debug(f"fund: twap_ovlusd_feed = {twap_ovlusd_feed}")
+            logger.debug(f"fund: cum_price_feed = {cum_ovl_quote_feed}")
+            logger.debug(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
             logger.debug(f"fund: px (updated) = {self.px}")
             logger.debug(f"fund: py (updated) = {self.py}")
             logger.debug(f"fund: price (updated... should be same) = {self.price}")

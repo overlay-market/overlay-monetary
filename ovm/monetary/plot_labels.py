@@ -32,6 +32,10 @@ def inventory_wealth_usd_label(agent_type_name: str) -> str:
     return f"{agent_type_name} Inventory (USD)"
 
 
+def inventory_wealth_quote_label(agent_type_name: str, quote_ticker: str) -> str:
+    return f"{agent_type_name} Inventory ({quote_ticker})"
+
+
 def agent_wealth_ovl_label(agent_type_name: str):
     return f'{agent_type_name} Wealth (OVL)'
 

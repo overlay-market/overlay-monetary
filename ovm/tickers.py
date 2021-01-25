@@ -16,6 +16,11 @@ SNX_TICKER = 'SNX'
 XRP_TICKER = 'XRP'
 USDT_TICKER = 'USDT'
 
+
+def ovl_quote_ticker(quote: str):
+    return f'{OVL_TICKER}-{quote}'
+
+
 # pairs of tokens (exchange rates)
 # USD quote
 BAL_USD_TICKER = f'{BAL_TICKER}-{USD_TICKER}'
