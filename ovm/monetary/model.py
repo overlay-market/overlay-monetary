@@ -10,7 +10,7 @@ import numpy as np
 from ovm.debug_level import PERFORM_INFO_LOGGING
 from ovm.tickers import OVL_TICKER
 
-from ovm.monetary.options import DataCollectionOptions
+from ovm.monetary.data_collection import DataCollectionOptions
 from ovm.monetary.plot_labels import (
     price_deviation_label,
     spot_price_label,

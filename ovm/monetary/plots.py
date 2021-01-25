@@ -1,3 +1,4 @@
+import random
 import typing as tp
 
 import matplotlib.pyplot as plt
@@ -359,3 +360,7 @@ def plot_spot_vs_futures_price(
 
     plt.legend();
     plt.title(f'Spot Price vs Futures Price for {ticker}')
+
+
+def random_color():
+    return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
