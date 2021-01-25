@@ -14,17 +14,27 @@ from ovm.tickers import (
     ETH_USD_TICKER,
     COMP_USD_TICKER,
     LINK_USD_TICKER,
-    YFI_USD_TICKER
+    YFI_USD_TICKER,
+    EOS_ETH_TICKER,
+    MKR_ETH_TICKER,
+    SNX_ETH_TICKER,
+    TRX_ETH_TICKER,
+    XRP_ETH_TICKER,
+    ETH_TICKER,
+    USD_TICKER,
+    ovl_quote_ticker,
 )
 
 from ovm.monetary.model import MonetaryModel
 from ovm.monetary.data_io import construct_sims_map
 from ovm.monetary.options import DataCollectionOptions
 from plot_labels import (
+    agent_wealth_ovl_label,
     price_deviation_label,
     spot_price_label,
     futures_price_label,
     skew_label,
+    open_positions_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     GINI_LABEL,
@@ -43,35 +53,34 @@ def random_color():
     return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
-TIME_RESOLUTION = TimeResolution.FIFTEEN_SECONDS
+TIME_RESOLUTION = TimeResolution.ONE_MINUTE
 DATA_SIM_RNG = 42
 
 # Constants
 STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
 
 # Load sims from csv files as arrays
-TICKERS = [ETH_USD_TICKER,
-           # not a long history of simulation (can we use a different token instead)
-           COMP_USD_TICKER,
-           # not a long history of simulation (can we use a different token instead)
-           LINK_USD_TICKER,
-           # less than half a year of simulation (can we use a different token instead)
-           YFI_USD_TICKER
-           ]
+TICKERS = [EOS_ETH_TICKER,
+           MKR_ETH_TICKER,
+           SNX_ETH_TICKER,
+           XRP_ETH_TICKER]
 
 
 BASE_DIR = str(Path(os.path.dirname(__file__)).parents[1])
 SIM_DATA_DIR = os.path.join(BASE_DIR, 'data', 'simulation')
-OVL_TICKER = "YFI-USD"  # for sim source, since OVL doesn't actually exist yet
+OVL_TICKER = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
+QUOTE_TICKER = ETH_TICKER
+OVL_QUOTE_TICKER = ovl_quote_ticker(QUOTE_TICKER)
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
                           time_resolution=TIME_RESOLUTION,
                           tickers=TICKERS,
                           sim_data_dir=SIM_DATA_DIR,
-                          ovl_ticker=YFI_USD_TICKER)
+                          ovl_ticker=SNX_ETH_TICKER,
+                          ovl_quote_ticker=OVL_QUOTE_TICKER)
 
 
 total_supply = 100000  # OVL
-base_wealth = 0.0002*100000  # OVL
+base_wealth = 0.001*100000  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
 base_liquidate_reward = 0.1
@@ -118,15 +127,21 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                      for ticker
                      in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
+        ChartModule([{"Label": open_positions_label(ticker), "Color": random_color()}
+                     for ticker
+                     in sims.keys()],
+                    data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        for agent_type_name in ["Arbitrageurs", "Traders", "Holders"]:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Snipers"]:
             chart_elements += [
-                ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                ChartModule([{"Label": agent_wealth_ovl_label(agent_type_name), "Color": random_color()}],
                             data_collector_name=DATA_COLLECTOR_NAME),
-                ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
-                            data_collector_name=DATA_COLLECTOR_NAME),
+                #ChartModule([{"Label": inventory_wealth_ovl_label(agent_type_name), "Color": random_color()}],
+                #            data_collector_name=DATA_COLLECTOR_NAME),
+                #ChartModule([{"Label": inventory_wealth_usd_label(agent_type_name), "Color": random_color()}],
+                #            data_collector_name=DATA_COLLECTOR_NAME),
             ]
 
     chart_elements += [
@@ -156,6 +171,8 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 MODEL_KWARGS = {
     "sims": sims,
+    "quote_ticker": QUOTE_TICKER,
+    "ovl_quote_ticker": OVL_QUOTE_TICKER,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,
@@ -171,8 +188,7 @@ MODEL_KWARGS = {
     "liquidity": liquidity,
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": 0.0,
-    # TODO: 1920 ... 8h with 15s blocks (sim simulation is every 15s)
-    "sampling_interval": 240,
+    "sampling_interval": int(3600/TIME_RESOLUTION.in_seconds),
 }
 
 chart_elements = construct_chart_elements(sims.keys(),

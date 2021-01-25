@@ -8,7 +8,7 @@ from mesa.datacollection import DataCollector
 import numpy as np
 
 from ovm.debug_level import PERFORM_INFO_LOGGING
-from ovm.tickers import OVL_TICKER, USD_TICKER, OVL_USD_TICKER
+from ovm.tickers import OVL_TICKER
 
 from ovm.monetary.options import DataCollectionOptions
 from ovm.monetary.plot_labels import (
@@ -18,7 +18,7 @@ from ovm.monetary.plot_labels import (
     skew_label,
     open_positions_label,
     inventory_wealth_ovl_label,
-    inventory_wealth_usd_label,
+    inventory_wealth_quote_label,
     agent_wealth_ovl_label,
     GINI_LABEL,
     GINI_ARBITRAGEURS_LABEL,
@@ -49,6 +49,8 @@ class MonetaryModel(Model):
         num_snipers: int,
         num_liquidators: int,
         sims: tp.Dict[str, np.ndarray],
+        quote_ticker: str,
+        ovl_quote_ticker: str,
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
@@ -106,9 +108,13 @@ class MonetaryModel(Model):
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
         self.sims = sims  # { k: [ prices ] }
+        self.quote_ticker = quote_ticker
+        self.ovl_quote_ticker = ovl_quote_ticker
 
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
+            logger.info(f"quote_ticker = {quote_ticker}")
+            logger.info(f"ovl_quote_ticker = {ovl_quote_ticker}")
             logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
             logger.info(f"num_snipers = {num_snipers}")
             logger.info(f"num_keepers = {num_keepers}")
@@ -117,14 +123,15 @@ class MonetaryModel(Model):
             logger.info(f"num_liquidators = {num_liquidators}")
             logger.info(f"base_wealth = {base_wealth}")
             logger.info(f"total_supply = {self.supply}")
+            logger.info(f"sampling_interval = {self.sampling_interval}")
             logger.info(
                 f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 
-        # Markets: Assume OVL-USD is in here and only have X-USD pairs for now ...
+        # Markets: Assume OVL-QUOTE is in here and only have X-QUOTE pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
         n = len(sims.keys())
-        prices_ovlusd = self.sims[OVL_USD_TICKER]
+        prices_ovl_quote = self.sims[self.ovl_quote_ticker]
         liquidity_weight = {
             list(sims.keys())[i]: 1
             for i in range(n)
@@ -134,8 +141,8 @@ class MonetaryModel(Model):
                 unique_id=ticker,
                 nx=(self.liquidity/(2*n))*liquidity_weight[ticker],
                 ny=(self.liquidity/(2*n))*liquidity_weight[ticker],
-                px=prices_ovlusd[0],  # px = n_usd/n_ovl
-                py=prices_ovlusd[0]/prices[0],  # py = px/p
+                px=prices_ovl_quote[0],  # px = n_quote/n_ovl
+                py=prices_ovl_quote[0]/prices[0],  # py = px/p
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
                 liquidate_reward=base_liquidate_reward,
@@ -149,19 +156,19 @@ class MonetaryModel(Model):
         for i in range(self.num_agents):
             agent = None
             fmarket = self.fmarkets[tickers[i % len(tickers)]]
-            base_curr = fmarket.unique_id[:-len("-USD")]
+            base_curr = fmarket.unique_id[:-len(f"-{quote_ticker}")]
             base_quote_price = self.sims[fmarket.unique_id][0]
             inventory: tp.Dict[str, float] = {}
             if base_curr != OVL_TICKER:
                 inventory = {
                     OVL_TICKER: self.base_wealth,
-                    USD_TICKER: self.base_wealth*prices_ovlusd[0],
-                    base_curr: self.base_wealth*prices_ovlusd[0]/base_quote_price,
+                    quote_ticker: self.base_wealth*prices_ovl_quote[0],
+                    base_curr: self.base_wealth*prices_ovl_quote[0]/base_quote_price,
                 }  # 50/50 inventory of base and quote curr (3x base_wealth for total in OVL)
             else:
                 inventory = {
                     OVL_TICKER: self.base_wealth*2,  # 2x since using for both spot and futures
-                    USD_TICKER: self.base_wealth*prices_ovlusd[0]
+                    quote_ticker: self.base_wealth*prices_ovl_quote[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = (i % 9.0) + 1.0
@@ -172,7 +179,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=leverage_max
+                    leverage_max=leverage_max,
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -199,15 +206,15 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
+                sniper_leverage_max = (i % 4.0) + 1.0
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=leverage_max,
-                    trade_delay=4*10,  # 15 s blocks ... TODO: make this inverse with amount remaining to lock
+                    leverage_max=sniper_leverage_max,
                     size_increment=0.1,
-                    min_edge=0.02,
+                    min_edge=0.005,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -275,7 +282,9 @@ class MonetaryModel(Model):
             for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
                                                 ("Keepers", MonetaryKeeper),
                                                 ("Traders", MonetaryTrader),
-                                                ("Holders", MonetaryHolder)]:
+                                                ("Holders", MonetaryHolder),
+                                                ("Liquidators", MonetaryLiquidator),
+                                                ("Snipers", MonetarySniper)]:
                 if self.data_collection_options.compute_wealth:
                     model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
                         compute_wealth_for_agent_type, agent_type=agent_type)
@@ -283,7 +292,7 @@ class MonetaryModel(Model):
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
                         inventory_wealth_ovl_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
-                        inventory_wealth_usd_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_usd=True)
+                        inventory_wealth_quote_label(agent_type_name, self.quote_ticker): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
                     })
 
             self.data_collector = DataCollector(
@@ -312,7 +321,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if logger.getEffectiveLevel() <= 10:
+        if logger.getEffectiveLevel() <= 10 and self.schedule.steps % 10 == 0:
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],
