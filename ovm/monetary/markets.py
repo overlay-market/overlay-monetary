@@ -565,7 +565,7 @@ class MonetaryFMarket:
         self.model.supply -= ds
 
         # NOTE: ds should be negative
-        assert ds < 0, "liquidate: position liquidation should result in burn of amount"
+        assert ds <= 0.0, f"liquidate: position liquidation should result in burn of amount, ds={ds}"
         reward = abs(ds) * self.liquidate_reward
 
         # Anything left over after the burn is pos.amount - abs(ds) (leftover margin) ... split this

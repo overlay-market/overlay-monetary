@@ -52,3 +52,22 @@ def construct_ticker_to_series_of_prices_map_from_simulated_prices(
         {ticker: simulated_prices[0, :, i] for i, ticker in enumerate(tickers)}
 
     return ticker_to_time_series_of_prices_map
+
+
+def construct_ticker_to_series_of_prices_map_from_historical_prices(
+        historical_price_df: pd.DataFrame,
+        tickers: tp.Sequence[str],
+        ovl_ticker: str,
+        ovl_quote_ticker: str) -> tp.Dict[str, np.ndarray]:
+    """
+    This function takes a dataframe with closing prices of different exchange rates.
+    The name of the exchange rate w.r.t. to the quote currency to use as for the OVL exchange rate
+    is given by ovl_ticker. This name is replaced with ovl_quote_ticker.
+    """
+    result = {ovl_quote_ticker
+              if ticker == ovl_ticker
+              else ticker: historical_price_df.loc[:, ticker].values
+              for ticker
+              in tickers}
+
+    return result

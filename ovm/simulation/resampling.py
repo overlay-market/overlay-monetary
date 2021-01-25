@@ -16,7 +16,7 @@ def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
                      directory_path: tp.Optional[str] = None) \
         -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    # load price simulation
+    # load price history
     series_name_to_price_history_map = \
         load_price_histories(series_names=series_names,
                              period_length_in_seconds=period_length_in_seconds,
