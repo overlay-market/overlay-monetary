@@ -34,7 +34,7 @@ from plot_labels import (
     spot_price_label,
     futures_price_label,
     skew_label,
-    position_count_label,
+    open_positions_label,
     inventory_wealth_ovl_label,
     inventory_wealth_usd_label,
     GINI_LABEL,
@@ -127,7 +127,7 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                      for ticker
                      in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": position_count_label(ticker), "Color": random_color()}
+        ChartModule([{"Label": open_positions_label(ticker), "Color": random_color()}
                      for ticker
                      in sims.keys()],
                     data_collector_name=DATA_COLLECTOR_NAME),
