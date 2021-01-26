@@ -1,6 +1,6 @@
 import logging
 
-DEBUG_LEVEL = 0
+DEBUG_LEVEL = 10
 INFO_LEVEL = 20
 
 PERFORM_DEBUG_LOGGING = logging.root.level <= DEBUG_LEVEL
