@@ -3,11 +3,9 @@ Configure visualization elements and instantiate a server
 """
 import os
 import logging
-from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 
 from ovm.monetary.chart_elements import construct_chart_elements
-from ovm.time_resolution import TimeResolution
 from ovm.tickers import (
     EOS_ETH_TICKER,
     MKR_ETH_TICKER,
@@ -16,10 +14,15 @@ from ovm.tickers import (
     ETH_TICKER,
     ovl_quote_ticker,
 )
-
-from ovm.monetary.model import MonetaryModel
-from ovm.monetary.data_io import construct_sims_map
+from ovm.time_resolution import TimeResolution
 from ovm.monetary.data_collection import DataCollectionOptions
+from ovm.monetary.data_io import (
+    construct_sims_map,
+    load_and_construct_ticker_to_series_of_prices_map_from_historical_prices
+)
+from ovm.monetary.model import MonetaryModel
+from ovm.paths import HistoricalDataSource
+
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -27,24 +30,19 @@ logger = logging.getLogger(__name__)
 ################################################################################
 # Simulation Parameters
 ################################################################################
-TIME_RESOLUTION = TimeResolution.ONE_MINUTE
+historical_data_source = HistoricalDataSource.KUCOIN
+time_resolution = TimeResolution.ONE_MINUTE
 DATA_SIM_RNG = 42
 
-# Constants
-# STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
-STEPS_MONTH = TIME_RESOLUTION.steps_per_month_clamped
-
 # Load sims from csv files as arrays
-TICKERS = [EOS_ETH_TICKER,
+tickers = [EOS_ETH_TICKER,
            MKR_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 
-BASE_DIR = str(Path(os.path.dirname(__file__)).parents[1])
-SIM_DATA_DIR = os.path.join(BASE_DIR, 'data', 'simulation')
-OVL_TICKER = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
-QUOTE_TICKER = ETH_TICKER
-OVL_QUOTE_TICKER = ovl_quote_ticker(QUOTE_TICKER)
+ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
+quote_ticker = ETH_TICKER
+ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
 
 total_supply = 100000  # OVL
 base_wealth = 0.001*100000  # OVL
@@ -53,9 +51,9 @@ base_max_leverage = 10.0
 base_liquidate_reward = 0.1
 base_maintenance = 0.6
 liquidity = 0.285*total_supply
-time_liquidity_mine = STEPS_MONTH
+time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
-sampling_interval = int(3600/TIME_RESOLUTION.in_seconds)
+sampling_interval = int(3600 / time_resolution.in_seconds)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
@@ -75,12 +73,23 @@ data_collection_options = \
 ################################################################################
 # Construct ticker to price series map
 ################################################################################
+# Use bootstrap simulations - Begin
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-                          time_resolution=TIME_RESOLUTION,
-                          tickers=TICKERS,
-                          sim_data_dir=SIM_DATA_DIR,
+                          time_resolution=time_resolution,
+                          tickers=tickers,
+                          historical_data_source=historical_data_source,
                           ovl_ticker=SNX_ETH_TICKER,
-                          ovl_quote_ticker=OVL_QUOTE_TICKER)
+                          ovl_quote_ticker=ovl_quote_ticker)
+# Use bootstrap simulations - End
+
+# Use historical data - Begin
+# sims = load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
+#             time_resolution=time_resolution,
+#             historical_data_source=historical_data_source,
+#             tickers=tickers,
+#             ovl_ticker=SNX_ETH_TICKER,
+#             ovl_quote_ticker=ovl_quote_ticker)
+# Use historical data - End
 
 ################################################################################
 # Set up liquidity supply emission
@@ -104,8 +113,8 @@ chart_elements = \
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
     "sims": sims,
-    "quote_ticker": QUOTE_TICKER,
-    "ovl_quote_ticker": OVL_QUOTE_TICKER,
+    "quote_ticker": quote_ticker,
+    "ovl_quote_ticker": ovl_quote_ticker,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,

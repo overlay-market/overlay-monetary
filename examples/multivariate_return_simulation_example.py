@@ -7,7 +7,8 @@ from ovm.simulation.bootstrap import plot_multivariate_simulation
 from ovm.paths import (
     SIMULATED_DATA_DIRECTORY,
     HistoricalDataSource,
-    construct_historical_data_directory
+    construct_historical_data_directory,
+    construct_simulated_data_directory
 )
 
 from ovm.simulation.resampling import (
@@ -29,9 +30,11 @@ from ovm.time_resolution import TimeResolution
 
 # use simulation sampled at 15 second intervals from FTX
 time_resolution = TimeResolution.FIFTEEN_SECONDS
+historical_data_source = HistoricalDataSource.FTX
+
 directory_path = \
     construct_historical_data_directory(
-        historical_data_source=HistoricalDataSource.FTX,
+        historical_data_source=historical_data_source,
         time_resolution=time_resolution)
 
 # Make the block size approximately 6 hours
@@ -88,8 +91,8 @@ def main():
         series_names=series_names,
         simulated_prices=simulated_prices,
         time_resolution=time_resolution,
-        numpy_seed=NUMPY_SEED,
-        simulated_data_directory=SIMULATED_DATA_DIRECTORY)
+        historical_data_source=historical_data_source,
+        numpy_seed=NUMPY_SEED)
 
 
 if __name__ == '__main__':

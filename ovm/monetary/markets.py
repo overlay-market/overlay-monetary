@@ -526,21 +526,24 @@ class MonetaryFMarket:
         cum_ovl_quote_feed = \
             np.sum(self.model.sims[self.model.ovl_quote_ticker][idx-self.model.sampling_interval:idx])
 
-        print(f"fund: px (prior) = {self.px}")
-        print(f"fund: py (prior) = {self.py}")
-        print(f"fund: price (prior) = {self.price}")
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"fund: px (prior) = {self.px}")
+            logger.debug(f"fund: py (prior) = {self.py}")
+            logger.debug(f"fund: price (prior) = {self.price}")
 
         twap_ovl_quote_feed=cum_ovl_quote_feed / self.model.sampling_interval
 
-        print(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
-        print(f"fund: twap_feed = {twap_feed}")
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
+            logger.debug(f"fund: twap_feed = {twap_feed}")
 
         self.px=twap_ovl_quote_feed  # px = n_quote/n_ovl
         self.py=twap_ovl_quote_feed/twap_feed  # py = px/p
 
-        print(f"fund: px (updated) = {self.px}")
-        print(f"fund: py (updated) = {self.py}")
-        print(f"fund: price (updated) = {self.price}")
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"fund: px (updated) = {self.px}")
+            logger.debug(f"fund: py (updated) = {self.py}")
+            logger.debug(f"fund: price (updated) = {self.price}")
 
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
@@ -565,20 +568,20 @@ class MonetaryFMarket:
         open_margin = 1/open_leverage
         maintenance_margin = self.maintenance/pos.leverage
 
-        if open_margin < maintenance_margin:
-            print(f"liquidatable: pos {pid} is liquidatable ...")
-            print(f"liquidatable: pos.fmarket_ticker {pos.fmarket_ticker}")
-            print(f"liquidatable: pos.lock_price {pos.lock_price}")
-            print(f"liquidatable: pos.amount {pos.amount}")
-            print(f"liquidatable: pos.long {pos.long}")
-            print(f"liquidatable: pos.leverage {pos.leverage}")
-            print(f"liquidatable: pos.trader {pos.trader}")
-            print(f"liquidatable: open_position_notional {open_position_notional}")
-            print(f"liquidatable: value {value}")
-            print(f"liquidatable: open_leverage {open_leverage}")
-            print(f"liquidatable: open_margin {open_margin}")
-            print(f"liquidatable: maintenance_margin {maintenance_margin}")
-            print(f"liquidatable: open_margin < maintenance_margin {open_margin < maintenance_margin}")
+        if open_margin < maintenance_margin and PERFORM_DEBUG_LOGGING:
+            logger.debug(f"liquidatable: pos {pid} is liquidatable ...")
+            logger.debug(f"liquidatable: pos.fmarket_ticker {pos.fmarket_ticker}")
+            logger.debug(f"liquidatable: pos.lock_price {pos.lock_price}")
+            logger.debug(f"liquidatable: pos.amount {pos.amount}")
+            logger.debug(f"liquidatable: pos.long {pos.long}")
+            logger.debug(f"liquidatable: pos.leverage {pos.leverage}")
+            logger.debug(f"liquidatable: pos.trader {pos.trader}")
+            logger.debug(f"liquidatable: open_position_notional {open_position_notional}")
+            logger.debug(f"liquidatable: value {value}")
+            logger.debug(f"liquidatable: open_leverage {open_leverage}")
+            logger.debug(f"liquidatable: open_margin {open_margin}")
+            logger.debug(f"liquidatable: maintenance_margin {maintenance_margin}")
+            logger.debug(f"liquidatable: open_margin < maintenance_margin {open_margin < maintenance_margin}")
 
         return open_margin < maintenance_margin
 
@@ -590,9 +593,10 @@ class MonetaryFMarket:
 
         # Unwind but change supply back to original before unwind to factor in
         # reward to liquidator (then modify supply again) -> this is hacky
-        print("liquidated pos.amount", pos.amount)
         _, ds = self.unwind(pos.amount, pid)
-        print("liqudated unwind ds", ds)
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug("liquidated pos.amount", pos.amount)
+            logger.debug("liqudated unwind ds", ds)
         self.model.supply -= ds
 
         # NOTE: ds should be negative
