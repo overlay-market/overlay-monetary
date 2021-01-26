@@ -20,6 +20,10 @@ from ovm.tickers import (
 from ovm.monetary.model import MonetaryModel
 from ovm.monetary.data_io import construct_sims_map
 from ovm.monetary.data_collection import DataCollectionOptions
+from ovm.paths import (
+    HistoricalDataSource,
+    construct_simulated_data_directory
+)
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -27,6 +31,7 @@ logger = logging.getLogger(__name__)
 ################################################################################
 # Simulation Parameters
 ################################################################################
+historical_data_source = HistoricalDataSource.KUCOIN
 time_resolution = TimeResolution.ONE_MINUTE
 DATA_SIM_RNG = 42
 
@@ -36,8 +41,13 @@ tickers = [EOS_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 
-SIM_DATA_DIR = \
-    os.path.join(str(Path(os.path.dirname(__file__)).parents[1]), 'data', 'simulation')
+# sim_data_dir = \
+#     os.path.join(str(Path(os.path.dirname(__file__)).parents[1]), 'data', 'simulation')
+#
+# sim_data_dir_2 = \
+#     construct_simulated_data_directory(historical_data_source=HistoricalDataSource.KUCOIN,
+#                                        time_resolution=time_resolution)
+
 ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
 ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
@@ -71,10 +81,17 @@ data_collection_options = \
 ################################################################################
 # Construct ticker to price series map
 ################################################################################
+# sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
+#                           time_resolution=time_resolution,
+#                           tickers=tickers,
+#                           sim_data_dir=sim_data_dir,
+#                           ovl_ticker=SNX_ETH_TICKER,
+#                           ovl_quote_ticker=ovl_quote_ticker)
+
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
                           time_resolution=time_resolution,
                           tickers=tickers,
-                          sim_data_dir=SIM_DATA_DIR,
+                          historical_data_source=historical_data_source,
                           ovl_ticker=SNX_ETH_TICKER,
                           ovl_quote_ticker=ovl_quote_ticker)
 

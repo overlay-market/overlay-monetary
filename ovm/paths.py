@@ -30,3 +30,11 @@ def construct_historical_data_directory(
     return os.path.join(HISTORICAL_DATA_DIRECTORY,
                         historical_data_source.value,
                         time_resolution.value)
+
+
+def construct_simulated_data_directory(
+        historical_data_source: HistoricalDataSource,
+        time_resolution: TimeResolution) -> str:
+    return os.path.join(SIMULATED_DATA_DIRECTORY,
+                        historical_data_source.value,
+                        time_resolution.value)

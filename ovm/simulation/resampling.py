@@ -5,9 +5,19 @@ import numpy as np
 import pandas as pd
 from recombinator import stationary_bootstrap
 
-from ovm.historical.data_io import load_price_histories, construct_closing_price_df, \
-    construct_series_name_to_closing_price_map, compute_log_return_df
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.historical.data_io import (
+    load_price_histories,
+    construct_closing_price_df,
+    construct_series_name_to_closing_price_map,
+    compute_log_return_df
+)
+
+from ovm.paths import (
+    HistoricalDataSource,
+    construct_simulated_data_directory
+
+)
+
 from ovm.simulation.bootstrap import convert_and_ceil_time_period_from_seconds_to_number_of_periods
 from ovm.time_resolution import TimeResolution
 
@@ -101,29 +111,22 @@ def simulate_new_price_series_via_bootstrap(
     return simulated_prices
 
 
-def construct_simulation_output_directory(
-        time_resolution: TimeResolution,
-        numpy_seed: int,
-        simulated_data_directory: str = SIMULATED_DATA_DIRECTORY) -> str:
-    simulation_output_directory = os.path.join(simulated_data_directory,
-                                               str(time_resolution.value),
-                                               f'sims-{numpy_seed}')
-    return simulation_output_directory
-
-
 def store_simulated_price_series_in_output_directory(
         series_names: tp.Sequence[str],
         simulated_prices: np.ndarray,  # a numpy array with shape (1, length, number of price series)
         time_resolution: TimeResolution,
-        numpy_seed: int,
-        simulated_data_directory: str = SIMULATED_DATA_DIRECTORY):
+        historical_data_source: HistoricalDataSource,
+        numpy_seed: int):
     assert simulated_prices.ndim == 3
     assert simulated_prices.shape[0] == 1
 
-    simulation_output_directory \
-        = construct_simulation_output_directory(time_resolution=time_resolution,
-                                                numpy_seed=numpy_seed,
-                                                simulated_data_directory=simulated_data_directory)
+    simulation_output_directory = \
+        os.path.join(construct_simulated_data_directory(
+                        historical_data_source=historical_data_source,
+                        time_resolution=time_resolution),
+                     f'sims-{numpy_seed}')
+
+    print(f'simulation_output_directory={simulation_output_directory}')
 
     if not os.path.exists(simulation_output_directory):
         os.makedirs(simulation_output_directory)

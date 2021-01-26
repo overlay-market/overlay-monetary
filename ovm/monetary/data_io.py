@@ -3,7 +3,11 @@ import typing as tp
 import numpy as np
 import pandas as pd
 
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.paths import (
+    HistoricalDataSource,
+    construct_simulated_data_directory
+)
+
 from ovm.tickers import (
     OVL_USD_TICKER,
     YFI_USD_TICKER,
@@ -17,17 +21,21 @@ from ovm.time_resolution import TimeResolution
 def construct_sims_map(
         data_sim_rng: int,
         time_resolution: TimeResolution,
+        historical_data_source: HistoricalDataSource,
         tickers: tp.Sequence[str],
         # for sim source, since OVL doesn't actually exist yet
         ovl_ticker: str = YFI_USD_TICKER,
         ovl_quote_ticker: str = OVL_USD_TICKER,
-        sim_data_dir: str = SIMULATED_DATA_DIRECTORY,
+        # sim_data_dir: str = SIMULATED_DATA_DIRECTORY,
         verbose: bool = False) -> tp.Dict[str, np.ndarray]:
+    sim_data_dir = \
+        construct_simulated_data_directory(
+            historical_data_source=historical_data_source,
+            time_resolution=time_resolution)
 
     ticker_to_time_series_of_prices_map = {}
     for ticker in tickers:
         rpath = os.path.join(sim_data_dir,
-                             str(time_resolution.value),
                              f'sims-{data_sim_rng}',
                              f'sim-{ticker}.csv')
 
