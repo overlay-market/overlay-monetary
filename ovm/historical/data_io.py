@@ -139,7 +139,8 @@ def load_price_history(filename: str,
                        series_name: str,
                        directory_path: str,
                        period_length_in_seconds: float) -> PriceHistory:
-    file_path = _construct_file_path(filename=filename, directory_path=directory_path)
+    file_path = _construct_file_path(
+        filename=filename, directory_path=directory_path)
     price_history_df = pd.read_parquet(file_path)
 
     return PriceHistory(name=series_name,
