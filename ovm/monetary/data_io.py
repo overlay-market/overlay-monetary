@@ -24,6 +24,15 @@ from ovm.time_resolution import TimeResolution
 FILE_EXTENSION = 'parq'
 
 
+def convert_to_parq(csv_path: str):
+    """Converts a csv file to parquet"""
+    root, csv_ext = os.path.splitext(csv_path)
+    if csv_ext.lower() == ".csv":
+        parq_path = root + '.parq'
+        data = pd.read_csv(csv_path)
+        data.to_parquet(parq_path)
+
+
 def construct_sims_map(
         data_sim_rng: int,
         time_resolution: TimeResolution,
