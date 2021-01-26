@@ -3,11 +3,9 @@ Configure visualization elements and instantiate a server
 """
 import os
 import logging
-from pathlib import Path
 from mesa.visualization.ModularVisualization import ModularServer
 
 from ovm.monetary.chart_elements import construct_chart_elements
-from ovm.time_resolution import TimeResolution
 from ovm.tickers import (
     EOS_ETH_TICKER,
     MKR_ETH_TICKER,
@@ -16,11 +14,15 @@ from ovm.tickers import (
     ETH_TICKER,
     ovl_quote_ticker,
 )
-
-from ovm.monetary.model import MonetaryModel
-from ovm.monetary.data_io import construct_sims_map
+from ovm.time_resolution import TimeResolution
 from ovm.monetary.data_collection import DataCollectionOptions
+from ovm.monetary.data_io import (
+    construct_sims_map,
+    load_and_construct_ticker_to_series_of_prices_map_from_historical_prices
+)
+from ovm.monetary.model import MonetaryModel
 from ovm.paths import HistoricalDataSource
+
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -71,12 +73,23 @@ data_collection_options = \
 ################################################################################
 # Construct ticker to price series map
 ################################################################################
+# Use bootstrap simulations - Begin
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
                           time_resolution=time_resolution,
                           tickers=tickers,
                           historical_data_source=historical_data_source,
                           ovl_ticker=SNX_ETH_TICKER,
                           ovl_quote_ticker=ovl_quote_ticker)
+# Use bootstrap simulations - End
+
+# Use historical data - Begin
+# sims = load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
+#             time_resolution=time_resolution,
+#             historical_data_source=historical_data_source,
+#             tickers=tickers,
+#             ovl_ticker=SNX_ETH_TICKER,
+#             ovl_quote_ticker=ovl_quote_ticker)
+# Use historical data - End
 
 ################################################################################
 # Set up liquidity supply emission
