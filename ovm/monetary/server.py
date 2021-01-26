@@ -27,24 +27,20 @@ logger = logging.getLogger(__name__)
 ################################################################################
 # Simulation Parameters
 ################################################################################
-TIME_RESOLUTION = TimeResolution.ONE_MINUTE
+time_resolution = TimeResolution.ONE_MINUTE
 DATA_SIM_RNG = 42
 
-# Constants
-# STEPS_MONTH = int((86400*30)/TIME_RESOLUTION.in_seconds)
-STEPS_MONTH = TIME_RESOLUTION.steps_per_month_clamped
-
 # Load sims from csv files as arrays
-TICKERS = [EOS_ETH_TICKER,
+tickers = [EOS_ETH_TICKER,
            MKR_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 
-BASE_DIR = str(Path(os.path.dirname(__file__)).parents[1])
-SIM_DATA_DIR = os.path.join(BASE_DIR, 'data', 'simulation')
-OVL_TICKER = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
-QUOTE_TICKER = ETH_TICKER
-OVL_QUOTE_TICKER = ovl_quote_ticker(QUOTE_TICKER)
+SIM_DATA_DIR = \
+    os.path.join(str(Path(os.path.dirname(__file__)).parents[1]), 'data', 'simulation')
+ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
+quote_ticker = ETH_TICKER
+ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
 
 total_supply = 100000  # OVL
 base_wealth = 0.001*100000  # OVL
@@ -53,9 +49,9 @@ base_max_leverage = 10.0
 base_liquidate_reward = 0.1
 base_maintenance = 0.6
 liquidity = 0.285*total_supply
-time_liquidity_mine = STEPS_MONTH
+time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
-sampling_interval = int(3600/TIME_RESOLUTION.in_seconds)
+sampling_interval = int(3600 / time_resolution.in_seconds)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
@@ -76,11 +72,11 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-                          time_resolution=TIME_RESOLUTION,
-                          tickers=TICKERS,
+                          time_resolution=time_resolution,
+                          tickers=tickers,
                           sim_data_dir=SIM_DATA_DIR,
                           ovl_ticker=SNX_ETH_TICKER,
-                          ovl_quote_ticker=OVL_QUOTE_TICKER)
+                          ovl_quote_ticker=ovl_quote_ticker)
 
 ################################################################################
 # Set up liquidity supply emission
@@ -104,8 +100,8 @@ chart_elements = \
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
     "sims": sims,
-    "quote_ticker": QUOTE_TICKER,
-    "ovl_quote_ticker": OVL_QUOTE_TICKER,
+    "quote_ticker": quote_ticker,
+    "ovl_quote_ticker": ovl_quote_ticker,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,
