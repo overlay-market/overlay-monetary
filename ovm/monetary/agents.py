@@ -29,8 +29,8 @@ class MonetaryAgent(Agent):
         model: MonetaryModel,
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
-        pos_max: float = 0.9,
-        deploy_max: float = 0.95,
+        pos_max: float = 0.99,
+        deploy_max: float = 1.0,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
         trade_delay: int = 10,
@@ -271,7 +271,7 @@ class MonetaryArbitrageur(MonetaryAgent):
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
-        if self.locked + amount < self.deploy_max*self.wealth:
+        if self.wealth > 0 and self.locked + amount < self.deploy_max*self.wealth:
             if sprice > fprice:
                 fees = self.fmarket.fees(amount, build=True, long=True, leverage=self.leverage_max)
                 slippage = self.fmarket.slippage(amount-fees,
@@ -285,8 +285,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     logger.debug(f"Arb.trade: slippage -> {slippage}")
                     logger.debug(f"Arb.trade: arb profit opp % -> {sprice/(fprice * (1+slippage)) - 1.0}")
 
-                if self.slippage_max > abs(slippage) and sprice > fprice * (1+slippage) \
-                    and sprice/(fprice * (1+slippage)) - 1.0 > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
+                if sprice > fprice * (1+slippage) \
+                    and sprice/(fprice * (1+slippage)) - 1.0 > self.min_edge: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=True, leverage=self.leverage_max, trader=self)
                     if PERFORM_DEBUG_LOGGING:
@@ -299,7 +299,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
-                    self.wealth -= fees
+                    self.wealth -= min(fees, self.wealth)
                     self.last_trade_idx = idx
 
                     # Counter the futures trade on spot with sell to lock in the arb
@@ -347,8 +347,8 @@ class MonetaryArbitrageur(MonetaryAgent):
                     logger.debug(f"Arb.trade: fees -> {fees}")
                     logger.debug(f"Arb.trade: slippage -> {slippage}")
                     logger.debug(f"Arb.trade: arb profit opp % -> {1.0 - sprice/(fprice * (1+slippage))}")
-                if self.slippage_max > abs(slippage) and sprice < fprice * (1+slippage) \
-                    and 1.0 - sprice/(fprice * (1+slippage)) > 0.005: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
+                if sprice < fprice * (1+slippage) \
+                    and 1.0 - sprice/(fprice * (1+slippage)) > self.min_edge: # TODO: arb_min on the RHS here instead of hard coded 0.005 = 0.5%
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=False, leverage=self.leverage_max, trader=self)
                     if PERFORM_DEBUG_LOGGING:
@@ -361,7 +361,7 @@ class MonetaryArbitrageur(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
-                    self.wealth -= fees
+                    self.wealth -= min(fees, self.wealth)
                     self.last_trade_idx = idx
 
                     # Counter the futures trade on spot with buy to lock in the arb

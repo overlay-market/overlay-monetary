@@ -123,7 +123,7 @@ class MonetaryFMarket:
         # Impose fees, burns portion, and transfers rest to treasury
         size = dn*leverage
         fees = min(size*self.base_fee, dn)
-        assert fees >= 0.0, f"fees should be positive but are {fees}"
+        assert fees >= 0.0, f"fees should be positive but are {fees} on build={build}"
 
         # Burn 50% and other 50% send to treasury
         self.model.supply -= 0.5*fees

@@ -185,6 +185,8 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max,
+                    trade_delay=5,
+                    min_edge=0.005,
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -211,14 +213,15 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
-                sniper_leverage_max = randint(1, 5)
+                # sniper_leverage_max = randint(1, 2)
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    leverage_max=sniper_leverage_max,
+                    leverage_max=leverage_max,
                     size_increment=0.1,
+                    trade_delay=5,
                     min_edge=0.005,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
