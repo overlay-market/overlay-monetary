@@ -388,8 +388,10 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
-                logger.info(f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
+                logger.info(
+                    f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
+                logger.info(
+                    f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
 
             # Liquidators
             top_10_liqs = sorted(
@@ -413,8 +415,10 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
-                logger.info(f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
+                logger.info(
+                    f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
+                logger.info(
+                    f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
 
         from ovm.monetary.reporters import (
             compute_supply,
@@ -439,11 +443,14 @@ class MonetaryModel(Model):
                     logger.debug(f"fmarket: x {fmarket.x}")
                     logger.debug(f"fmarket: y {fmarket.y}")
                     logger.debug(f"fmarket: k {fmarket.k}")
-                    logger.debug(f"fmarket: locked_long (OVL) {fmarket.locked_long}")
-                    logger.debug(f"fmarket: locked_short (OVL) {fmarket.locked_short}")
+                    logger.debug(
+                        f"fmarket: locked_long (OVL) {fmarket.locked_long}")
+                    logger.debug(
+                        f"fmarket: locked_short (OVL) {fmarket.locked_short}")
 
                     logger.debug(f"fmarket: futures price {fmarket.price}")
-                    logger.debug(f"fmarket: spot price {compute_spot_price(self, ticker)}")
+                    logger.debug(
+                        f"fmarket: spot price {compute_spot_price(self, ticker)}")
                     logger.debug(f"fmarket: price_diff bw f/s "
                                  f"{compute_price_difference(self, ticker)}")
                     logger.debug(f"fmarket: positional imbalance "
