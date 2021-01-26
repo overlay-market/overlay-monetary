@@ -1,7 +1,7 @@
-import typing as tp
+# import typing as tp
 import logging
 
-from ovm.debug_level import DEBUG_LEVEL
+# from ovm.debug_level import DEBUG_LEVEL
 
 # logging.basicConfig()
 # logger = logging.getLogger(__name__)
@@ -13,9 +13,9 @@ def start_logging():
     logging.basicConfig(format=logFormatter, level=logging.DEBUG)
 
 
-def console_log(logger, msgs: tp.List[str], level: int = DEBUG_LEVEL):
-    if logger.getEffectiveLevel() > level:
-        return
-
-    for msg in msgs:
-        logger.debug(msg)
+# def console_log(logger, msgs: tp.List[str], level: int = DEBUG_LEVEL):
+#     if logger.getEffectiveLevel() > level:
+#         return
+#
+#     for msg in msgs:
+#         logger.debug(msg)

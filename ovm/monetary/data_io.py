@@ -3,7 +3,14 @@ import typing as tp
 import numpy as np
 import pandas as pd
 
-from ovm.paths import SIMULATED_DATA_DIRECTORY
+from ovm.paths import (
+    HistoricalDataSource,
+    construct_simulated_data_directory,
+    construct_historical_data_directory
+)
+
+from ovm.simulation.resampling import load_log_returns
+
 from ovm.tickers import (
     OVL_USD_TICKER,
     YFI_USD_TICKER,
@@ -13,27 +20,34 @@ from ovm.tickers import (
 
 from ovm.time_resolution import TimeResolution
 
+# FILE_EXTENSION = 'csv'
+FILE_EXTENSION = 'parq'
+
 
 def construct_sims_map(
         data_sim_rng: int,
         time_resolution: TimeResolution,
+        historical_data_source: HistoricalDataSource,
         tickers: tp.Sequence[str],
         # for sim source, since OVL doesn't actually exist yet
         ovl_ticker: str = YFI_USD_TICKER,
         ovl_quote_ticker: str = OVL_USD_TICKER,
-        sim_data_dir: str = SIMULATED_DATA_DIRECTORY,
         verbose: bool = False) -> tp.Dict[str, np.ndarray]:
+    sim_data_dir = \
+        construct_simulated_data_directory(
+            historical_data_source=historical_data_source,
+            time_resolution=time_resolution)
 
     ticker_to_time_series_of_prices_map = {}
     for ticker in tickers:
         rpath = os.path.join(sim_data_dir,
-                             str(time_resolution.value),
                              f'sims-{data_sim_rng}',
-                             f'sim-{ticker}.csv')
+                             f'sim-{ticker}.{FILE_EXTENSION}')
 
         if verbose:
             print(f"Reading in sim simulation from {rpath}")
-        f = pd.read_csv(rpath)
+        # f = pd.read_csv(rpath)
+        f = pd.read_parquet(rpath)
         if ticker == ovl_ticker:
             ticker_to_time_series_of_prices_map[ovl_quote_ticker] = f.transpose(
             ).values.reshape((-1, ))
@@ -69,5 +83,29 @@ def construct_ticker_to_series_of_prices_map_from_historical_prices(
               else ticker: historical_price_df.loc[:, ticker].values
               for ticker
               in tickers}
+
+    return result
+
+
+def load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
+        time_resolution: TimeResolution, historical_data_source: HistoricalDataSource,
+        tickers: tp.Sequence[str],
+        ovl_ticker: str,
+        ovl_quote_ticker: str):
+    directory_path = \
+        construct_historical_data_directory(
+            historical_data_source=historical_data_source,
+            time_resolution=time_resolution)
+
+    log_return_df, closing_price_df, initial_prices = \
+        load_log_returns(series_names=tickers,
+                         period_length_in_seconds=time_resolution.in_seconds,
+                         directory_path=directory_path)
+
+    result = construct_ticker_to_series_of_prices_map_from_historical_prices(
+        historical_price_df=closing_price_df,
+        tickers=tickers,
+        ovl_ticker=ovl_ticker,
+        ovl_quote_ticker=ovl_quote_ticker)
 
     return result

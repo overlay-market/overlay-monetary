@@ -7,7 +7,11 @@ from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 import numpy as np
 
-from ovm.debug_level import PERFORM_INFO_LOGGING
+from ovm.debug_level import (
+    PERFORM_DEBUG_LOGGING,
+    PERFORM_INFO_LOGGING
+)
+
 from ovm.tickers import OVL_TICKER
 
 from ovm.monetary.data_collection import DataCollectionOptions
@@ -111,20 +115,20 @@ class MonetaryModel(Model):
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
 
-        print("Model kwargs for initial conditions of sim:")
-        print(f"quote_ticker = {quote_ticker}")
-        print(f"ovl_quote_ticker = {ovl_quote_ticker}")
-        print(f"num_arbitrageurs = {num_arbitrageurs}")
-        print(f"num_snipers = {num_snipers}")
-        print(f"num_keepers = {num_keepers}")
-        print(f"num_traders = {num_traders}")
-        print(f"num_holders = {num_holders}")
-        print(f"num_liquidators = {num_liquidators}")
-        print(f"base_wealth = {base_wealth}")
-        print(f"total_supply = {self.supply}")
-        print(f"sampling_interval = {self.sampling_interval}")
-        print(
-            f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
+        # print("Model kwargs for initial conditions of sim:")
+        # print(f"quote_ticker = {quote_ticker}")
+        # print(f"ovl_quote_ticker = {ovl_quote_ticker}")
+        # print(f"num_arbitrageurs = {num_arbitrageurs}")
+        # print(f"num_snipers = {num_snipers}")
+        # print(f"num_keepers = {num_keepers}")
+        # print(f"num_traders = {num_traders}")
+        # print(f"num_holders = {num_holders}")
+        # print(f"num_liquidators = {num_liquidators}")
+        # print(f"base_wealth = {base_wealth}")
+        # print(f"total_supply = {self.supply}")
+        # print(f"sampling_interval = {self.sampling_interval}")
+        # print(
+        #     f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
@@ -384,10 +388,8 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(
-                    f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
-                logger.info(
-                    f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
+                logger.info(f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
+                logger.info(f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
 
             # Liquidators
             top_10_liqs = sorted(
@@ -411,10 +413,8 @@ class MonetaryModel(Model):
             }
             if PERFORM_INFO_LOGGING:
                 logger.info("========================================")
-                logger.info(
-                    f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
-                logger.info(
-                    f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
+                logger.info(f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
+                logger.info(f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
 
         from ovm.monetary.reporters import (
             compute_supply,
@@ -424,29 +424,31 @@ class MonetaryModel(Model):
             compute_positional_imbalance_by_market,
             compute_open_positions_per_market,
         )
-        print(f"step {self.schedule.steps}")
-        print(f"supply {compute_supply(self)}")
-        print(f"treasury {compute_treasury(self)}")
-        if self.schedule.steps % 60 == 0:
-            for ticker, fmarket in self.fmarkets.items():
-                print(f"fmarket: ticker {ticker}")
-                print(f"fmarket: nx {fmarket.nx}")
-                print(f"fmarket: px {fmarket.px}")
-                print(f"fmarket: ny {fmarket.ny}")
-                print(f"fmarket: py {fmarket.py}")
-                print(f"fmarket: x {fmarket.x}")
-                print(f"fmarket: y {fmarket.y}")
-                print(f"fmarket: k {fmarket.k}")
-                print(f"fmarket: locked_long (OVL) {fmarket.locked_long}")
-                print(f"fmarket: locked_short (OVL) {fmarket.locked_short}")
 
-                print(f"fmarket: futures price {fmarket.price}")
-                print(
-                    f"fmarket: spot price {compute_spot_price(self, ticker)}")
-                print(
-                    f"fmarket: price_diff bw f/s {compute_price_difference(self, ticker)}")
-                print(
-                    f"fmarket: positional imbalance {compute_positional_imbalance_by_market(self, ticker)}")
-                print(
-                    f"fmarket: open positions {compute_open_positions_per_market(self, ticker)}")
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"step {self.schedule.steps}")
+            logger.debug(f"supply {compute_supply(self)}")
+            logger.debug(f"treasury {compute_treasury(self)}")
+            if self.schedule.steps % 60 == 0:
+                for ticker, fmarket in self.fmarkets.items():
+                    logger.debug(f"fmarket: ticker {ticker}")
+                    logger.debug(f"fmarket: nx {fmarket.nx}")
+                    logger.debug(f"fmarket: px {fmarket.px}")
+                    logger.debug(f"fmarket: ny {fmarket.ny}")
+                    logger.debug(f"fmarket: py {fmarket.py}")
+                    logger.debug(f"fmarket: x {fmarket.x}")
+                    logger.debug(f"fmarket: y {fmarket.y}")
+                    logger.debug(f"fmarket: k {fmarket.k}")
+                    logger.debug(f"fmarket: locked_long (OVL) {fmarket.locked_long}")
+                    logger.debug(f"fmarket: locked_short (OVL) {fmarket.locked_short}")
+
+                    logger.debug(f"fmarket: futures price {fmarket.price}")
+                    logger.debug(f"fmarket: spot price {compute_spot_price(self, ticker)}")
+                    logger.debug(f"fmarket: price_diff bw f/s "
+                                 f"{compute_price_difference(self, ticker)}")
+                    logger.debug(f"fmarket: positional imbalance "
+                                 f"{compute_positional_imbalance_by_market(self, ticker)}")
+                    logger.debug(f"fmarket: open positions "
+                                 f"{compute_open_positions_per_market(self, ticker)}")
+
         self.schedule.step()
