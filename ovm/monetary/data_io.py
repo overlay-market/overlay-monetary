@@ -3,6 +3,7 @@ import typing as tp
 import numpy as np
 import pandas as pd
 
+from ovm.historical.data_io import PriceHistoryColumnNames as PHCN
 from ovm.paths import (
     HistoricalDataSource,
     construct_simulated_data_directory,
@@ -65,6 +66,36 @@ def construct_sims_map(
             ).values.reshape((-1, ))
 
     return ticker_to_time_series_of_prices_map
+
+
+def construct_hist_map(
+        time_resolution: TimeResolution,
+        historical_data_source: HistoricalDataSource,
+        tickers: tp.Sequence[str],
+        ovl_ticker: str = YFI_USD_TICKER,
+        ovl_quote_ticker: str = OVL_USD_TICKER,
+        verbose: bool = False):
+    hist_data_dir = \
+        construct_historical_data_directory(
+            historical_data_source=historical_data_source,
+            time_resolution=time_resolution)
+
+    close_prices = {}
+    for ticker in tickers:
+        rpath = os.path.join(hist_data_dir, f'{ticker}.{FILE_EXTENSION}')
+
+        if verbose:
+            print(f"Reading in sim history from {rpath}")
+
+        df = pd.read_parquet(rpath)
+        f = df[PHCN.CLOSE]
+        if ticker == ovl_ticker:
+            close_prices[ovl_quote_ticker] = f.transpose(
+            ).values.reshape((-1, ))
+        else:
+            close_prices[ticker] = f.transpose().values.reshape((-1, ))
+
+    return close_prices
 
 
 def construct_ticker_to_series_of_prices_map_from_simulated_prices(

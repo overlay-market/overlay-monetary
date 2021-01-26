@@ -18,6 +18,7 @@ from ovm.time_resolution import TimeResolution
 from ovm.monetary.data_collection import DataCollectionOptions
 from ovm.monetary.data_io import (
     construct_sims_map,
+    construct_hist_map,
     load_and_construct_ticker_to_series_of_prices_map_from_historical_prices
 )
 from ovm.monetary.model import MonetaryModel
@@ -45,22 +46,22 @@ quote_ticker = ETH_TICKER
 ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
 
 total_supply = 100000  # OVL
-base_wealth = 0.001*100000  # OVL
+base_wealth = 0.0005*total_supply  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
 base_liquidate_reward = 0.1
 base_maintenance = 0.6
-liquidity = 0.285*total_supply
+liquidity = 0.205*total_supply
 time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
-num_arbitrageurs = int(total_supply*0.1/base_wealth)
+num_arbitrageurs = int(total_supply*0.1435/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.0/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.1/base_wealth)
-num_liquidators = int(total_supply*0.005/base_wealth)
+num_snipers = int(total_supply*0.1435/base_wealth)
+num_liquidators = int(total_supply*0.004/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
 
@@ -74,21 +75,21 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 # Use bootstrap simulations - Begin
-sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-                          time_resolution=time_resolution,
-                          tickers=tickers,
-                          historical_data_source=historical_data_source,
-                          ovl_ticker=SNX_ETH_TICKER,
-                          ovl_quote_ticker=ovl_quote_ticker)
+#sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
+#                            time_resolution=time_resolution,
+#                            tickers=tickers,
+#                            historical_data_source=historical_data_source,
+#                            ovl_ticker=SNX_ETH_TICKER,
+#                            ovl_quote_ticker=ovl_quote_ticker)
 # Use bootstrap simulations - End
 
 # Use historical data - Begin
-# sims = load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
-#             time_resolution=time_resolution,
-#             historical_data_source=historical_data_source,
-#             tickers=tickers,
-#             ovl_ticker=SNX_ETH_TICKER,
-#             ovl_quote_ticker=ovl_quote_ticker)
+sims = construct_hist_map(
+            time_resolution=time_resolution,
+            historical_data_source=historical_data_source,
+            tickers=tickers,
+            ovl_ticker=SNX_ETH_TICKER,
+            ovl_quote_ticker=ovl_quote_ticker)
 # Use historical data - End
 
 ################################################################################

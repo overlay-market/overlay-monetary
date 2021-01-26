@@ -1,6 +1,7 @@
 import logging
 from functools import partial
 import typing as tp
+from random import randint
 
 from mesa import Model
 from mesa.time import RandomActivation
@@ -115,21 +116,6 @@ class MonetaryModel(Model):
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
 
-        # print("Model kwargs for initial conditions of sim:")
-        # print(f"quote_ticker = {quote_ticker}")
-        # print(f"ovl_quote_ticker = {ovl_quote_ticker}")
-        # print(f"num_arbitrageurs = {num_arbitrageurs}")
-        # print(f"num_snipers = {num_snipers}")
-        # print(f"num_keepers = {num_keepers}")
-        # print(f"num_traders = {num_traders}")
-        # print(f"num_holders = {num_holders}")
-        # print(f"num_liquidators = {num_liquidators}")
-        # print(f"base_wealth = {base_wealth}")
-        # print(f"total_supply = {self.supply}")
-        # print(f"sampling_interval = {self.sampling_interval}")
-        # print(
-        #     f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
-
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
             logger.info(f"quote_ticker = {quote_ticker}")
@@ -190,7 +176,7 @@ class MonetaryModel(Model):
                     quote_ticker: self.base_wealth*prices_ovl_quote[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
-            leverage_max = (i % 9.0) + 1.0
+            leverage_max = randint(1, 9)
 
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -225,7 +211,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
-                sniper_leverage_max = (i % 4.0) + 1.0
+                sniper_leverage_max = randint(1, 5)
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
