@@ -444,10 +444,11 @@ class MonetaryModel(Model):
 
                     logger.debug(f"fmarket: futures price {fmarket.price}")
                     logger.debug(f"fmarket: spot price {compute_spot_price(self, ticker)}")
-                    print(f"fmarket: price_diff bw f/s {compute_price_difference(self, ticker)}")
-                    print(f"fmarket: positional imbalance "
-                          f"{compute_positional_imbalance_by_market(self, ticker)}")
-                    print(f"fmarket: open positions "
-                          f"{compute_open_positions_per_market(self, ticker)}")
+                    logger.debug(f"fmarket: price_diff bw f/s "
+                                 f"{compute_price_difference(self, ticker)}")
+                    logger.debug(f"fmarket: positional imbalance "
+                                 f"{compute_positional_imbalance_by_market(self, ticker)}")
+                    logger.debug(f"fmarket: open positions "
+                                 f"{compute_open_positions_per_market(self, ticker)}")
 
         self.schedule.step()
