@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+DATA_COLLECTOR_NAME = 'data_collector'
+
 
 @dataclass
 class DataCollectionOptions:

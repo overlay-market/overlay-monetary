@@ -24,6 +24,22 @@ class TimeResolution(Enum):
     def in_seconds(self) -> int:
         return TIME_RESOLUTION_TO_SECONDS_MAP[self.value]
 
+    @property
+    def steps_per_month(self) -> float:
+        return (86400 * 30) / self.in_seconds
+
+    @property
+    def steps_per_month_clamped(self) -> int:
+        return int(self.steps_per_month)
+
+    @property
+    def steps_per_year(self) -> float:
+        return (365.25 * 24 * 60 * 60) / self.in_seconds
+
+    @property
+    def steps_per_year_clamped(self) -> int:
+        return int(self.steps_per_year)
+
 
 class TimeScale(Enum):
     SECONDS = 'seconds'
