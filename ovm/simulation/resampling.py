@@ -133,9 +133,7 @@ def store_simulated_price_series_in_output_directory(
 
     for series in series_names:
         simulation_output_filepath = os.path.join(simulation_output_directory,
-                                                  f'sim-{series}.csv')
+                                                  f'sim-{series}.parq')
 
-        pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)]).to_csv(
-            simulation_output_filepath,
-            index=False
-        )
+        df = pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)], columns=[series])
+        df.to_parquet(simulation_output_filepath, index=False)

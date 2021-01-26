@@ -17,6 +17,9 @@ from ovm.tickers import (
 
 from ovm.time_resolution import TimeResolution
 
+# FILE_EXTENSION = 'csv'
+FILE_EXTENSION = 'parq'
+
 
 def construct_sims_map(
         data_sim_rng: int,
@@ -37,11 +40,12 @@ def construct_sims_map(
     for ticker in tickers:
         rpath = os.path.join(sim_data_dir,
                              f'sims-{data_sim_rng}',
-                             f'sim-{ticker}.csv')
+                             f'sim-{ticker}.{FILE_EXTENSION}')
 
         if verbose:
             print(f"Reading in sim simulation from {rpath}")
-        f = pd.read_csv(rpath)
+        # f = pd.read_csv(rpath)
+        f = pd.read_parquet(rpath)
         if ticker == ovl_ticker:
             ticker_to_time_series_of_prices_map[ovl_quote_ticker] = f.transpose(
             ).values.reshape((-1, ))

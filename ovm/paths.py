@@ -14,8 +14,9 @@ else:
     BASE_DIRECTORY = os.environ.get(DATA_BASE_PATH_ENV_NAME)
     print(f'environment variable {DATA_BASE_PATH_ENV_NAME} set, using {BASE_DIRECTORY}')
 
-HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'historical')
-SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, 'data', 'simulation')
+DATA_DIRECTORY_NAME = 'data'
+HISTORICAL_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, DATA_DIRECTORY_NAME, 'historical')
+SIMULATED_DATA_DIRECTORY = os.path.join(BASE_DIRECTORY, DATA_DIRECTORY_NAME, 'simulation')
 
 
 class HistoricalDataSource(Enum):
