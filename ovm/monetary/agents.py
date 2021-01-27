@@ -29,7 +29,7 @@ class MonetaryAgent(Agent):
         model: MonetaryModel,
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
-        pos_max: float = 0.99,
+        pos_max: float = 0.19,
         deploy_max: float = 1.0,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
