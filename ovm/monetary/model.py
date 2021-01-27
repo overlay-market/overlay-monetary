@@ -80,17 +80,27 @@ class MonetaryModel(Model):
         from ovm.monetary.markets import MonetaryFMarket
 
         from ovm.monetary.reporters import (
-            compute_gini,
-            compute_price_difference,
-            compute_futures_price,
-            compute_spot_price,
-            compute_supply,
-            compute_liquidity,
-            compute_treasury,
-            compute_wealth_for_agent_type,
+            GiniReporter,
+            PriceDifferenceReporter,
+            FuturesPriceReporter,
+            SpotPriceReporter,
+            SupplyReporter,
+            LiquidityReporter,
+            TreasuryReporter,
+            WealthForAgentTypeReporter,
+            # compute_gini,
+            # compute_price_difference,
+            # compute_futures_price,
+            # compute_spot_price,
+            # compute_supply,
+            # compute_liquidity,
+            # compute_treasury,
+            # compute_wealth_for_agent_type,
             compute_inventory_wealth_for_agent_type,
-            compute_positional_imbalance_by_market,
-            compute_open_positions_per_market
+            # compute_positional_imbalance_by_market,
+            # compute_open_positions_per_market
+            SkewReporter,
+            OpenPositionReporter
         )
 
         super().__init__(seed=seed)
@@ -246,42 +256,53 @@ class MonetaryModel(Model):
 
         if self.data_collection_options.perform_data_collection:
             model_reporters = {
-                price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
+                # price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
+                price_deviation_label(ticker): PriceDifferenceReporter(ticker=ticker)
                 for ticker in tickers
             }
             model_reporters.update({
-                spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
+                # spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
+                spot_price_label(ticker): SpotPriceReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
+                # futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
+                futures_price_label(ticker): FuturesPriceReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                # skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                skew_label(ticker): SkewReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
+                # open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
+               open_positions_label(ticker): OpenPositionReporter(ticker=ticker)
                 for ticker in tickers
             })
 
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
-                    GINI_LABEL: compute_gini,
-                    GINI_ARBITRAGEURS_LABEL: partial(
-                        compute_gini, agent_type=MonetaryArbitrageur)
+                    GINI_LABEL: GiniReporter(),
+                    GINI_ARBITRAGEURS_LABEL: GiniReporter(agent_type=MonetaryArbitrageur)
+                    # GINI_LABEL: compute_gini,
+                    # GINI_ARBITRAGEURS_LABEL: partial(
+                    #     compute_gini, agent_type=MonetaryArbitrageur)
                 })
 
             model_reporters.update({
-                SUPPLY_LABEL: compute_supply,
-                TREASURY_LABEL: compute_treasury,
-                LIQUIDITY_LABEL: compute_liquidity
+                # SUPPLY_LABEL: compute_supply,
+                # TREASURY_LABEL: compute_treasury,
+                # LIQUIDITY_LABEL: compute_liquidity
+                SUPPLY_LABEL: SupplyReporter(),
+                TREASURY_LABEL: TreasuryReporter(),
+                LIQUIDITY_LABEL: LiquidityReporter()
             })
 
             if self.data_collection_options.compute_wealth:
                 model_reporters.update({
-                    "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
+                    # "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
+                    "Agent": partial(WealthForAgentTypeReporter())
                 })
 
             for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
@@ -291,13 +312,20 @@ class MonetaryModel(Model):
                                                 ("Liquidators", MonetaryLiquidator),
                                                 ("Snipers", MonetarySniper)]:
                 if self.data_collection_options.compute_wealth:
-                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
-                        compute_wealth_for_agent_type, agent_type=agent_type)
+                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = \
+                        WealthForAgentTypeReporter(agent_type=agent_type)
+                        # partial(compute_wealth_for_agent_type, agent_type=agent_type)
 
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
-                        inventory_wealth_ovl_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
-                        inventory_wealth_quote_label(agent_type_name, self.quote_ticker): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
+                        inventory_wealth_ovl_label(agent_type_name):
+                            partial(compute_inventory_wealth_for_agent_type,
+                                    agent_type=agent_type),
+
+                        inventory_wealth_quote_label(agent_type_name, self.quote_ticker):
+                            partial(compute_inventory_wealth_for_agent_type,
+                                    agent_type=agent_type,
+                                    in_quote=True)
                     })
 
             self.data_collector = DataCollector(

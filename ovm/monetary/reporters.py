@@ -1,63 +1,109 @@
+from abc import ABC, abstractmethod
 import typing as tp
 
 from ovm.monetary.agents import MonetaryAgent
 from ovm.tickers import OVL_TICKER
 
 
-def compute_gini(model,
+REPORT_RESULT_TYPE = tp.Union[int, float]
+
+
+class AbstractReporter(ABC):
+    @abstractmethod
+    def report(self, model) -> REPORT_RESULT_TYPE:
+        pass
+
+    def __call__(self, model) -> REPORT_RESULT_TYPE:
+        return self.report(model)
+
+
+class AbstractMarketLevelReporter(AbstractReporter, ABC):
+    def __init__(self, ticker: str):
+        self.ticker = ticker
+
+
+class AbstractAgentLevelReporter(AbstractReporter, ABC):
+    def __init__(self,
                  agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
-    agents = [
-        a for a in model.schedule.agents
-        if agent_type is None or type(a) == agent_type
-    ]
-    agent_wealths = [agent.wealth for agent in agents]
-    x = sorted(agent_wealths)
-    N = len(agents)
-    B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
-    return 1.0 + (1.0 / N) - 2.0*B
+        self.agent_type = agent_type
 
 
-def compute_price_difference(model,
-                             ticker: str):
+class GiniReporter(AbstractAgentLevelReporter):
+    def report(self, model) -> float:
+        agents = [
+            a for a in model.schedule.agents
+            if self.agent_type is None or type(a) == self.agent_type
+        ]
+
+        agent_wealths = [agent.wealth for agent in agents]
+        x = sorted(agent_wealths)
+        N = len(agents)
+        B = sum(xi * (N-i) for i, xi in enumerate(x)) / (N*sum(x))
+        return 1.0 + (1.0 / N) - 2.0*B
+
+
+def compute_price_difference(model, ticker: str) -> float:
     idx = model.schedule.steps
     sprice = model.sims[ticker][idx]
     fprice = model.fmarkets[ticker].price
     return (fprice - sprice) / sprice
 
 
-def compute_futures_price(model, ticker: str):
-    return model.fmarkets[ticker].price
+class PriceDifferenceReporter(AbstractMarketLevelReporter):
+    def report(self, model) -> float:
+        return compute_price_difference(model, self.ticker)
 
 
-def compute_spot_price(model, ticker: str):
+class FuturesPriceReporter(AbstractMarketLevelReporter):
+    def report(self, model) -> float:
+        return model.fmarkets[self.ticker].price
+
+
+def compute_spot_price(model, ticker: str) -> float:
     idx = model.schedule.steps
     return model.sims[ticker][idx]
 
 
-def compute_supply(model):
+class SpotPriceReporter(AbstractMarketLevelReporter):
+    def report(self, model) -> float:
+        return compute_spot_price(model, self.ticker)
+
+
+def compute_supply(model) -> float:
     return model.supply
 
 
-def compute_liquidity(model):
-    return model.liquidity
+class SupplyReporter(AbstractReporter):
+    def report(self, model) -> float:
+        return compute_supply(model)
 
 
-def compute_treasury(model):
+class LiquidityReporter(AbstractReporter):
+    def report(self, model) -> float:
+        return model.liquidity
+
+
+def compute_treasury(model) -> float:
     return model.treasury
 
 
-def compute_wealth_for_agent_type(model,
-                                  agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None):
-    if not agent_type:
-        wealths = [a.wealth for a in model.schedule.agents]
-    else:
-        wealths = [a.wealth
-                   for a
-                   in model.schedule.agents
-                   if type(a) == agent_type
-                   ]
+class TreasuryReporter(AbstractReporter):
+    def report(self, model) -> float:
+        return compute_treasury(model)
 
-    return sum(wealths)
+
+class WealthForAgentTypeReporter(AbstractAgentLevelReporter):
+    def report(self, model) -> float:
+        if not self.agent_type:
+            wealths = [a.wealth for a in model.schedule.agents]
+        else:
+            wealths = [a.wealth
+                       for a
+                       in model.schedule.agents
+                       if type(a) == self.agent_type
+                       ]
+
+        return sum(wealths)
 
 
 def compute_inventory_wealth_for_agent(model,
@@ -136,6 +182,16 @@ def compute_positional_imbalance_by_market(model, ticker: str) -> float:
         return 0.0
 
 
-def compute_open_positions_per_market(model, ticker: str) -> int:
+class SkewReporter(AbstractMarketLevelReporter):
+    def report(self, model) -> float:
+        return compute_positional_imbalance_by_market(model, self.ticker)
+
+
+def compute_open_positions_per_market(model, ticker: str) -> float:
     monetary_futures_market = model.fmarkets[ticker]
     return len(monetary_futures_market.positions)
+
+
+class OpenPositionReporter(AbstractMarketLevelReporter):
+    def report(self, model) -> int:
+        return compute_open_positions_per_market(model, self.ticker)

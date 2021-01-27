@@ -135,8 +135,8 @@ model_kwargs = {
 
 
 server = ModularServer(
-    MonetaryModel,
-    chart_elements,
-    "Monetary",
-    model_kwargs,
+    model_cls=MonetaryModel,
+    visualization_elements=chart_elements,
+    name="Monetary",
+    model_params=model_kwargs,
 )

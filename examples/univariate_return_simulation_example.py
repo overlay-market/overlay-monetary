@@ -26,7 +26,7 @@ directory_path = \
 block_length = math.ceil(6 * 60 * 60 / time_resolution.in_seconds)
 
 # Use ETH/USD exchange rate
-price_history_file_name = ETH_USD_TICKER
+price_history_file_name = ETH_USD_TICKER + '.parq'
 
 
 def main():
