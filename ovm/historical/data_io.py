@@ -150,9 +150,10 @@ def load_price_history(filename: str,
 
 def load_price_histories(series_names: tp.Sequence[str],
                          period_length_in_seconds: float,
-                         directory_path: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
+                         directory_path: tp.Optional[str] = None,
+                         file_extension: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
     series_name_to_price_history_map = \
-        {series_name: load_price_history(filename=series_name,
+        {series_name: load_price_history(filename=(series_name if file_extension is None else f'{series_name}.{file_extension}'),
                                          series_name=series_name,
                                          directory_path=directory_path,
                                          period_length_in_seconds=period_length_in_seconds)

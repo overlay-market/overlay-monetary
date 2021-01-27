@@ -23,14 +23,20 @@ from ovm.tickers import (
     YFI_USD_TICKER,
     BAL_USD_TICKER,
     COMP_USD_TICKER,
-    LINK_USD_TICKER
+    LINK_USD_TICKER,
+    EOS_ETH_TICKER,
+    ETC_ETH_TICKER,
+    MKR_ETH_TICKER,
+    SNX_ETH_TICKER,
+    TRX_ETH_TICKER,
+    XRP_ETH_TICKER,
 )
 
 from ovm.time_resolution import TimeResolution
 
 # use simulation sampled at 15 second intervals from FTX
-time_resolution = TimeResolution.FIFTEEN_SECONDS
-historical_data_source = HistoricalDataSource.FTX
+time_resolution = TimeResolution.ONE_MINUTE  # .FIFTEEN_SECONDS
+historical_data_source = HistoricalDataSource.KUCOIN  # .FTX
 
 directory_path = \
     construct_historical_data_directory(
@@ -45,12 +51,12 @@ number_of_paths = 1
 
 # The exchange rate series we want to simulate returns for (in that order)
 series_names = \
-    [BTC_USD_TICKER,
-     ETH_USD_TICKER,
-     YFI_USD_TICKER,
-     BAL_USD_TICKER,
-     COMP_USD_TICKER,
-     LINK_USD_TICKER]
+    [EOS_ETH_TICKER,
+     ETC_ETH_TICKER,
+     MKR_ETH_TICKER,
+     SNX_ETH_TICKER,
+     TRX_ETH_TICKER,
+     XRP_ETH_TICKER]
 
 # specify numpy seed for simulations
 NUMPY_SEED = 42
@@ -63,12 +69,14 @@ def main():
         log_return_df, closing_price_df, initial_prices = \
             load_log_returns(series_names=series_names,
                              period_length_in_seconds=time_resolution.in_seconds,
-                             directory_path=directory_path)
+                             directory_path=directory_path,
+                             file_extension='parq')
 
     print(f'Time to load all price series: {timer.elapsed} seconds')
 
     simulated_sample_length_in_steps = len(log_return_df)
-    simulated_sample_length_in_seconds = simulated_sample_length_in_steps * time_resolution.in_seconds
+    simulated_sample_length_in_seconds = simulated_sample_length_in_steps * \
+        time_resolution.in_seconds
 
     with Timer() as timer:
         simulated_prices = \
@@ -80,7 +88,8 @@ def main():
                 simulated_sample_length_in_steps_in_seconds=simulated_sample_length_in_seconds,
                 number_of_paths=1)
 
-    print(f'Time to simulate {number_of_paths} paths of prices and returns: {timer.elapsed} seconds')
+    print(
+        f'Time to simulate {number_of_paths} paths of prices and returns: {timer.elapsed} seconds')
 
     plot_multivariate_simulation(simulated_data=simulated_prices,
                                  series_names=series_names,
