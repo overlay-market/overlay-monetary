@@ -12,7 +12,7 @@ from ovm.tickers import (
     SNX_ETH_TICKER,
     XRP_ETH_TICKER,
     ETH_TICKER,
-    ovl_quote_ticker,
+    get_ovl_quote_ticker,
 )
 from ovm.time_resolution import TimeResolution
 from ovm.monetary.data_collection import DataCollectionOptions
@@ -43,7 +43,7 @@ tickers = [EOS_ETH_TICKER,
 
 ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
-ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
+ovl_quote_ticker = get_ovl_quote_ticker(quote_ticker)
 
 total_supply = 100000  # OVL
 base_wealth = 0.0005*total_supply  # OVL
@@ -75,12 +75,11 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 # Use bootstrap simulations - Begin
-#sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-#                            time_resolution=time_resolution,
-#                            tickers=tickers,
-#                            historical_data_source=historical_data_source,
-#                            ovl_ticker=SNX_ETH_TICKER,
-#                            ovl_quote_ticker=ovl_quote_ticker)
+# sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
+#                           time_resolution=time_resolution,
+#                           tickers=tickers, historical_data_source=historical_data_source,
+#                           ovl_ticker=SNX_ETH_TICKER,
+#                           ovl_quote_ticker=ovl_quote_ticker)
 # Use bootstrap simulations - End
 
 # Use historical data - Begin

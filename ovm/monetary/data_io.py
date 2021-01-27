@@ -128,7 +128,8 @@ def construct_ticker_to_series_of_prices_map_from_historical_prices(
 
 
 def load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
-        time_resolution: TimeResolution, historical_data_source: HistoricalDataSource,
+        time_resolution: TimeResolution,
+        historical_data_source: HistoricalDataSource,
         tickers: tp.Sequence[str],
         ovl_ticker: str,
         ovl_quote_ticker: str):
