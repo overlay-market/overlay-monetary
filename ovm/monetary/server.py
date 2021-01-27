@@ -8,6 +8,7 @@ from mesa.visualization.ModularVisualization import ModularServer
 from ovm.monetary.chart_elements import construct_chart_elements
 from ovm.tickers import (
     EOS_ETH_TICKER,
+    ETC_ETH_TICKER,
     MKR_ETH_TICKER,
     SNX_ETH_TICKER,
     XRP_ETH_TICKER,
@@ -37,11 +38,12 @@ DATA_SIM_RNG = 42
 
 # Load sims from csv files as arrays
 tickers = [EOS_ETH_TICKER,
+           ETC_ETH_TICKER,
            MKR_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 
-ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
+ovl_ticker = EOS_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
 ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
 
@@ -57,11 +59,11 @@ treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_keepers = int(total_supply*0.004/base_wealth)
-num_traders = int(total_supply*0.007/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
 num_snipers = int(total_supply*0.1/base_wealth)
-num_liquidators = int(total_supply*0.004/base_wealth)
+num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
 
@@ -75,11 +77,11 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 # Use bootstrap simulations - Begin
-#sims = construct_prices_map(data_sim_rng=DATA_SIM_RNG,
+#sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
 #                            time_resolution=time_resolution,
 #                            tickers=tickers,
 #                            historical_data_source=historical_data_source,
-#                            ovl_ticker=SNX_ETH_TICKER,
+#                            ovl_ticker=ovl_ticker,
 #                            ovl_quote_ticker=ovl_quote_ticker)
 # Use bootstrap simulations - End
 
@@ -88,7 +90,7 @@ sims = construct_hist_map(
             time_resolution=time_resolution,
             historical_data_source=historical_data_source,
             tickers=tickers,
-            ovl_ticker=SNX_ETH_TICKER,
+            ovl_ticker=ovl_ticker,
             ovl_quote_ticker=ovl_quote_ticker)
 # Use historical data - End
 

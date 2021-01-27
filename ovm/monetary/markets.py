@@ -604,7 +604,7 @@ class MonetaryFMarket:
         reward = abs(ds) * self.liquidate_reward
 
         # Anything left over after the burn is pos.amount - abs(ds) (leftover margin) ... split this
-        margin = min(pos.amount - abs(ds), 0)
+        margin = max(pos.amount - abs(ds), 0)
 
         # Any maintenance margin should be split between burn and treasury
         self.model.treasury += 0.5 * margin
