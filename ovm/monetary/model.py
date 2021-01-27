@@ -272,8 +272,6 @@ class MonetaryModel(Model):
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
                     GINI_LABEL: compute_gini,
-                    GINI_ARBITRAGEURS_LABEL: partial(
-                        compute_gini, agent_type=MonetaryArbitrageur)
                 })
 
             model_reporters.update({
