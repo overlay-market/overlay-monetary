@@ -50,31 +50,6 @@ def fetch_data(symbols: tp.Sequence[str],
                symbol_to_data_map: tp.Optional[tp.Dict[str, tp.List[tp.List]]] = None,
                verbose: bool = True) \
         -> tp.Dict[str, tp.List[tp.List]]:
-    # if params is None:
-    #     params = {}
-    #
-    # exchange = getattr(ccxt, exchange_id)()
-    # ms = exchange.parse_timeframe(timeframe) * 1000
-    #
-    # if not until:
-    #     until = datetime.now().timestamp() * 1000
-    #
-    # if not since:
-    #     since = until - limit*ms
-    #
-    # n = int((until-since) / (limit * ms))
-    # sinces = [ since + i*limit*ms for i in range(n) ]
-    #
-    # simulation = {
-    #     symbol: list(itertools.chain.from_iterable([
-    #         exchange.fetch_ohlcv(symbol, timeframe, since, limit, params)
-    #         for since in sinces
-    #     ]))
-    #     for symbol in symbols
-    # }
-    #
-    # return simulation
-
     if symbol_to_data_map is None:
         symbol_to_data_map = {}
 
