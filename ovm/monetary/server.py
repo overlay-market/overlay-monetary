@@ -58,11 +58,13 @@ time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
-num_arbitrageurs = int(total_supply*0.2/base_wealth)
+num_arbitrageurs = int(total_supply*0.075/base_wealth)
+num_long_apes = int(total_supply*0.05/base_wealth)
+num_short_apes = int(total_supply*0.0/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.0/base_wealth)
+num_snipers = int(total_supply*0.075/base_wealth)
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
@@ -123,6 +125,8 @@ model_kwargs = {
     "num_traders": num_traders,
     "num_holders": num_holders,
     "num_snipers": num_snipers,
+    "num_long_apes": num_long_apes,
+    "num_short_apes": num_short_apes,
     "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,

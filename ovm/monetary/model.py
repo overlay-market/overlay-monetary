@@ -52,6 +52,8 @@ class MonetaryModel(Model):
         num_traders: int,
         num_holders: int,
         num_snipers: int,
+        num_long_apes: int,
+        num_short_apes: int,
         num_liquidators: int,
         sims: tp.Dict[str, np.ndarray],
         quote_ticker: str,
@@ -75,6 +77,7 @@ class MonetaryModel(Model):
             MonetaryTrader,
             MonetarySniper,
             MonetaryLiquidator,
+            MonetaryApe,
         )
 
         from ovm.monetary.markets import MonetaryFMarket
@@ -95,12 +98,15 @@ class MonetaryModel(Model):
 
         super().__init__(seed=seed)
         self.num_agents = num_arbitrageurs + num_keepers + \
-            num_traders + num_holders + num_snipers + num_liquidators
+            num_traders + num_holders + num_snipers + num_liquidators + \
+            num_long_apes + num_short_apes
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
         self.num_holders = num_holders
         self.num_snipers = num_snipers
+        self.num_long_apes = num_long_apes
+        self.num_short_apes = num_short_apes
         self.num_liquidators = num_liquidators
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
@@ -122,6 +128,8 @@ class MonetaryModel(Model):
             logger.info(f"ovl_quote_ticker = {ovl_quote_ticker}")
             logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
             logger.info(f"num_snipers = {num_snipers}")
+            logger.info(f"num_long_apes = {num_long_apes}")
+            logger.info(f"num_short_apes = {num_short_apes}")
             logger.info(f"num_keepers = {num_keepers}")
             logger.info(f"num_traders = {num_traders}")
             logger.info(f"num_holders = {num_holders}")
@@ -177,7 +185,7 @@ class MonetaryModel(Model):
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
             leverage_max = randint(1, 9)
-
+            init_delay = 0  # randint(0, sampling_interval)
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
                     unique_id=i,
@@ -185,6 +193,7 @@ class MonetaryModel(Model):
                     fmarket=fmarket,
                     inventory=inventory,
                     leverage_max=leverage_max,
+                    init_delay=init_delay,
                     trade_delay=5,
                     min_edge=0.005,
                 )
@@ -221,6 +230,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     leverage_max=leverage_max,
                     size_increment=0.1,
+                    init_delay=init_delay,
                     trade_delay=5,
                     min_edge=0.005,
                     max_edge=0.1,  # max deploy at 10% edge
@@ -234,6 +244,32 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
+                ape_leverage_max = randint(6, 9)
+                agent = MonetaryApe(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    side=1,
+                    leverage_max=ape_leverage_max,
+                    init_delay=init_delay,
+                    trade_delay=5,
+                    unwind_delay=sampling_interval*200,
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
+                ape_leverage_max = randint(6, 9)
+                agent = MonetaryApe(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    side=-1,
+                    leverage_max=ape_leverage_max,
+                    init_delay=init_delay,
+                    trade_delay=5,
+                    unwind_delay=sampling_interval*200,
                 )
             else:
                 from ovm.monetary.agents import MonetaryAgent
@@ -290,7 +326,8 @@ class MonetaryModel(Model):
                                                 ("Traders", MonetaryTrader),
                                                 ("Holders", MonetaryHolder),
                                                 ("Liquidators", MonetaryLiquidator),
-                                                ("Snipers", MonetarySniper)]:
+                                                ("Snipers", MonetarySniper),
+                                                ("Apes", MonetaryApe)]:
                 if self.data_collection_options.compute_wealth:
                     model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
                         compute_wealth_for_agent_type, agent_type=agent_type)
@@ -322,6 +359,7 @@ class MonetaryModel(Model):
             MonetaryArbitrageur,
             MonetarySniper,
             MonetaryLiquidator,
+            MonetaryApe,
         )
         if self.data_collection_options.perform_data_collection and \
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
@@ -406,6 +444,56 @@ class MonetaryModel(Model):
                     f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
                 logger.info(
                     f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
+
+            # Apes
+            top_10_long_apes = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryApe and a.side == 1],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_long_apes = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryApe and a.side == 1],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_short_apes = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryApe and a.side == -1],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_short_apes = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryApe and a.side == -1],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_long_apes_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_long_apes
+            }
+            bottom_10_long_apes_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_long_apes
+            }
+            top_10_short_apes_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_short_apes
+            }
+            bottom_10_short_apes_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_short_apes
+            }
+            if PERFORM_INFO_LOGGING:
+                logger.info("========================================")
+                logger.info(
+                    f"Model.step: Ape long wealths top 10 -> {top_10_long_apes_wealth}")
+                logger.info(
+                    f"Model.step: Ape long wealths bottom 10 -> {bottom_10_long_apes_wealth}")
+                logger.info(
+                    f"Model.step: Ape short wealths top 10 -> {top_10_short_apes_wealth}")
+                logger.info(
+                    f"Model.step: Ape short wealths bottom 10 -> {bottom_10_short_apes_wealth}")
 
         from ovm.monetary.reporters import (
             compute_supply,
