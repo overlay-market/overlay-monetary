@@ -188,6 +188,22 @@ def compute_inventory_wealth_for_agent_type(
     # return sum(wealths)
 
 
+class AggregateInventoryWealthForAgentTypeReporter(
+        AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent]):
+    def __init__(self,
+                 agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
+                 inventory_type: tp.Optional[str] = None,
+                 in_quote: bool = False):
+        self.inventory_type = inventory_type
+        self.in_quote = in_quote
+        super().__init__(agent_type=agent_type)
+
+    def report(self, model: MonetaryModel) -> float:
+        return compute_inventory_wealth_for_agent_type(model=model,
+                                                       agent_type=self.agent_type,
+                                                       inventory_type=self.inventory_type,
+                                                       in_quote=self.in_quote)
+
 ################################################################################
 # Skew (Positional Imbalance)
 ################################################################################

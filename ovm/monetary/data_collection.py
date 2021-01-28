@@ -89,6 +89,7 @@ class HDF5DataCollector:
         self.model_name = model_name
         self.model_reporters = model_reporters
         # self.agent_reporters = agent_reporters
+        self.step_buffer = np.zeros((save_interval, ), dtype=np.int32)
         self.model_reporters_buffers = \
             {name: np.zeros((save_interval, ), dtype=reporter.dtype)
              for name, reporter in model_reporters.items()}
@@ -103,7 +104,7 @@ class HDF5DataCollector:
                 assert dataset is not None
                 # assert dataset.dtype == reporter.dtype
 
-            assert self.hdf5_file['step'] is not None
+            assert self.hdf5_file[STEP_COLUMN_NAME] is not None
         else:
             git_commit_hash = git.Repo(search_parent_directories=True).head.object.hexsha
 
@@ -121,19 +122,33 @@ class HDF5DataCollector:
                                                      chunks=True)
 
     def collect(self, model):
+        step = model.schedule.step
+        self.step_buffer[self.current_buffer_index] = step
+
+        # collect model reports and write to buffer
+        for name, reporter in self.model_reporters.items():
+            report = reporter.report(model)
+            self.model_reporters_buffers[name][self.current_buffer_index] = report
+
         # increment index in buffer to write next model results to
-        self.current_buffer_index +=1
+        self.current_buffer_index += 1
 
         # check if buffer is full and must be written to hdf5 file
         if self.current_buffer_index == self.save_interval:
+            begin_index = step
+            end_index = begin_index + self.save_interval
+
             for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
                 data: h5py.Dataset = self.hdf5_file[name]
-                begin_index = len(data)
-                end_index = begin_index + self.save_interval
+                # begin_index = len(data)
+                # end_index = begin_index + self.save_interval
                 data.resize(size=(end_index, ))
                 data[begin_index:end_index] = buffer
 
+            self.hdf5_file[STEP_COLUMN_NAME][begin_index:end_index] = self.step_buffer
+
             self.current_buffer_index = 0
+
 
 
         # if self.model_reporters:

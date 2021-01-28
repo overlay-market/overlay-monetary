@@ -89,7 +89,7 @@ class MonetaryModel(Model):
             LiquidityReporter,
             TreasuryReporter,
             AggregateWealthForAgentTypeReporter,
-            compute_inventory_wealth_for_agent_type,
+            AggregateInventoryWealthForAgentTypeReporter,
             SkewReporter,
             OpenPositionReporter,
             AgentWealthReporter
@@ -311,13 +311,12 @@ class MonetaryModel(Model):
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
                         inventory_wealth_ovl_label(agent_type_name):
-                            partial(compute_inventory_wealth_for_agent_type,
-                                    agent_type=agent_type),
+                            AggregateInventoryWealthForAgentTypeReporter(agent_type=agent_type),
+                            # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
 
                         inventory_wealth_quote_label(agent_type_name, self.quote_ticker):
-                            partial(compute_inventory_wealth_for_agent_type,
-                                    agent_type=agent_type,
-                                    in_quote=True)
+                            AggregateInventoryWealthForAgentTypeReporter(agent_type=agent_type, in_quote=True)
+                            # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
                     })
 
             self.data_collector = DataCollector(
