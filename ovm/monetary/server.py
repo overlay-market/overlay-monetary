@@ -43,7 +43,7 @@ tickers = [EOS_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 
-ovl_ticker = EOS_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
+ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
 ovl_quote_ticker = ovl_quote_ticker(quote_ticker)
 
@@ -58,13 +58,13 @@ time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
-num_arbitrageurs = int(total_supply*0.075/base_wealth)
+num_arbitrageurs = int(total_supply*0.1/base_wealth)
 num_long_apes = int(total_supply*0.05/base_wealth)
 num_short_apes = int(total_supply*0.0/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.075/base_wealth)
+num_snipers = int(total_supply*0.05/base_wealth)
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators

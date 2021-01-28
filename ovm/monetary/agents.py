@@ -195,7 +195,7 @@ class MonetaryArbitrageur(MonetaryAgent):
 
             self.inventory[OVL_TICKER] += pos.amount + ds - fees
             self.locked -= pos.amount
-            self.wealth += ds - fees
+            self.wealth += max(ds - fees, -self.wealth)
             self.last_trade_idx = self.model.schedule.steps
 
             # Counter the futures trade on spot to unwind the arb
@@ -428,7 +428,7 @@ class MonetarySniper(MonetaryAgent):
                 continue
             self.inventory[OVL_TICKER] += unwind_amount + ds - fees
             self.locked -= unwind_amount
-            self.wealth += ds - fees
+            self.wealth += max(ds - fees, -self.wealth)
             self.last_trade_idx = self.model.schedule.steps
 
             # Counter the futures trade on spot to unwind the arb
@@ -703,6 +703,7 @@ class MonetaryApe(MonetaryAgent):
             self.wealth -= min(fees, self.wealth)
             self.last_trade_idx = idx
         elif (idx - self.last_trade_idx) > self.unwind_delay:
+            # TODO: Ape should only unwind if massively profitable as well, otherwise keep the YOLO
             self._unwind_positions()
 
     def step(self):
