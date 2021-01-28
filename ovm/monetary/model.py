@@ -247,6 +247,8 @@ class MonetaryModel(Model):
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
                 ape_leverage_max = randint(6, 9)
+                unwind_delay = randint(
+                    sampling_interval*24*14, sampling_interval*24*60)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -256,10 +258,12 @@ class MonetaryModel(Model):
                     leverage_max=ape_leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
-                    unwind_delay=sampling_interval*200,
+                    unwind_delay=unwind_delay,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
                 ape_leverage_max = randint(6, 9)
+                unwind_delay = randint(
+                    sampling_interval*24*14, sampling_interval*24*60)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -269,7 +273,7 @@ class MonetaryModel(Model):
                     leverage_max=ape_leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
-                    unwind_delay=sampling_interval*200,
+                    unwind_delay=unwind_delay,
                 )
             else:
                 from ovm.monetary.agents import MonetaryAgent
