@@ -26,8 +26,7 @@ class TimeResolution(Enum):
 
     @property
     def steps_per_month(self) -> float:
-        # ToDo: Perhaps change that to  365.25 / 12.0 * 24 * 60 * 60 / self.in_seconds
-        return (86400 * 30) / self.in_seconds
+        return 365.25 / 12.0 * 24 * 60 * 60 / self.in_seconds
 
     @property
     def steps_per_month_clamped(self) -> int:

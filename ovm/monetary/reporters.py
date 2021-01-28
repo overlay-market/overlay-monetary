@@ -32,6 +32,9 @@ class GiniReporter(AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent])
         return 1.0 + (1.0 / N) - 2.0*B
 
 
+################################################################################
+# Price Difference
+################################################################################
 def compute_price_difference(model: MonetaryModel, ticker: str) -> float:
     idx = model.schedule.steps
     sprice = model.sims[ticker][idx]
@@ -44,11 +47,17 @@ class PriceDifferenceReporter(AbstractMarketLevelReporter[MonetaryModel]):
         return compute_price_difference(model, self.ticker)
 
 
+################################################################################
+# Futures Price
+################################################################################
 class FuturesPriceReporter(AbstractMarketLevelReporter[MonetaryModel]):
     def report(self, model) -> float:
         return model.fmarkets[self.ticker].price
 
 
+################################################################################
+# Spot Price
+################################################################################
 def compute_spot_price(model: MonetaryModel, ticker: str) -> float:
     idx = model.schedule.steps
     return model.sims[ticker][idx]
@@ -59,6 +68,9 @@ class SpotPriceReporter(AbstractMarketLevelReporter[MonetaryModel]):
         return compute_spot_price(model, self.ticker)
 
 
+################################################################################
+# Supply
+################################################################################
 def compute_supply(model: MonetaryModel) -> float:
     return model.supply
 
@@ -68,11 +80,17 @@ class SupplyReporter(AbstractModelReporter[MonetaryModel]):
         return compute_supply(model)
 
 
+################################################################################
+# Liquidity
+################################################################################
 class LiquidityReporter(AbstractModelReporter[MonetaryModel]):
     def report(self, model: MonetaryModel) -> float:
         return model.liquidity
 
 
+################################################################################
+# Treasury
+################################################################################
 def compute_treasury(model: MonetaryModel) -> float:
     return model.treasury
 
@@ -82,8 +100,11 @@ class TreasuryReporter(AbstractModelReporter[MonetaryModel]):
         return compute_treasury(model)
 
 
+################################################################################
+# Aggregate Wealth
+################################################################################
 class AggregateWealthForAgentTypeReporter(
-    AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent]):
+        AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent]):
     def report(self, model) -> float:
         if not self.agent_type:
             wealths = [a.wealth for a in model.schedule.agents]
@@ -148,6 +169,9 @@ def compute_inventory_wealth_for_agent_type(
     return sum(wealths)
 
 
+################################################################################
+# Skew (Positional Imbalance)
+################################################################################
 def compute_skew_for_market(model: MonetaryModel, ticker: str) -> float:
     monetary_futures_market = model.fmarkets[ticker]
     uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
@@ -178,6 +202,9 @@ class SkewReporter(AbstractMarketLevelReporter[MonetaryModel]):
         return compute_skew_for_market(model, self.ticker)
 
 
+################################################################################
+# Open Positions
+################################################################################
 def compute_open_positions_per_market(model: MonetaryModel, ticker: str) -> int:
     monetary_futures_market = model.fmarkets[ticker]
     return len(monetary_futures_market.positions)
