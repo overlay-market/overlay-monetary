@@ -7,6 +7,7 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 import numpy as np
+from tqdm import tqdm
 
 from ovm.debug_level import (
     PERFORM_DEBUG_LOGGING,
@@ -87,20 +88,11 @@ class MonetaryModel(Model):
             SupplyReporter,
             LiquidityReporter,
             TreasuryReporter,
-            WealthForAgentTypeReporter,
-            # compute_gini,
-            # compute_price_difference,
-            # compute_futures_price,
-            # compute_spot_price,
-            # compute_supply,
-            # compute_liquidity,
-            # compute_treasury,
-            # compute_wealth_for_agent_type,
+            AggregateWealthForAgentTypeReporter,
             compute_inventory_wealth_for_agent_type,
-            # compute_positional_imbalance_by_market,
-            # compute_open_positions_per_market
             SkewReporter,
-            OpenPositionReporter
+            OpenPositionReporter,
+            AgentWealthReporter
         )
 
         super().__init__(seed=seed)
@@ -302,7 +294,7 @@ class MonetaryModel(Model):
             if self.data_collection_options.compute_wealth:
                 model_reporters.update({
                     # "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
-                    "Agent": partial(WealthForAgentTypeReporter())
+                    "Agent": partial(AggregateWealthForAgentTypeReporter())
                 })
 
             for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
@@ -313,7 +305,7 @@ class MonetaryModel(Model):
                                                 ("Snipers", MonetarySniper)]:
                 if self.data_collection_options.compute_wealth:
                     model_reporters[agent_wealth_ovl_label(agent_type_name)] = \
-                        WealthForAgentTypeReporter(agent_type=agent_type)
+                        AggregateWealthForAgentTypeReporter(agent_type=agent_type)
                         # partial(compute_wealth_for_agent_type, agent_type=agent_type)
 
                 if self.data_collection_options.compute_inventory_wealth:
@@ -330,7 +322,8 @@ class MonetaryModel(Model):
 
             self.data_collector = DataCollector(
                 model_reporters=model_reporters,
-                agent_reporters={"Wealth": "wealth"},
+                # agent_reporters={"Wealth": "wealth"},
+                agent_reporters={"Wealth": AgentWealthReporter()},
             )
 
         self.running = True
@@ -439,10 +432,9 @@ class MonetaryModel(Model):
             compute_treasury,
             compute_price_difference,
             compute_spot_price,
-            compute_positional_imbalance_by_market,
+            compute_skew_for_market,
             compute_open_positions_per_market,
         )
-
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"step {self.schedule.steps}")
             logger.debug(f"supply {compute_supply(self)}")
@@ -468,8 +460,22 @@ class MonetaryModel(Model):
                     logger.debug(f"fmarket: price_diff bw f/s "
                                  f"{compute_price_difference(self, ticker)}")
                     logger.debug(f"fmarket: positional imbalance "
-                                 f"{compute_positional_imbalance_by_market(self, ticker)}")
+                                 f"{compute_skew_for_market(self, ticker)}")
                     logger.debug(f"fmarket: open positions "
                                  f"{compute_open_positions_per_market(self, ticker)}")
 
         self.schedule.step()
+
+    def run_steps(self, number_of_steps_to_simulate: int, use_tqdm: bool = True):
+        run_range = range(number_of_steps_to_simulate + 1)
+        if use_tqdm:
+            run_range = tqdm(run_range)
+        try:
+            for _ in run_range:
+                self.step()
+        finally:
+            if self.data_collection_options.use_hdf5:
+                # ToDo: Flush buffer to HDF5 file
+                self.data_collector.flush()
+
+
