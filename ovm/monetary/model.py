@@ -16,7 +16,11 @@ from ovm.debug_level import (
 
 from ovm.tickers import OVL_TICKER
 
-from ovm.monetary.data_collection import DataCollectionOptions
+from ovm.monetary.data_collection import (
+    DataCollectionOptions,
+    HDF5DataCollector
+)
+
 from ovm.monetary.plot_labels import (
     price_deviation_label,
     spot_price_label,
@@ -319,15 +323,23 @@ class MonetaryModel(Model):
                             # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
                     })
 
-            self.data_collector = DataCollector(
-                model_reporters=model_reporters,
-                # agent_reporters={"Wealth": "wealth"},
-                agent_reporters={"Wealth": AgentWealthReporter()},
-            )
+            if data_collection_options.use_hdf5:
+                self.data_collector = \
+                    HDF5DataCollector(
+                        model_name='MonetaryModel',
+                        # save_interval=int(24 * 60 * 60 / data_collection_options.data_collection_interval),
+                        save_interval=100,
+                        model_reporters=model_reporters)
+            else:
+                self.data_collector = DataCollector(
+                    model_reporters=model_reporters,
+                    # agent_reporters={"Wealth": "wealth"},
+                    agent_reporters={"Wealth": AgentWealthReporter()},
+                )
 
         self.running = True
-        if self.data_collection_options.perform_data_collection:
-            self.data_collector.collect(self)
+        # if self.data_collection_options.perform_data_collection:
+        #     self.data_collector.collect(self)
 
     @property
     def number_of_markets(self) -> int:
