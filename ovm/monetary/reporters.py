@@ -118,6 +118,9 @@ class AggregateWealthForAgentTypeReporter(
         return sum(wealths)
 
 
+################################################################################
+# Inventory Wealth
+################################################################################
 def compute_inventory_wealth_for_agent(model: MonetaryModel,
                                        agent: MonetaryAgent,
                                        inventory_type: tp.Optional[str] = None,
@@ -153,20 +156,36 @@ def compute_inventory_wealth_for_agent_type(
         agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
         inventory_type: tp.Optional[str] = None,
         in_quote: bool = False):
-    if not agent_type:
-        wealths = [
-            compute_inventory_wealth_for_agent(
-                model, a, inventory_type=inventory_type, in_quote=in_quote)
-            for a in model.schedule.agents
-        ]
-    else:
-        wealths = [
-            compute_inventory_wealth_for_agent(
-                model, a, inventory_type=inventory_type, in_quote=in_quote)
-            for a in model.schedule.agents if type(a) == agent_type
-        ]
+    agents = model.schedule.agents
+    if agent_type:
+        agents = filter(lambda a: type(a) == agent_type, model.schedule.agents)
 
-    return sum(wealths)
+    return sum(map(lambda a: compute_inventory_wealth_for_agent(model,
+                                                                a,
+                                                                inventory_type=inventory_type,
+                                                                in_quote=in_quote),
+                   agents))
+
+    # if not agent_type:
+    #     wealths = [
+    #         compute_inventory_wealth_for_agent(
+    #             model, a, inventory_type=inventory_type, in_quote=in_quote)
+    #         for a in model.schedule.agents
+    #     ]
+    # else:
+    #     wealths = [
+    #         compute_inventory_wealth_for_agent(
+    #             model, a, inventory_type=inventory_type, in_quote=in_quote)
+    #         for a in model.schedule.agents if type(a) == agent_type
+    #     ]
+    #
+    # wealths = [
+    #     compute_inventory_wealth_for_agent(
+    #         model, a, inventory_type=inventory_type, in_quote=in_quote)
+    #     for a in agents
+    # ]
+    #
+    # return sum(wealths)
 
 
 ################################################################################
