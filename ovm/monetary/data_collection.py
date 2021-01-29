@@ -155,9 +155,42 @@ class HDF5DataCollector:
 
             self.name_to_model_dataset_map[STEP_COLUMN_NAME] = self.step_dataset
 
+    def _purge_buffer(self):
+        step = self.steps
+        end_index = step + 1
+        # print(f'end_index={end_index}')
+        begin_index = step - self.current_buffer_index + 1
+        assert begin_index == step - self.save_interval + 1
+        # print(f'begin_index={begin_index}')
+
+        # print(f'saving to HDF5')
+        # print(f'current_buffer_index = {self.current_buffer_index}')
+        # print(f'step={step}')
+        # print(f'{begin_index} to {end_index}')
+
+        # begin_index = step - self.save_interval
+        # end_index = begin_index + self.save_interval
+
+        # write buffers for model reporters to hdf5 file
+        for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
+            data = self.name_to_model_dataset_map[name]
+            # data: h5py.Dataset = self.hdf5_file[name]
+            # begin_index = len(data)
+            # end_index = begin_index + self.save_interval
+            data.resize(size=(end_index,))
+            # print(f'{data.shape=}')
+            data[begin_index:end_index] = buffer
+
+        # write time steps to HDF5 file
+        self.step_dataset.resize(size=(end_index,))
+        self.step_dataset[begin_index:end_index] = self.step_buffer
+        # print(f'step dataset dimensions = {len(self.step_dataset)}')
+
+        self.current_buffer_index = 0
+
     def collect(self, model):
-        step = model.schedule.steps
-        self.step_buffer[self.current_buffer_index] = step
+        self.steps = model.schedule.steps
+        self.step_buffer[self.current_buffer_index] = self.steps
         # print(f'self.current_buffer_index={self.current_buffer_index}')
 
         # collect model reports and write to buffer
@@ -170,35 +203,7 @@ class HDF5DataCollector:
 
         # check if buffer is full and must be written to hdf5 file
         if self.current_buffer_index == self.save_interval:
-            end_index = step + 1
-            # print(f'end_index={end_index}')
-            begin_index = step - self.save_interval + 1
-            # print(f'begin_index={begin_index}')
-
-            # print(f'saving to HDF5')
-            # print(f'current_buffer_index = {self.current_buffer_index}')
-            # print(f'step={step}')
-            # print(f'{begin_index} to {end_index}')
-
-            # begin_index = step - self.save_interval
-            # end_index = begin_index + self.save_interval
-
-            # write buffers for model reporters to hdf5 file
-            for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
-                data = self.name_to_model_dataset_map[name]
-                # data: h5py.Dataset = self.hdf5_file[name]
-                # begin_index = len(data)
-                # end_index = begin_index + self.save_interval
-                data.resize(size=(end_index, ))
-                # print(f'{data.shape=}')
-                data[begin_index:end_index] = buffer
-
-            # write time steps to HDF5 file
-            self.step_dataset.resize(size=(end_index,))
-            self.step_dataset[begin_index:end_index] = self.step_buffer
-            # print(f'step dataset dimensions = {len(self.step_dataset)}')
-
-            self.current_buffer_index = 0
+            self._purge_buffer()
 
 
         # if self.model_reporters:
@@ -212,6 +217,7 @@ class HDF5DataCollector:
     def get_model_vars_dataframe(self,
                                  first_step: tp.Optional[int] = 0,
                                  last_step: tp.Optional[int] = -1) -> pd.DataFrame:
+        self.flush()
         # array = np.array(self.hdf5_file[STEP_COLUMN_NAME][first_step:last_step])
         array = np.array(self.step_dataset[first_step:last_step])
         name_to_dataset_map = \
@@ -226,6 +232,10 @@ class HDF5DataCollector:
         return pd.DataFrame(name_to_dataset_map)
 
     def flush(self):
+        # write what remains in the buffer to the HDF5 file object
+        self._purge_buffer()
+
+        # write all changes to the HDF5 object to disk
         self.hdf5_file.flush()
 
     def __del__(self):
