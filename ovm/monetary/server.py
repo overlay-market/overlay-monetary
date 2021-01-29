@@ -131,6 +131,7 @@ model_kwargs = {
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": treasury,
     "sampling_interval": sampling_interval,
+    "time_resolution": time_resolution
 }
 
 

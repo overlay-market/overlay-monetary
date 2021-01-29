@@ -16,6 +16,8 @@ from ovm.paths import DATA_OUTPUT_BASE_PATH
 REPORT_RESULT_TYPE = tp.Union[int, float]
 DATA_COLLECTOR_NAME = 'data_collector'
 STEP_COLUMN_NAME = 'step'
+MODEL_VARIABLES_GROUP_NAME = 'MODEL_VARIABLES'
+AGENT_VARIABLES_GROUP_NAME = 'AGENT_VARIABLES'
 
 AgentType = tp.TypeVar('AgentType', bound=Agent)
 ModelType = tp.TypeVar('ModelType', bound=Model)
@@ -76,16 +78,113 @@ class AbstractAgentReporter(tp.Generic[AgentType], ABC):
         return self.report(agent)
 
 
-class HDF5DataCollector:
-    def __init__(self,
-                 model_name: str,
-                 save_interval: int,
-                 existing_filename_to_append_to: tp.Optional[str] = None,
-                 model_reporters: tp.Dict[str, AbstractModelReporter] = None,
-                 agent_reporters: tp.Dict[str, AbstractModelReporter] = None,
-                 output_base_path: tp.Optional[str] = None,
-                 # tables=None
-                 ):
+class ModelReporterCollection(tp.Generic[ModelType]):
+    def __init__(
+            self,
+            save_interval: int,
+            name_to_model_reporter_map: tp.Dict[str, AbstractModelReporter[ModelType]],
+            hdf5_file: h5py.File
+    ):
+        self.name_to_model_reporter_map = name_to_model_reporter_map
+        self.model_reporters = []
+        self.reporter_names = []
+        self.model_reporters_buffers = []
+        self.datasets = []
+        self.name_to_model_dataset_map: tp.Dict[str, h5py.Dataset] = {}
+        self.save_interval = save_interval
+        self.current_buffer_index = 0
+
+        for name, reporter in self.name_to_model_reporter_map.items():
+            self.reporter_names.append(name)
+            self.model_reporters.append(reporter)
+            self.model_reporters_buffers.append(np.zeros((save_interval, ), dtype=reporter.dtype))
+
+        self.model_group = hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
+        if not self.model_group:
+            # create a model group
+            self.model_group = hdf5_file.create_group(MODEL_VARIABLES_GROUP_NAME)
+
+            # create a hdf5 dataset for each reporter
+            for name, reporter in zip(self.reporter_names, self.model_reporters):
+                self.name_to_model_dataset_map[name] = \
+                    self.model_group.create_dataset(name=name,
+                                                    shape=(0,),
+                                                    dtype=reporter.dtype,
+                                                    maxshape=(None,),
+                                                    chunks=(save_interval,))
+        else:
+            for name in self.reporter_names:
+                dataset = self.model_group.get(name)
+                assert dataset is not None
+                self.name_to_model_dataset_map[name] = dataset
+                # assert dataset.dtype == reporter.dtype
+
+    def _get_model_dataset(self, name) -> h5py.Dataset:
+        return self.name_to_model_dataset_map[name]
+
+    def _purge_buffer(self):
+        if self.current_buffer_index == 0:
+            return
+
+        step = self.steps
+        end_index = step + 1
+        begin_index = step - self.current_buffer_index + 1
+
+        # write buffers for model reporters to hdf5 file
+        for dataset, buffer in zip(self.datasets, self.model_reporters_buffers):
+            dataset.resize(size=(end_index,))
+            dataset[begin_index:end_index] = buffer[:self.current_buffer_index]
+
+        self.current_buffer_index = 0
+
+    def collect(self, model):
+        self.steps = model.schedule.steps
+
+        # collect model reports and write to buffer
+        for name, reporter, buffer in zip(self.reporter_names,
+                                          self.model_reporters,
+                                          self.model_reporters_buffers):
+            buffer[self.current_buffer_index] = reporter.report(model)
+
+        # increment index in buffer to write next model results to
+        self.current_buffer_index += 1
+
+        # check if buffer is full and must be written to hdf5 file
+        if self.current_buffer_index == self.save_interval:
+            self._purge_buffer()
+
+    def get_model_vars_dataframe(self,
+                                 step_dataset: np.ndarray,
+                                 first_step: tp.Optional[int] = 0,
+                                 last_step: tp.Optional[int] = -1) -> pd.DataFrame:
+        self.flush()
+
+        name_to_dataset_map = \
+            {name: np.array(dataset[first_step:last_step])
+             for name, dataset
+             in self.name_to_model_dataset_map.items()}
+
+        name_to_dataset_map.update({STEP_COLUMN_NAME: step_dataset})
+
+        return pd.DataFrame(name_to_dataset_map)
+
+    def flush(self):
+        # write what remains in the buffer to the HDF5 file object
+        self._purge_buffer()
+
+
+class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
+    def __init__(
+            self,
+            model_name: str,
+            agents: tp.Sequence[AgentType],
+            save_interval: int,
+            existing_filename_to_append_to: tp.Optional[str] = None,
+            model_reporters: tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
+            agent_reporters: tp.Optional[tp.Dict[str, AbstractAgentReporter[ModelType]]] = None,
+            output_base_path: tp.Optional[str] = None,
+            # tables=None
+    ):
         print(f'save_interval={save_interval}')
         if not model_reporters:
             model_reporters = {}
@@ -123,8 +222,9 @@ class HDF5DataCollector:
             self.hdf5_file = h5py.File(self.hdf5_filename, 'a')
 
             # verify that an hdf5 dataset exists for each reporter
+            self.model_group = self.hdf5_file[MODEL_VARIABLES_GROUP_NAME]
             for name, reporter in model_reporters.items():
-                dataset = self.hdf5_file.get(name)
+                dataset = self.model_group.get(name)
                 assert dataset is not None
                 self.name_to_model_dataset_map[name] = dataset
                 # assert dataset.dtype == reporter.dtype
@@ -136,24 +236,31 @@ class HDF5DataCollector:
             dt_string = \
                 datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
             self.hdf5_filename = model_name + "_" + git_commit_hash + "_" + dt_string
-            self.hdf5_file: h5py.File = h5py.File(self.hdf5_filename, 'w')
+            self.hdf5_path = os.path.join(DATA_OUTPUT_BASE_PATH, self.hdf5_filename)
+            self.hdf5_file: h5py.File = h5py.File(self.hdf5_path, 'w')
 
+            # create a model group
+            self.model_group = self.hdf5_file.create_group(MODEL_VARIABLES_GROUP_NAME)
             # create a hdf5 dataset for each reporter
             for name, reporter in model_reporters.items():
                 self.name_to_model_dataset_map[name] = \
-                    self.hdf5_file.create_dataset(name=name,
+                    self.model_group.create_dataset(name=name,
                                                   shape=(0,),
                                                   dtype=reporter.dtype,
                                                   maxshape=(None,),
                                                   chunks=(save_interval,))
 
-            self.step_dataset = self.hdf5_file.create_dataset(name=STEP_COLUMN_NAME,
-                                                              shape=(0,),
-                                                              dtype=np.int32,
-                                                              maxshape=(None,),
-                                                              chunks=(save_interval,))
+            self.step_dataset = \
+                self.model_group.create_dataset(name=STEP_COLUMN_NAME,
+                                                shape=(0,),
+                                                dtype=np.int32,
+                                                maxshape=(None,),
+                                                chunks=(save_interval,))
 
             self.name_to_model_dataset_map[STEP_COLUMN_NAME] = self.step_dataset
+
+    def _get_model_dataset(self, name) -> h5py.Dataset:
+        return self.name_to_model_dataset_map[name]
 
     def _purge_buffer(self):
         if self.current_buffer_index == 0:
@@ -166,7 +273,8 @@ class HDF5DataCollector:
 
         # write buffers for model reporters to hdf5 file
         for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
-            data = self.name_to_model_dataset_map[name]
+            # data = self.name_to_model_dataset_map[name]
+            data = self._get_model_dataset(name)
             data.resize(size=(end_index,))
             data[begin_index:end_index] = buffer[:self.current_buffer_index]
 

@@ -336,6 +336,7 @@ class MonetaryModel(Model):
                 self.data_collector = \
                     HDF5DataCollector(
                         model_name='MonetaryModel',
+                        agents=self.schedule.agents,
                         save_interval=save_interval,
                         # save_interval=100,
                         model_reporters=model_reporters)
