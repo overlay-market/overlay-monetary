@@ -335,21 +335,24 @@ class MonetaryModel(Model):
             if data_collection_options.use_hdf5:
                 self.data_collector = \
                     HDF5DataCollector(
-                        model_name='MonetaryModel',
-                        agents=self.schedule.agents,
+                        model=self,
+                        number_of_agents=len(self.schedule.agents),
                         save_interval=save_interval,
-                        # save_interval=100,
-                        model_reporters=model_reporters)
+                        model_reporters=model_reporters,
+                        agent_reporters={"Wealth": AgentWealthReporter()})
             else:
                 self.data_collector = DataCollector(
                     model_reporters=model_reporters,
-                    # agent_reporters={"Wealth": "wealth"},
                     agent_reporters={"Wealth": AgentWealthReporter()},
                 )
 
         self.running = True
         # if self.data_collection_options.perform_data_collection:
         #     self.data_collector.collect(self)
+
+    @property
+    def name(self) -> str:
+        return 'MonetaryModel'
 
     @property
     def number_of_markets(self) -> int:
