@@ -37,6 +37,8 @@ from ovm.monetary.plot_labels import (
     LIQUIDITY_LABEL
 )
 
+from ovm.time_resolution import TimeResolution
+
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,7 @@ class MonetaryModel(Model):
         liquidity_supply_emission: tp.List[float],
         treasury: float,
         sampling_interval: int,
+        time_resolution: TimeResolution,
         data_collection_options: DataCollectionOptions = DataCollectionOptions(),
         seed: tp.Optional[int] = None
     ):
@@ -121,6 +124,7 @@ class MonetaryModel(Model):
         self.sims = sims  # { k: [ prices ] }
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
+        self.time_resolution = time_resolution
 
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
@@ -323,12 +327,17 @@ class MonetaryModel(Model):
                             # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
                     })
 
+            save_interval = \
+                int(24 * 60 * 60 /
+                    data_collection_options.data_collection_interval /
+                    time_resolution.in_seconds)
+
             if data_collection_options.use_hdf5:
                 self.data_collector = \
                     HDF5DataCollector(
                         model_name='MonetaryModel',
-                        # save_interval=int(24 * 60 * 60 / data_collection_options.data_collection_interval),
-                        save_interval=100,
+                        save_interval=save_interval,
+                        # save_interval=100,
                         model_reporters=model_reporters)
             else:
                 self.data_collector = DataCollector(

@@ -107,7 +107,12 @@ class HDF5DataCollector:
         self.model_name = model_name
         self.model_reporters = model_reporters
         # self.agent_reporters = agent_reporters
+
+        # step
         self.step_buffer = np.zeros((save_interval, ), dtype=np.int32)
+        self.step_dataset = None
+
+        # model reporters and datasets
         self.model_reporters_buffers = \
             {name: np.zeros((save_interval, ), dtype=reporter.dtype)
              for name, reporter in model_reporters.items()}
@@ -142,38 +147,43 @@ class HDF5DataCollector:
                                                   maxshape=(None,),
                                                   chunks=(save_interval,))
 
-            self.name_to_model_dataset_map[STEP_COLUMN_NAME] = \
-                self.hdf5_file.create_dataset(name=STEP_COLUMN_NAME,
-                                              shape=(0,),
-                                              dtype=np.int32,
-                                              maxshape=(None,),
-                                              chunks=(save_interval,))
+            self.step_dataset = self.hdf5_file.create_dataset(name=STEP_COLUMN_NAME,
+                                                              shape=(0,),
+                                                              dtype=np.int32,
+                                                              maxshape=(None,),
+                                                              chunks=(save_interval,))
+
+            self.name_to_model_dataset_map[STEP_COLUMN_NAME] = self.step_dataset
 
     def collect(self, model):
         step = model.schedule.steps
         self.step_buffer[self.current_buffer_index] = step
         # print(f'self.current_buffer_index={self.current_buffer_index}')
-        # print(f'step={step}')
 
         # collect model reports and write to buffer
         for name, reporter in self.model_reporters.items():
             report = reporter.report(model)
             self.model_reporters_buffers[name][self.current_buffer_index] = report
 
-        # check if buffer is full and must be written to hdf5 file
-        # print(self.current_buffer_index == self.save_interval - 1)
-        if self.current_buffer_index == self.save_interval - 1:
+        # increment index in buffer to write next model results to
+        self.current_buffer_index += 1
 
+        # check if buffer is full and must be written to hdf5 file
+        if self.current_buffer_index == self.save_interval:
             end_index = step + 1
             # print(f'end_index={end_index}')
             begin_index = step - self.save_interval + 1
             # print(f'begin_index={begin_index}')
 
+            # print(f'saving to HDF5')
+            # print(f'current_buffer_index = {self.current_buffer_index}')
+            # print(f'step={step}')
             # print(f'{begin_index} to {end_index}')
 
             # begin_index = step - self.save_interval
             # end_index = begin_index + self.save_interval
 
+            # write buffers for model reporters to hdf5 file
             for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
                 data = self.name_to_model_dataset_map[name]
                 # data: h5py.Dataset = self.hdf5_file[name]
@@ -183,15 +193,13 @@ class HDF5DataCollector:
                 # print(f'{data.shape=}')
                 data[begin_index:end_index] = buffer
 
-            data = self.name_to_model_dataset_map[STEP_COLUMN_NAME]
-            data.resize(size=(end_index,))
-            data[begin_index:end_index] = self.step_buffer
-            # print(f'step dataset dimensions = {len(data)}')
+            # write time steps to HDF5 file
+            self.step_dataset.resize(size=(end_index,))
+            self.step_dataset[begin_index:end_index] = self.step_buffer
+            # print(f'step dataset dimensions = {len(self.step_dataset)}')
 
             self.current_buffer_index = 0
 
-        # increment index in buffer to write next model results to
-        self.current_buffer_index += 1
 
         # if self.model_reporters:
         #     for var, reporter in self.model_reporters.items():
@@ -204,7 +212,8 @@ class HDF5DataCollector:
     def get_model_vars_dataframe(self,
                                  first_step: tp.Optional[int] = 0,
                                  last_step: tp.Optional[int] = -1) -> pd.DataFrame:
-        array = np.array(self.hdf5_file[STEP_COLUMN_NAME][first_step:last_step])
+        # array = np.array(self.hdf5_file[STEP_COLUMN_NAME][first_step:last_step])
+        array = np.array(self.step_dataset[first_step:last_step])
         name_to_dataset_map = \
             {STEP_COLUMN_NAME: array}
         # print(f'{STEP_COLUMN_NAME} {array.shape}')
