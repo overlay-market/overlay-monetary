@@ -158,6 +158,7 @@ class ModelReporterCollection(tp.Generic[ModelType]):
                       step_dataset: np.ndarray,
                       first_step: tp.Optional[int] = 0,
                       last_step: tp.Optional[int] = -1,
+                      stride: int = 1,
                       variable_selection: tp.Optional[tp.Sequence[str]] = None) \
             -> pd.DataFrame:
         self._purge_buffer()
@@ -166,7 +167,7 @@ class ModelReporterCollection(tp.Generic[ModelType]):
             variable_selection = self.reporter_names
 
         name_to_dataset_map = \
-            {name: np.array(dataset[first_step:last_step])
+            {name: np.array(dataset[first_step:last_step:stride])
              for name, dataset
              in zip(self.reporter_names, self.datasets)
              if name in variable_selection}
@@ -217,7 +218,7 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
             dt_string = \
                 datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
-            self.hdf5_filename = model_name + "_" + git_commit_hash + "_" + dt_string
+            self.hdf5_filename = model_name + "_" + git_commit_hash + "_" + dt_string + '.h5'
             self.hdf5_path = os.path.join(output_data_directory, self.hdf5_filename)
 
             self.hdf5_file: h5py.File = h5py.File(self.hdf5_path, 'w')
@@ -269,6 +270,7 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
     def get_model_vars_dataframe(self,
                                  first_step: tp.Optional[int] = 0,
                                  last_step: tp.Optional[int] = -1,
+                                 stride: int = 1,
                                  model_variable_selection: tp.Optional[tp.Sequence[str]] = None) \
             -> pd.DataFrame:
         self.flush()
@@ -276,9 +278,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
         return (self
                 ._model_reporter_collection
                 .get_dataframe(
-                    step_dataset=self.step_dataset[first_step:last_step],
+                    step_dataset=self.step_dataset[first_step:last_step:stride],
                     first_step=first_step,
                     last_step=last_step,
+                    stride=stride,
                     variable_selection=model_variable_selection))
 
     def flush(self):
