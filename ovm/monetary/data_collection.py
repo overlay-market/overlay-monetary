@@ -82,9 +82,15 @@ class ModelReporterCollection(tp.Generic[ModelType]):
     def __init__(
             self,
             save_interval: int,
-            name_to_model_reporter_map: tp.Dict[str, AbstractModelReporter[ModelType]],
-            hdf5_file: h5py.File
+            hdf5_file: h5py.File,
+            name_to_model_reporter_map:
+            tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
     ):
+        if not name_to_model_reporter_map:
+            name_to_model_reporter_map = {}
+
+        assert not any(name == STEP_COLUMN_NAME for name in name_to_model_reporter_map.keys())
+
         self.name_to_model_reporter_map = name_to_model_reporter_map
         self.model_reporters = []
         self.reporter_names = []
@@ -125,9 +131,6 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         end_index = self.steps + 1
         begin_index = self.steps - self.current_buffer_index + 1
 
-        # print(f'purge ')
-        # print(f'steps={self.steps}, current_buffer_index={self.current_buffer_index}')
-
         # write buffers for model reporters to hdf5 file
         for dataset, buffer in zip(self.datasets, self.model_reporters_buffers):
             dataset.resize(size=(end_index,))
@@ -154,24 +157,23 @@ class ModelReporterCollection(tp.Generic[ModelType]):
     def get_model_vars_dataframe(self,
                                  step_dataset: np.ndarray,
                                  first_step: tp.Optional[int] = 0,
-                                 last_step: tp.Optional[int] = -1) -> pd.DataFrame:
-        self.flush()
+                                 last_step: tp.Optional[int] = -1,
+                                 model_variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
+        self._purge_buffer()
+
+        if not model_variable_selection:
+            model_variable_selection = self.reporter_names
 
         name_to_dataset_map = \
             {name: np.array(dataset[first_step:last_step])
              for name, dataset
-             in zip(self.reporter_names, self.datasets)}
+             in zip(self.reporter_names, self.datasets)
+             if name in model_variable_selection}
 
         name_to_dataset_map.update({STEP_COLUMN_NAME: step_dataset})
 
-        # for name, dataset in name_to_dataset_map.items():
-        #     print(f'{name}: {dataset.shape}')
-
         return pd.DataFrame(name_to_dataset_map)
-
-    def flush(self):
-        # write what remains in the buffer to the HDF5 file object
-        self._purge_buffer()
 
 
 class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
@@ -186,10 +188,6 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             output_data_directory: tp.Optional[str] = None,
             # tables=None
     ):
-        # print(f'save_interval={save_interval}')
-        if not model_reporters:
-            model_reporters = {}
-
         if not agent_reporters:
             agent_reporters = {}
 
@@ -199,14 +197,11 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
         if not os.path.exists(output_data_directory):
             os.makedirs(output_data_directory)
 
-        assert not any(name == STEP_COLUMN_NAME for name in model_reporters.keys())
         assert not any(name == STEP_COLUMN_NAME for name in agent_reporters.keys())
 
         self.save_interval = save_interval
         self.current_buffer_index = 0
         self.model_name = model_name
-        # self.model_reporters = model_reporters
-        # self.agent_reporters = agent_reporters
 
         # step
         self.step_buffer = np.zeros((save_interval, ), dtype=np.int32)
@@ -273,7 +268,9 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
     def get_model_vars_dataframe(self,
                                  first_step: tp.Optional[int] = 0,
-                                 last_step: tp.Optional[int] = -1) -> pd.DataFrame:
+                                 last_step: tp.Optional[int] = -1,
+                                 model_variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
         self.flush()
 
         return (self
@@ -281,7 +278,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                 .get_model_vars_dataframe(
                     step_dataset=self.step_dataset[first_step:last_step],
                     first_step=first_step,
-                    last_step=last_step))
+                    last_step=last_step,
+                    model_variable_selection=model_variable_selection))
 
     def flush(self):
         # write what remains in the buffer to the HDF5 file object
