@@ -26,6 +26,7 @@ REQUIRED = [
     "ccxt",
     "contexttimer",
     "gitpython",
+    "h5py",
     "jupyter",
     "matplotlib",
     "mesa",
