@@ -156,42 +156,29 @@ class HDF5DataCollector:
             self.name_to_model_dataset_map[STEP_COLUMN_NAME] = self.step_dataset
 
     def _purge_buffer(self):
+        if self.current_buffer_index == 0:
+            return
+
         step = self.steps
         end_index = step + 1
-        # print(f'end_index={end_index}')
         begin_index = step - self.current_buffer_index + 1
-        assert begin_index == step - self.save_interval + 1
-        # print(f'begin_index={begin_index}')
-
-        # print(f'saving to HDF5')
-        # print(f'current_buffer_index = {self.current_buffer_index}')
-        # print(f'step={step}')
-        # print(f'{begin_index} to {end_index}')
-
-        # begin_index = step - self.save_interval
-        # end_index = begin_index + self.save_interval
+        # assert begin_index == step - self.save_interval + 1
 
         # write buffers for model reporters to hdf5 file
         for i, (name, buffer) in enumerate(self.model_reporters_buffers.items()):
             data = self.name_to_model_dataset_map[name]
-            # data: h5py.Dataset = self.hdf5_file[name]
-            # begin_index = len(data)
-            # end_index = begin_index + self.save_interval
             data.resize(size=(end_index,))
-            # print(f'{data.shape=}')
-            data[begin_index:end_index] = buffer
+            data[begin_index:end_index] = buffer[:self.current_buffer_index]
 
         # write time steps to HDF5 file
         self.step_dataset.resize(size=(end_index,))
-        self.step_dataset[begin_index:end_index] = self.step_buffer
-        # print(f'step dataset dimensions = {len(self.step_dataset)}')
+        self.step_dataset[begin_index:end_index] = self.step_buffer[:self.current_buffer_index]
 
         self.current_buffer_index = 0
 
     def collect(self, model):
         self.steps = model.schedule.steps
         self.step_buffer[self.current_buffer_index] = self.steps
-        # print(f'self.current_buffer_index={self.current_buffer_index}')
 
         # collect model reports and write to buffer
         for name, reporter in self.model_reporters.items():
@@ -218,16 +205,19 @@ class HDF5DataCollector:
                                  first_step: tp.Optional[int] = 0,
                                  last_step: tp.Optional[int] = -1) -> pd.DataFrame:
         self.flush()
-        # array = np.array(self.hdf5_file[STEP_COLUMN_NAME][first_step:last_step])
-        array = np.array(self.step_dataset[first_step:last_step])
-        name_to_dataset_map = \
-            {STEP_COLUMN_NAME: array}
-        # print(f'{STEP_COLUMN_NAME} {array.shape}')
+        # name_to_dataset_map = \
+        #     {STEP_COLUMN_NAME: np.array(self.step_dataset[first_step:last_step])}
+        #
+        # for name, dataset in self.name_to_model_dataset_map.items():
+        #     # print(f'{name} {array.shape}')
+        #     name_to_dataset_map[name] = np.array(dataset)
 
-        for name, dataset in self.name_to_model_dataset_map.items():
-            array = np.array(dataset)
-            print(f'{name} {array.shape}')
-            name_to_dataset_map[name] = array
+        name_to_dataset_map = \
+            {name: np.array(dataset[first_step:last_step])
+             for name, dataset
+             in self.name_to_model_dataset_map.items()}
+
+        name_to_dataset_map.update({STEP_COLUMN_NAME: np.array(self.step_dataset[first_step:last_step])})
 
         return pd.DataFrame(name_to_dataset_map)
 
