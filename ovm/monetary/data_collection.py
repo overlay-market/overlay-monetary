@@ -187,6 +187,10 @@ class ModelReporterCollection(tp.Generic[ModelType]):
 ################################################################################
 # Agent Level Reporter Collection
 ################################################################################
+def _get_unqualified_class_name_from_object(obj) -> str:
+    return str(type(obj)).split("'")[1].split(".")[-1]
+
+
 class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
     def __init__(
             self,
@@ -248,6 +252,20 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
     def reporter_names(self) -> tp.Sequence[str]:
         return self._reporter_names
 
+    @property
+    def agent_types(self) -> tp.Sequence[tp.Type[AgentType]]:
+        return [type(agent) for agent in self._agents]
+
+    @property
+    def agent_ids(self) -> tp.Sequence[int]:
+        return [agent.unique_id for agent in self._agents]
+
+    @property
+    def agent_type_and_id_combined(self) -> tp.Sequence[str]:
+        return [f"{_get_unqualified_class_name_from_object(agent)}-{agent.unique_id}"
+                for agent
+                in self._agents]
+
     def _purge_buffer(self):
         if self._current_buffer_index == 0:
             return
@@ -286,16 +304,20 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
             unsliced_step_dataset: np.ndarray,
             first_step: tp.Optional[int] = 0,
             last_step: tp.Optional[int] = -1,
-            stride: int = 1) -> pd.DataFrame:
+            stride: int = 1,
+            use_agent_types_in_header: bool = False) -> pd.DataFrame:
         self._purge_buffer()
 
         reporter_index = self._reporter_names.index(reporter_name)
         array = np.array(self._datasets[reporter_index][first_step:last_step:stride, :])
-        agent_ids = [agent.unique_id for agent in self._agents]
+        if use_agent_types_in_header:
+            agent_header = self.agent_type_and_id_combined
+        else:
+            agent_header = self.agent_ids
 
         return pd.DataFrame(data=array,
                             index=unsliced_step_dataset[first_step:last_step:stride],
-                            columns=agent_ids)
+                            columns=agent_header)
 
     # def get_dataframe(self,
     #                   step_dataset: np.ndarray,
@@ -452,7 +474,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                                    reporter_name: str,
                                    first_step: tp.Optional[int] = 0,
                                    last_step: tp.Optional[int] = -1,
-                                   stride: int = 1) \
+                                   stride: int = 1,
+                                   use_agent_types_in_header: bool = False) \
             -> pd.DataFrame:
         self.flush()
 
@@ -463,24 +486,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                     unsliced_step_dataset=self._step_dataset,
                     first_step=first_step,
                     last_step=last_step,
-                    stride=stride))
-
-    # def get_agent_vars_dataframe(self,
-    #                              first_step: tp.Optional[int] = 0,
-    #                              last_step: tp.Optional[int] = -1,
-    #                              stride: int = 1,
-    #                              model_variable_selection: tp.Optional[tp.Sequence[str]] = None) \
-    #         -> pd.DataFrame:
-    #     self.flush()
-    #
-    #     return (self
-    #             ._agent_reporter_collection
-    #             .get_dataframe(
-    #                 step_dataset=self.step_dataset[first_step:last_step:stride],
-    #                 first_step=first_step,
-    #                 last_step=last_step,
-    #                 stride=stride,
-    #                 variable_selection=model_variable_selection))
+                    stride=stride,
+                    use_agent_types_in_header=use_agent_types_in_header))
 
     def flush(self):
         # write what remains in the buffer to the HDF5 file object
