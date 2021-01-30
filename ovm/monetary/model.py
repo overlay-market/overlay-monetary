@@ -350,8 +350,9 @@ class MonetaryModel(Model):
                 )
 
         self.running = True
-        # if self.data_collection_options.perform_data_collection:
-        #     self.data_collector.collect(self)
+        if self.data_collection_options.perform_data_collection and \
+           not self.data_collection_options.use_hdf5:
+            self.data_collector.collect(self)
 
     @property
     def name(self) -> str:
