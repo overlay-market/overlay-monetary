@@ -230,7 +230,8 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         for name, reporter in name_to_agent_reporter_map.items():
             self._reporter_names.append(name)
             self._reporters.append(reporter)
-            self._buffers.append(np.zeros((save_interval, self.number_of_agents), dtype=reporter.dtype))
+            self._buffers.append(np.zeros((save_interval, self.number_of_agents),
+                                          dtype=reporter.dtype))
 
         self._reporters = tuple(self._reporters)
         self._reporter_names = tuple(self._reporter_names)
@@ -252,6 +253,8 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
                                             dtype=reporter.dtype,
                                             maxshape=(None, self.number_of_agents),
                                             chunks=(save_interval, self.number_of_agents))))
+
+            # agent_group.create_dataset(name='AGENT_TYPES', data=self.agent_type_strings)
         else:
             for name in self._reporter_names:
                 dataset = agent_group.get(name)
@@ -280,11 +283,9 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
     def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
         return set(type(agent) for agent in self._agents)
 
-    # def agent_types(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) \
-    #         -> tp.Sequence[tp.Type[AgentType]]:
-    #     return [type(agent)
-    #             for agent
-    #             in filter_agents_by_type(self._agents, agent_type=agent_type)]
+    @property
+    def agent_type_strings(self) -> tp.Sequence[str]:
+        return [_get_unqualified_class_name_from_object(agent) for agent in self._agents]
 
     def _agent_ids(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) -> tp.Sequence[int]:
         return [agent.unique_id
@@ -365,7 +366,6 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             model_reporters: tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
             agent_reporters: tp.Optional[tp.Dict[str, AbstractAgentReporter[ModelType]]] = None,
             output_data_directory: tp.Optional[str] = None,
-            # tables=None
     ):
         if not output_data_directory:
             output_data_directory = OUTPUT_DATA_DIRECTORY
