@@ -106,6 +106,10 @@ class ModelReporterCollection(tp.Generic[ModelType]):
             self._reporters.append(reporter)
             self._buffers.append(np.zeros((save_interval,), dtype=reporter.dtype))
 
+        self._reporters = tuple(self._reporters)
+        self._reporter_names = tuple(self._reporter_names)
+        self._buffers = tuple(self._buffers)
+
         group_name = MODEL_VARIABLES_GROUP_NAME
         model_group = hdf5_file.get(group_name)
         if not model_group:
@@ -114,7 +118,6 @@ class ModelReporterCollection(tp.Generic[ModelType]):
 
             # create a hdf5 dataset for each reporter
             for name, reporter in zip(self._reporter_names, self._reporters):
-
                 self._datasets.append(model_group.create_dataset(name=name,
                                                                  shape=(0,),
                                                                  dtype=reporter.dtype,
@@ -125,6 +128,8 @@ class ModelReporterCollection(tp.Generic[ModelType]):
                 dataset = model_group.get(name)
                 assert dataset is not None
                 self._datasets.append(dataset)
+
+        self._datasets = tuple(self._datasets)
 
     @property
     def reporter_names(self) -> tp.Sequence[str]:
@@ -355,7 +360,6 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
     def __init__(
             self,
             model: ModelType,
-            number_of_agents: int,
             save_interval: int,
             existing_filename_to_append_to: tp.Optional[str] = None,
             model_reporters: tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
@@ -363,16 +367,11 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             output_data_directory: tp.Optional[str] = None,
             # tables=None
     ):
-        if not agent_reporters:
-            agent_reporters = {}
-
         if not output_data_directory:
             output_data_directory = OUTPUT_DATA_DIRECTORY
 
         if not os.path.exists(output_data_directory):
             os.makedirs(output_data_directory)
-
-        assert not any(name == STEP_COLUMN_NAME for name in agent_reporters.keys())
 
         self._save_interval = save_interval
         self._current_buffer_index = 0

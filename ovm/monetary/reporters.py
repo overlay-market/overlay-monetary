@@ -21,7 +21,7 @@ from ovm.tickers import OVL_TICKER
 class GiniReporter(AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent]):
     def report(self, model) -> float:
         agents = [
-            a for a in model.schedule._agents
+            a for a in model.schedule.agents
             if self.agent_type is None or type(a) == self.agent_type
         ]
 
@@ -107,11 +107,11 @@ class AggregateWealthForAgentTypeReporter(
         AbstractAgentTypeLevelReporter[MonetaryModel, MonetaryAgent]):
     def report(self, model) -> float:
         if not self.agent_type:
-            wealths = [a.wealth for a in model.schedule._agents]
+            wealths = [a.wealth for a in model.schedule.agents]
         else:
             wealths = [a.wealth
                        for a
-                       in model.schedule._agents
+                       in model.schedule.agents
                        if type(a) == self.agent_type
                        ]
 
@@ -156,36 +156,15 @@ def compute_inventory_wealth_for_agent_type(
         agent_type: tp.Optional[tp.Type[MonetaryAgent]] = None,
         inventory_type: tp.Optional[str] = None,
         in_quote: bool = False):
-    agents = model.schedule._agents
+    agents = model.schedule.agents
     if agent_type:
-        agents = filter(lambda a: type(a) == agent_type, model.schedule._agents)
+        agents = filter(lambda a: type(a) == agent_type, model.schedule.agents)
 
     return sum(map(lambda a: compute_inventory_wealth_for_agent(model,
                                                                 a,
                                                                 inventory_type=inventory_type,
                                                                 in_quote=in_quote),
                    agents))
-
-    # if not agent_type:
-    #     wealths = [
-    #         compute_inventory_wealth_for_agent(
-    #             model, a, inventory_type=inventory_type, in_quote=in_quote)
-    #         for a in model.schedule.agents
-    #     ]
-    # else:
-    #     wealths = [
-    #         compute_inventory_wealth_for_agent(
-    #             model, a, inventory_type=inventory_type, in_quote=in_quote)
-    #         for a in model.schedule.agents if type(a) == agent_type
-    #     ]
-    #
-    # wealths = [
-    #     compute_inventory_wealth_for_agent(
-    #         model, a, inventory_type=inventory_type, in_quote=in_quote)
-    #     for a in agents
-    # ]
-    #
-    # return sum(wealths)
 
 
 class AggregateInventoryWealthForAgentTypeReporter(
