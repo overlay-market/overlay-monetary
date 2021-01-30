@@ -204,6 +204,7 @@ class AggregateInventoryWealthForAgentTypeReporter(
                                                        inventory_type=self.inventory_type,
                                                        in_quote=self.in_quote)
 
+
 ################################################################################
 # Skew (Positional Imbalance)
 ################################################################################

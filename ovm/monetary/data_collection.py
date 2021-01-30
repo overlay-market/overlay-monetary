@@ -191,6 +191,15 @@ def _get_unqualified_class_name_from_object(obj) -> str:
     return str(type(obj)).split("'")[1].split(".")[-1]
 
 
+def filter_agents_by_type(agents: tp.Iterable[AgentType],
+                          agent_type: tp.Optional[tp.Type[AgentType]] = None) \
+        -> tp.Iterable[AgentType]:
+    if agent_type:
+        agents = filter(lambda a: type(a) == agent_type, agents)
+
+    return agents
+
+
 class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
     def __init__(
             self,
@@ -205,7 +214,7 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
 
         assert not any(name == STEP_COLUMN_NAME for name in name_to_agent_reporter_map.keys())
 
-        self._agents = agents
+        self._agents = tuple(agents)
         self._reporters: tp.List[AbstractAgentReporter[AgentType]] = []
         self._reporter_names: tp.List[str] = []
         self._buffers: tp.List[np.ndarray] = []
@@ -217,6 +226,10 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
             self._reporter_names.append(name)
             self._reporters.append(reporter)
             self._buffers.append(np.zeros((save_interval, self.number_of_agents), dtype=reporter.dtype))
+
+        self._reporters = tuple(self._reporters)
+        self._reporter_names = tuple(self._reporter_names)
+        self._buffers = tuple(self._buffers)
 
         group_name = AGENT_VARIABLES_GROUP_NAME
         agent_group = hdf5_file.get(group_name)
@@ -240,6 +253,8 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
                 assert dataset is not None
                 self._datasets.append(dataset)
 
+        self._datasets = tuple(self._datasets)
+
     @property
     def number_of_agents(self) -> int:
         return len(self._agents)
@@ -252,19 +267,30 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
     def reporter_names(self) -> tp.Sequence[str]:
         return self._reporter_names
 
-    @property
-    def agent_types(self) -> tp.Sequence[tp.Type[AgentType]]:
-        return [type(agent) for agent in self._agents]
+    def _get_agent_type_indicator(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) \
+            -> np.ndarray:
+        return np.array([type(a) == agent_type for a in self._agents])
 
     @property
-    def agent_ids(self) -> tp.Sequence[int]:
-        return [agent.unique_id for agent in self._agents]
+    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
+        return set(type(agent) for agent in self._agents)
 
-    @property
-    def agent_type_and_id_combined(self) -> tp.Sequence[str]:
+    # def agent_types(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) \
+    #         -> tp.Sequence[tp.Type[AgentType]]:
+    #     return [type(agent)
+    #             for agent
+    #             in filter_agents_by_type(self._agents, agent_type=agent_type)]
+
+    def _agent_ids(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) -> tp.Sequence[int]:
+        return [agent.unique_id
+                for agent
+                in filter_agents_by_type(self._agents, agent_type=agent_type)]
+
+    def _agent_type_and_id_combined(self, agent_type: tp.Optional[tp.Type[AgentType]] = None) \
+            -> tp.Sequence[str]:
         return [f"{_get_unqualified_class_name_from_object(agent)}-{agent.unique_id}"
                 for agent
-                in self._agents]
+                in filter_agents_by_type(self._agents, agent_type=agent_type)]
 
     def _purge_buffer(self):
         if self._current_buffer_index == 0:
@@ -305,41 +331,24 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
             first_step: tp.Optional[int] = 0,
             last_step: tp.Optional[int] = -1,
             stride: int = 1,
-            use_agent_types_in_header: bool = False) -> pd.DataFrame:
+            use_agent_types_in_header: bool = False,
+            agent_type: tp.Optional[tp.Type[AgentType]] = None) -> pd.DataFrame:
         self._purge_buffer()
 
         reporter_index = self._reporter_names.index(reporter_name)
         array = np.array(self._datasets[reporter_index][first_step:last_step:stride, :])
+        if agent_type:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type)
+            array = array[:, agent_type_indicator]
+
         if use_agent_types_in_header:
-            agent_header = self.agent_type_and_id_combined
+            agent_header = self._agent_type_and_id_combined(agent_type)
         else:
-            agent_header = self.agent_ids
+            agent_header = self._agent_ids(agent_type)
 
         return pd.DataFrame(data=array,
                             index=unsliced_step_dataset[first_step:last_step:stride],
                             columns=agent_header)
-
-    # def get_dataframe(self,
-    #                   step_dataset: np.ndarray,
-    #                   first_step: tp.Optional[int] = 0,
-    #                   last_step: tp.Optional[int] = -1,
-    #                   stride: int = 1,
-    #                   variable_selection: tp.Optional[tp.Sequence[str]] = None) \
-    #         -> pd.DataFrame:
-    #     self._purge_buffer()
-    #
-    #     if not variable_selection:
-    #         variable_selection = self.reporter_names
-    #
-    #     name_to_dataset_map = \
-    #         {name: np.array(dataset[first_step:last_step:stride, :])
-    #          for name, dataset
-    #          in zip(self.reporter_names, self.datasets)
-    #          if name in variable_selection}
-    #
-    #     name_to_dataset_map.update({STEP_COLUMN_NAME: step_dataset})
-    #
-    #     return pd.DataFrame(name_to_dataset_map)
 
 
 class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
@@ -453,6 +462,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
         if self._current_buffer_index == self._save_interval:
             self._purge_buffer()
 
+    @property
+    def model_reporter_names(self) -> tp.Sequence[str]:
+        return self._model_reporter_collection.reporter_names
+
     def get_model_vars_dataframe(self,
                                  first_step: tp.Optional[int] = 0,
                                  last_step: tp.Optional[int] = -1,
@@ -470,12 +483,21 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                     stride=stride,
                     variable_selection=model_variable_selection))
 
+    @property
+    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
+        return self._agent_reporter_collection.agent_types
+
+    @property
+    def agent_reporter_names(self) -> tp.Sequence[str]:
+        return self._agent_reporter_collection.reporter_names
+
     def get_agent_report_dataframe(self,
                                    reporter_name: str,
                                    first_step: tp.Optional[int] = 0,
                                    last_step: tp.Optional[int] = -1,
                                    stride: int = 1,
-                                   use_agent_types_in_header: bool = False) \
+                                   use_agent_types_in_header: bool = False,
+                                   agent_type: tp.Optional[tp.Type[AgentType]] = None) \
             -> pd.DataFrame:
         self.flush()
 
@@ -487,7 +509,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                     first_step=first_step,
                     last_step=last_step,
                     stride=stride,
-                    use_agent_types_in_header=use_agent_types_in_header))
+                    use_agent_types_in_header=use_agent_types_in_header,
+                    agent_type=agent_type))
 
     def flush(self):
         # write what remains in the buffer to the HDF5 file object
