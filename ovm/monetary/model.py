@@ -21,6 +21,8 @@ from ovm.monetary.data_collection import (
     HDF5DataCollector
 )
 
+from ovm.monetary.data_io import AgentBasedSimulationInputData
+
 from ovm.monetary.plot_labels import (
     price_deviation_label,
     spot_price_label,
@@ -60,7 +62,8 @@ class MonetaryModel(Model):
         num_holders: int,
         num_snipers: int,
         num_liquidators: int,
-        sims: tp.Dict[str, np.ndarray],
+        # sims: tp.Dict[str, np.ndarray],
+        input_data: AgentBasedSimulationInputData,
         quote_ticker: str,
         ovl_quote_ticker: str,
         base_wealth: float,
@@ -121,7 +124,8 @@ class MonetaryModel(Model):
         self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
-        self.sims = sims  # { k: [ prices ] }
+        # self.sims = sims  # { k: [ prices ] }
+        self.input_data = input_data
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
         self.time_resolution = time_resolution
@@ -145,10 +149,10 @@ class MonetaryModel(Model):
         # Markets: Assume OVL-QUOTE is in here and only have X-QUOTE pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
-        n = len(sims.keys())
+        n = len(self.sims.keys())
         prices_ovl_quote = self.sims[self.ovl_quote_ticker]
         liquidity_weight = {
-            list(sims.keys())[i]: 1
+            list(self.sims.keys())[i]: 1
             for i in range(n)
         }
         self.fmarkets = {
@@ -356,6 +360,10 @@ class MonetaryModel(Model):
     @property
     def number_of_markets(self) -> int:
         return len(self.sims)
+
+    @property
+    def sims(self) -> tp.Dict[str, np.ndarray]:
+        return self.input_data.ticker_to_series_of_prices_map
 
     def step(self):
         """

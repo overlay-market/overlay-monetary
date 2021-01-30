@@ -17,8 +17,8 @@ from ovm.tickers import (
 from ovm.time_resolution import TimeResolution
 from ovm.monetary.data_collection import DataCollectionOptions
 from ovm.monetary.data_io import (
-    construct_sims_map,
-    construct_hist_map,
+    construct_sims_map, construct_abs_data_input_with_resampled_data,
+    construct_hist_map, construct_abs_data_input_with_historical_data,
     load_and_construct_ticker_to_series_of_prices_map_from_historical_prices
 )
 from ovm.monetary.model import MonetaryModel
@@ -75,15 +75,16 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 # Use bootstrap simulations - Begin
-# sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-#                           time_resolution=time_resolution,
-#                           tickers=tickers, historical_data_source=historical_data_source,
-#                           ovl_ticker=SNX_ETH_TICKER,
-#                           ovl_quote_ticker=ovl_quote_ticker)
+# sims = construct_abs_data_input_with_resampled_data(
+#         data_sim_rng=DATA_SIM_RNG,
+#         time_resolution=time_resolution,
+#         tickers=tickers, historical_data_source=historical_data_source,
+#         ovl_ticker=SNX_ETH_TICKER,
+#         ovl_quote_ticker=ovl_quote_ticker)
 # Use bootstrap simulations - End
 
 # Use historical data - Begin
-sims = construct_hist_map(
+sims = construct_abs_data_input_with_historical_data(
             time_resolution=time_resolution,
             historical_data_source=historical_data_source,
             tickers=tickers,
@@ -104,7 +105,7 @@ liquidity_supply_emission = [(0.51*total_supply/time_liquidity_mine)*i + 0.285*t
 # Construct Chart Elements
 ################################################################################
 chart_elements = \
-    construct_chart_elements(tickers=sims.keys(),
+    construct_chart_elements(tickers=sims.tickers,
                              data_collection_options=data_collection_options)
 
 ################################################################################
@@ -112,7 +113,7 @@ chart_elements = \
 ################################################################################
 # TODO: Vary these initial num_ ... numbers; for init, reference empirical #s already seeing for diff projects
 model_kwargs = {
-    "sims": sims,
+    "input_data": sims,
     "quote_ticker": quote_ticker,
     "ovl_quote_ticker": ovl_quote_ticker,
     "num_arbitrageurs": num_arbitrageurs,

@@ -88,7 +88,7 @@ def construct_sims_map(
     return ticker_to_time_series_of_prices_map
 
 
-def construct_abs_data_input_from_resampled_data(
+def construct_abs_data_input_with_resampled_data(
         data_sim_rng: int,
         time_resolution: TimeResolution,
         historical_data_source: HistoricalDataSource,
@@ -146,7 +146,7 @@ def construct_hist_map(
     return close_prices
 
 
-def construct_abs_data_input_from_historical_data(
+def construct_abs_data_input_with_historical_data(
         time_resolution: TimeResolution,
         historical_data_source: HistoricalDataSource,
         tickers: tp.Sequence[str],
@@ -160,6 +160,7 @@ def construct_abs_data_input_from_historical_data(
                            ovl_ticker=ovl_ticker,
                            ovl_quote_ticker=ovl_quote_ticker,
                            verbose=verbose)
+
     return AgentBasedSimulationInputData(
             ticker_to_series_of_prices_map=ticker_to_series_of_prices_map,
             time_resolution=time_resolution,
@@ -203,7 +204,7 @@ def load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
         historical_data_source: HistoricalDataSource,
         tickers: tp.Sequence[str],
         ovl_ticker: str,
-        ovl_quote_ticker: str):
+        ovl_quote_ticker: str) -> tp.Dict[str, np.ndarray]:
     directory_path = \
         construct_historical_data_directory(
             historical_data_source=historical_data_source,
@@ -214,10 +215,11 @@ def load_and_construct_ticker_to_series_of_prices_map_from_historical_prices(
                          period_length_in_seconds=time_resolution.in_seconds,
                          directory_path=directory_path)
 
-    result = construct_ticker_to_series_of_prices_map_from_historical_prices(
-        historical_price_df=closing_price_df,
-        tickers=tickers,
-        ovl_ticker=ovl_ticker,
-        ovl_quote_ticker=ovl_quote_ticker)
+    result = \
+        construct_ticker_to_series_of_prices_map_from_historical_prices(
+            historical_price_df=closing_price_df,
+            tickers=tickers,
+            ovl_ticker=ovl_ticker,
+            ovl_quote_ticker=ovl_quote_ticker)
 
     return result
