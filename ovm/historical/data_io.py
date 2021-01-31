@@ -78,7 +78,7 @@ def save_price_histories(name_to_price_history_df_map: tp.Dict[str, pd.DataFrame
                          directory_path: tp.Optional[str] = None):
     for name, price_history_df in name_to_price_history_df_map.items():
         save_price_history_df(price_history_df=price_history_df,
-                              filename=name,
+                              filename=name + '.parq',
                               directory_path=directory_path)
 
 
@@ -121,11 +121,6 @@ class PriceHistory:
 
         return log_returns
 
-        # return compute_log_returns_from_price_history(
-        #             price_history_df=self.price_history_df,
-        #             period_length_in_seconds=self.period_length_in_seconds,
-        #             name=self.name)
-
     @property
     def garch_scaling_factor(self) -> float:
         return np.sqrt(365 * 24 * 60 * 60 / self.period_length_in_seconds)
@@ -139,8 +134,9 @@ def load_price_history(filename: str,
                        series_name: str,
                        directory_path: str,
                        period_length_in_seconds: float) -> PriceHistory:
-    file_path = _construct_file_path(
-        filename=filename, directory_path=directory_path)
+    file_path = _construct_file_path(filename=filename,
+                                     directory_path=directory_path)
+
     price_history_df = pd.read_parquet(file_path)
 
     return PriceHistory(name=series_name,
@@ -153,7 +149,7 @@ def load_price_histories(series_names: tp.Sequence[str],
                          directory_path: tp.Optional[str] = None,
                          file_extension: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
     series_name_to_price_history_map = \
-        {series_name: load_price_history(filename=(series_name if file_extension is None else f'{series_name}.{file_extension}'),
+        {series_name: load_price_history(filename=series_name + '.parq',
                                          series_name=series_name,
                                          directory_path=directory_path,
                                          period_length_in_seconds=period_length_in_seconds)
