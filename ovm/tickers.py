@@ -17,7 +17,7 @@ XRP_TICKER = 'XRP'
 USDT_TICKER = 'USDT'
 
 
-def ovl_quote_ticker(quote: str):
+def get_ovl_quote_ticker(quote: str):
     return f'{OVL_TICKER}-{quote}'
 
 

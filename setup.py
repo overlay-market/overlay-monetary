@@ -25,6 +25,8 @@ REQUIRED = [
     "arch",
     "ccxt",
     "contexttimer",
+    "gitpython",
+    "h5py",
     "jupyter",
     "matplotlib",
     "mesa",

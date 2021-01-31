@@ -7,6 +7,7 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 import numpy as np
+from tqdm import tqdm
 
 from ovm.debug_level import (
     PERFORM_DEBUG_LOGGING,
@@ -15,7 +16,13 @@ from ovm.debug_level import (
 
 from ovm.tickers import OVL_TICKER
 
-from ovm.monetary.data_collection import DataCollectionOptions
+from ovm.monetary.data_collection import (
+    DataCollectionOptions,
+    HDF5DataCollector
+)
+
+from ovm.monetary.data_io import AgentBasedSimulationInputData
+
 from ovm.monetary.plot_labels import (
     price_deviation_label,
     spot_price_label,
@@ -31,6 +38,8 @@ from ovm.monetary.plot_labels import (
     TREASURY_LABEL,
     LIQUIDITY_LABEL
 )
+
+from ovm.time_resolution import TimeResolution
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -53,7 +62,8 @@ class MonetaryModel(Model):
         num_holders: int,
         num_snipers: int,
         num_liquidators: int,
-        sims: tp.Dict[str, np.ndarray],
+        # sims: tp.Dict[str, np.ndarray],
+        input_data: AgentBasedSimulationInputData,
         quote_ticker: str,
         ovl_quote_ticker: str,
         base_wealth: float,
@@ -65,6 +75,7 @@ class MonetaryModel(Model):
         liquidity_supply_emission: tp.List[float],
         treasury: float,
         sampling_interval: int,
+        time_resolution: TimeResolution,
         data_collection_options: DataCollectionOptions = DataCollectionOptions(),
         seed: tp.Optional[int] = None
     ):
@@ -80,17 +91,18 @@ class MonetaryModel(Model):
         from ovm.monetary.markets import MonetaryFMarket
 
         from ovm.monetary.reporters import (
-            compute_gini,
-            compute_price_difference,
-            compute_futures_price,
-            compute_spot_price,
-            compute_supply,
-            compute_liquidity,
-            compute_treasury,
-            compute_wealth_for_agent_type,
-            compute_inventory_wealth_for_agent_type,
-            compute_positional_imbalance_by_market,
-            compute_open_positions_per_market
+            GiniReporter,
+            PriceDifferenceReporter,
+            FuturesPriceReporter,
+            SpotPriceReporter,
+            SupplyReporter,
+            LiquidityReporter,
+            TreasuryReporter,
+            AggregateWealthForAgentTypeReporter,
+            AggregateInventoryWealthForAgentTypeReporter,
+            SkewReporter,
+            OpenPositionReporter,
+            AgentWealthReporter
         )
 
         super().__init__(seed=seed)
@@ -112,9 +124,11 @@ class MonetaryModel(Model):
         self.sampling_interval = sampling_interval
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
-        self.sims = sims  # { k: [ prices ] }
+        # self.sims = sims  # { k: [ prices ] }
+        self.input_data = input_data
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
+        self.time_resolution = time_resolution
 
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
@@ -135,10 +149,10 @@ class MonetaryModel(Model):
         # Markets: Assume OVL-QUOTE is in here and only have X-QUOTE pairs for now ...
         # Spread liquidity from liquidity pool by 1/N for now ..
         # if x + y = L/n and x/y = p; nx = (L/2n), ny = (L/2n), x*y = k = (px*L/2n)*(py*L/2n)
-        n = len(sims.keys())
+        n = len(self.sims.keys())
         prices_ovl_quote = self.sims[self.ovl_quote_ticker]
         liquidity_weight = {
-            list(sims.keys())[i]: 1
+            list(self.sims.keys())[i]: 1
             for i in range(n)
         }
         self.fmarkets = {
@@ -246,42 +260,53 @@ class MonetaryModel(Model):
 
         if self.data_collection_options.perform_data_collection:
             model_reporters = {
-                price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
+                # price_deviation_label(ticker): partial(compute_price_difference, ticker=ticker)
+                price_deviation_label(ticker): PriceDifferenceReporter(ticker=ticker)
                 for ticker in tickers
             }
             model_reporters.update({
-                spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
+                # spot_price_label(ticker): partial(compute_spot_price, ticker=ticker)
+                spot_price_label(ticker): SpotPriceReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
+                # futures_price_label(ticker): partial(compute_futures_price, ticker=ticker)
+                futures_price_label(ticker): FuturesPriceReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                # skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                skew_label(ticker): SkewReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
+                # open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
+               open_positions_label(ticker): OpenPositionReporter(ticker=ticker)
                 for ticker in tickers
             })
 
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
-                    GINI_LABEL: compute_gini,
-                    GINI_ARBITRAGEURS_LABEL: partial(
-                        compute_gini, agent_type=MonetaryArbitrageur)
+                    GINI_LABEL: GiniReporter(),
+                    GINI_ARBITRAGEURS_LABEL: GiniReporter(agent_type=MonetaryArbitrageur)
+                    # GINI_LABEL: compute_gini,
+                    # GINI_ARBITRAGEURS_LABEL: partial(
+                    #     compute_gini, agent_type=MonetaryArbitrageur)
                 })
 
             model_reporters.update({
-                SUPPLY_LABEL: compute_supply,
-                TREASURY_LABEL: compute_treasury,
-                LIQUIDITY_LABEL: compute_liquidity
+                # SUPPLY_LABEL: compute_supply,
+                # TREASURY_LABEL: compute_treasury,
+                # LIQUIDITY_LABEL: compute_liquidity
+                SUPPLY_LABEL: SupplyReporter(),
+                TREASURY_LABEL: TreasuryReporter(),
+                LIQUIDITY_LABEL: LiquidityReporter()
             })
 
             if self.data_collection_options.compute_wealth:
                 model_reporters.update({
-                    "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
+                    # "Agent": partial(compute_wealth_for_agent_type, agent_type=None)
+                    "Agent": partial(AggregateWealthForAgentTypeReporter())
                 })
 
             for agent_type_name, agent_type in [("Arbitrageurs", MonetaryArbitrageur),
@@ -291,27 +316,55 @@ class MonetaryModel(Model):
                                                 ("Liquidators", MonetaryLiquidator),
                                                 ("Snipers", MonetarySniper)]:
                 if self.data_collection_options.compute_wealth:
-                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = partial(
-                        compute_wealth_for_agent_type, agent_type=agent_type)
+                    model_reporters[agent_wealth_ovl_label(agent_type_name)] = \
+                        AggregateWealthForAgentTypeReporter(agent_type=agent_type)
+                        # partial(compute_wealth_for_agent_type, agent_type=agent_type)
 
                 if self.data_collection_options.compute_inventory_wealth:
                     model_reporters.update({
-                        inventory_wealth_ovl_label(agent_type_name): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
-                        inventory_wealth_quote_label(agent_type_name, self.quote_ticker): partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
+                        inventory_wealth_ovl_label(agent_type_name):
+                            AggregateInventoryWealthForAgentTypeReporter(agent_type=agent_type),
+                            # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type),
+
+                        inventory_wealth_quote_label(agent_type_name, self.quote_ticker):
+                            AggregateInventoryWealthForAgentTypeReporter(agent_type=agent_type, in_quote=True)
+                            # partial(compute_inventory_wealth_for_agent_type, agent_type=agent_type, in_quote=True)
                     })
 
-            self.data_collector = DataCollector(
-                model_reporters=model_reporters,
-                agent_reporters={"Wealth": "wealth"},
-            )
+            save_interval = \
+                int(24 * 60 * 60 /
+                    data_collection_options.data_collection_interval /
+                    time_resolution.in_seconds)
+
+            if data_collection_options.use_hdf5:
+                self.data_collector = \
+                    HDF5DataCollector(
+                        model=self,
+                        save_interval=save_interval,
+                        model_reporters=model_reporters,
+                        agent_reporters={"Wealth": AgentWealthReporter()})
+            else:
+                self.data_collector = DataCollector(
+                    model_reporters=model_reporters,
+                    agent_reporters={"Wealth": AgentWealthReporter()},
+                )
 
         self.running = True
-        if self.data_collection_options.perform_data_collection:
+        if self.data_collection_options.perform_data_collection and \
+           not self.data_collection_options.use_hdf5:
             self.data_collector.collect(self)
+
+    @property
+    def name(self) -> str:
+        return 'MonetaryModel'
 
     @property
     def number_of_markets(self) -> int:
         return len(self.sims)
+
+    @property
+    def sims(self) -> tp.Dict[str, np.ndarray]:
+        return self.input_data.ticker_to_series_of_prices_map
 
     def step(self):
         """
@@ -411,10 +464,9 @@ class MonetaryModel(Model):
             compute_treasury,
             compute_price_difference,
             compute_spot_price,
-            compute_positional_imbalance_by_market,
+            compute_skew_for_market,
             compute_open_positions_per_market,
         )
-
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"step {self.schedule.steps}")
             logger.debug(f"supply {compute_supply(self)}")
@@ -440,8 +492,22 @@ class MonetaryModel(Model):
                     logger.debug(f"fmarket: price_diff bw f/s "
                                  f"{compute_price_difference(self, ticker)}")
                     logger.debug(f"fmarket: positional imbalance "
-                                 f"{compute_positional_imbalance_by_market(self, ticker)}")
+                                 f"{compute_skew_for_market(self, ticker)}")
                     logger.debug(f"fmarket: open positions "
                                  f"{compute_open_positions_per_market(self, ticker)}")
 
         self.schedule.step()
+
+    def run_steps(self, number_of_steps_to_simulate: int, use_tqdm: bool = True):
+        run_range = range(number_of_steps_to_simulate + 1)
+        if use_tqdm:
+            run_range = tqdm(run_range)
+        try:
+            for _ in run_range:
+                self.step()
+        finally:
+            if self.data_collection_options.use_hdf5:
+                # ToDo: Flush buffer to HDF5 file
+                self.data_collector.flush()
+
+

@@ -9,7 +9,7 @@ from ovm.monetary.plot_labels import SUPPLY_LABEL, TREASURY_LABEL, price_deviati
 from ovm.monetary.plots import random_color
 
 
-def construct_chart_elements(tickers, data_collection_options: DataCollectionOptions) -> tp.List:
+def construct_chart_elements(tickers, data_collection_options: DataCollectionOptions) -> tp.List[ChartModule]:
     # TODO: Have separate lines for each bot along with the aggregate!
 
     chart_elements = [
