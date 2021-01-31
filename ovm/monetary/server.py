@@ -79,21 +79,12 @@ data_collection_options = \
 # Construct ticker to price series map
 ################################################################################
 # Use bootstrap simulations - Begin
-<<<<<<< HEAD
-#sims = construct_sims_map(data_sim_rng=DATA_SIM_RNG,
-#                            time_resolution=time_resolution,
-#                            tickers=tickers,
-#                            historical_data_source=historical_data_source,
-#                            ovl_ticker=ovl_ticker,
-#                            ovl_quote_ticker=ovl_quote_ticker)
-=======
 # sims = construct_abs_data_input_with_resampled_data(
 #         data_sim_rng=DATA_SIM_RNG,
 #         time_resolution=time_resolution,
 #         tickers=tickers, historical_data_source=historical_data_source,
 #         ovl_ticker=SNX_ETH_TICKER,
 #         ovl_quote_ticker=ovl_quote_ticker)
->>>>>>> main
 # Use bootstrap simulations - End
 
 # Use historical data - Begin
