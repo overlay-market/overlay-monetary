@@ -4,7 +4,7 @@ from mesa.visualization.modules import ChartModule
 
 from ovm.monetary.data_collection import DATA_COLLECTOR_NAME, DataCollectionOptions
 from ovm.monetary.plot_labels import SUPPLY_LABEL, TREASURY_LABEL, price_deviation_label, \
-    skew_label, open_positions_label, agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL, \
+    skew_label, reserve_skew_relative_label, open_positions_label, agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL, \
     GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label
 from ovm.monetary.plots import random_color
 
@@ -25,6 +25,10 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                     data_collector_name=DATA_COLLECTOR_NAME),
 
         ChartModule([{"Label": skew_label(ticker), "Color": random_color()}
+                     for ticker
+                     in tickers],
+                    data_collector_name=DATA_COLLECTOR_NAME),
+        ChartModule([{"Label": reserve_skew_relative_label(ticker), "Color": random_color()}
                      for ticker
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),

@@ -218,6 +218,32 @@ class SkewReporter(AbstractMarketLevelReporter[MonetaryModel]):
 
 
 ################################################################################
+# Reserve Skew (Virtual Reserve + Locked OVL Imbalance)
+################################################################################
+def compute_reserve_skew_for_market(model: MonetaryModel, ticker: str, relative: bool = False) -> float:
+    monetary_futures_market = model.fmarkets[ticker]
+    uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
+    if len(uuid_to_position_map) > 0:
+        reserve_imbalance = \
+            monetary_futures_market.nx - monetary_futures_market.ny
+        if relative:
+            reserve_imbalance = reserve_imbalance / monetary_futures_market.ny
+        return reserve_imbalance
+    else:
+        return 0.0
+
+
+class ReserveSkewReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_reserve_skew_for_market(model, self.ticker)
+
+
+class ReserveSkewRelativeReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_reserve_skew_for_market(model, self.ticker, relative=True)
+
+
+################################################################################
 # Open Positions
 ################################################################################
 def compute_open_positions_per_market(model: MonetaryModel, ticker: str) -> int:

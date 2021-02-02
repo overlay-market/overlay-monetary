@@ -2,6 +2,7 @@ DEVIATION_LABEL_START = 'd-'
 SPOT_PRICE_LABEL_START = 's-'
 FUTURES_PRICE_LABEL_START = 'f-'
 SKEW_LABEL_START = 'Skew'
+RESERVE_SKEW_LABEL_START = 'Reserve Skew'
 OPEN_POSITIONS_LABEL_START = 'Number of Open Positions on'
 
 
@@ -19,6 +20,14 @@ def futures_price_label(ticker: str) -> str:
 
 def skew_label(ticker: str) -> str:
     return f"{SKEW_LABEL_START} {ticker}"
+
+
+def reserve_skew_label(ticker: str) -> str:
+    return f"{RESERVE_SKEW_LABEL_START} {ticker}"
+
+
+def reserve_skew_relative_label(ticker: str) -> str:
+    return f"{RESERVE_SKEW_LABEL_START} {ticker} (% Difference)"
 
 
 def open_positions_label(ticker: str) -> str:
