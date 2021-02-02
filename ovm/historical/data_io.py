@@ -146,7 +146,8 @@ def load_price_history(filename: str,
 
 def load_price_histories(series_names: tp.Sequence[str],
                          period_length_in_seconds: float,
-                         directory_path: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
+                         directory_path: tp.Optional[str] = None,
+                         file_extension: tp.Optional[str] = None) -> tp.Dict[str, PriceHistory]:
     series_name_to_price_history_map = \
         {series_name: load_price_history(filename=series_name + '.parq',
                                          series_name=series_name,

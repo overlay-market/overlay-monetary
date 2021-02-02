@@ -8,6 +8,7 @@ from mesa.visualization.ModularVisualization import ModularServer
 from ovm.monetary.chart_elements import construct_chart_elements
 from ovm.tickers import (
     EOS_ETH_TICKER,
+    ETC_ETH_TICKER,
     MKR_ETH_TICKER,
     SNX_ETH_TICKER,
     XRP_ETH_TICKER,
@@ -37,6 +38,7 @@ DATA_SIM_RNG = 42
 
 # Load sims from csv files as arrays
 tickers = [EOS_ETH_TICKER,
+           ETC_ETH_TICKER,
            MKR_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
@@ -51,17 +53,19 @@ base_market_fee = 0.0030
 base_max_leverage = 10.0
 base_liquidate_reward = 0.1
 base_maintenance = 0.6
-liquidity = 0.205*total_supply
+liquidity = 0.285*total_supply
 time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
-num_arbitrageurs = int(total_supply*0.1435/base_wealth)
+num_arbitrageurs = int(total_supply*0.1/base_wealth)
+num_long_apes = int(total_supply*0.05/base_wealth)
+num_short_apes = int(total_supply*0.0/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.0/base_wealth)
+num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.1435/base_wealth)
-num_liquidators = int(total_supply*0.004/base_wealth)
+num_snipers = int(total_supply*0.05/base_wealth)
+num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
 
@@ -88,7 +92,7 @@ sims = construct_abs_data_input_with_historical_data(
             time_resolution=time_resolution,
             historical_data_source=historical_data_source,
             tickers=tickers,
-            ovl_ticker=SNX_ETH_TICKER,
+            ovl_ticker=ovl_ticker,
             ovl_quote_ticker=ovl_quote_ticker)
 # Use historical data - End
 
@@ -121,6 +125,8 @@ model_kwargs = {
     "num_traders": num_traders,
     "num_holders": num_holders,
     "num_snipers": num_snipers,
+    "num_long_apes": num_long_apes,
+    "num_short_apes": num_short_apes,
     "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,

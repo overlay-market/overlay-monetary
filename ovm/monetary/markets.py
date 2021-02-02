@@ -86,8 +86,10 @@ class MonetaryFMarket:
             logger.debug(f"FMarket {self.unique_id} has px={self.px}")
             logger.debug(f"FMarket {self.unique_id} has y={self.y}")
             logger.debug(f"FMarket {self.unique_id} has ny={self.ny} OVL")
-            logger.debug(f"FMarket {self.unique_id} has px={self.py}")
+            logger.debug(f"FMarket {self.unique_id} has py={self.py}")
             logger.debug(f"FMarket {self.unique_id} has k={self.k}")
+            logger.debug(f"FMarket {self.unique_id} has px/py={self.px/self.py}")
+            logger.debug(f"FMarket {self.unique_id} has price=x/y={self.price}")
 
     @property
     def price(self) -> float:
@@ -123,7 +125,7 @@ class MonetaryFMarket:
         # Impose fees, burns portion, and transfers rest to treasury
         size = dn*leverage
         fees = min(size*self.base_fee, dn)
-        assert fees >= 0.0, f"fees should be positive but are {fees}"
+        assert fees >= 0.0, f"fees should be positive but are {fees} on build={build}"
 
         # Burn 50% and other 50% send to treasury
         self.model.supply -= 0.5*fees
@@ -603,8 +605,10 @@ class MonetaryFMarket:
         assert ds <= 0.0, f"liquidate: position liquidation should result in burn of amount, ds={ds}"
         reward = abs(ds) * self.liquidate_reward
 
+        # TODO: rethink this calculation so it's not a percent of the loss? or at least not as large
+
         # Anything left over after the burn is pos.amount - abs(ds) (leftover margin) ... split this
-        margin = min(pos.amount - abs(ds), 0)
+        margin = max(pos.amount - abs(ds), 0)
 
         # Any maintenance margin should be split between burn and treasury
         self.model.treasury += 0.5 * margin

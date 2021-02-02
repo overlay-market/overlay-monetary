@@ -4,7 +4,7 @@ from mesa.visualization.modules import ChartModule
 
 from ovm.monetary.data_collection import DATA_COLLECTOR_NAME, DataCollectionOptions
 from ovm.monetary.plot_labels import SUPPLY_LABEL, TREASURY_LABEL, price_deviation_label, \
-    skew_label, open_positions_label, agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL, \
+    skew_label, reserve_skew_relative_label, open_positions_label, agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL, \
     GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label
 from ovm.monetary.plots import random_color
 
@@ -28,6 +28,10 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                      for ticker
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),
+        ChartModule([{"Label": reserve_skew_relative_label(ticker), "Color": random_color()}
+                     for ticker
+                     in tickers],
+                    data_collector_name=DATA_COLLECTOR_NAME),
         ChartModule([{"Label": open_positions_label(ticker), "Color": random_color()}
                      for ticker
                      in tickers],
@@ -35,7 +39,7 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Snipers"]:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Snipers", "Apes"]:
             chart_elements += [
                 ChartModule([{"Label": agent_wealth_ovl_label(agent_type_name), "Color": random_color()}],
                             data_collector_name=DATA_COLLECTOR_NAME),

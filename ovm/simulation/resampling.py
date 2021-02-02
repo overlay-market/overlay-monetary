@@ -24,13 +24,15 @@ from ovm.time_resolution import TimeResolution
 
 def load_log_returns(series_names: tp.Sequence[str],
                      period_length_in_seconds: float,
-                     directory_path: tp.Optional[str] = None) \
+                     directory_path: tp.Optional[str] = None,
+                     file_extension: tp.Optional[str] = None) \
         -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     # load price history
     series_name_to_price_history_map = \
         load_price_histories(series_names=series_names,
                              period_length_in_seconds=period_length_in_seconds,
-                             directory_path=directory_path)
+                             directory_path=directory_path,
+                             file_extension=file_extension)
 
     # construct log returns
     closing_price_df = \
@@ -113,7 +115,8 @@ def simulate_new_price_series_via_bootstrap(
 
 def store_simulated_price_series_in_output_directory(
         series_names: tp.Sequence[str],
-        simulated_prices: np.ndarray,  # a numpy array with shape (1, length, number of price series)
+        # a numpy array with shape (1, length, number of price series)
+        simulated_prices: np.ndarray,
         time_resolution: TimeResolution,
         historical_data_source: HistoricalDataSource,
         numpy_seed: int):
@@ -135,5 +138,6 @@ def store_simulated_price_series_in_output_directory(
         simulation_output_filepath = os.path.join(simulation_output_directory,
                                                   f'sim-{series}.parq')
 
-        df = pd.DataFrame(simulated_prices[0, 1:, series_names.index(series)], columns=[series])
+        df = pd.DataFrame(
+            simulated_prices[0, 1:, series_names.index(series)], columns=[series])
         df.to_parquet(simulation_output_filepath, index=False)
