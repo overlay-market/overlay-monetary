@@ -72,10 +72,12 @@ class MonetaryFMarket:
         self.cum_locked_short_idx = 0
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
-        self.cum_price = self.x / self.y
+        self.cum_price = 0.0
         self.cum_price_idx = 0
-        self.last_cum_price = self.x / self.y
+        self.last_cum_price = 0.0
+        self.last_twap_market = self.x / self.y
         self.last_liquidity = model.liquidity  # For liquidity adjustments
+        self.last_block_price = self.x / self.y
         self.last_funding_idx = 0
         self.last_trade_idx = 0
         self.last_funding_rate = 0
@@ -94,6 +96,10 @@ class MonetaryFMarket:
     @property
     def price(self) -> float:
         return self.x / self.y
+
+    @property
+    def twap(self) -> float:
+        return self.last_twap_market
 
     def _update_cum_price(self):
         # TODO: cum_price and time_elapsed setters ...
@@ -133,6 +139,30 @@ class MonetaryFMarket:
 
         return dn - fees
 
+    def max_allowed_leverage(self, long: bool, lock_price: float):
+        # Accounts for use of TWAP in liquidatable check ...
+        # Anything above this amount should get liquidated immediately
+        max_allowed = self.max_leverage
+        if long and self.twap < lock_price:
+            max_allowed = max(min(
+                self.max_leverage,
+                self.maintenance + (1 - self.maintenance) / (1 - self.twap/lock_price)
+            ), 1)
+        elif not long and self.twap > lock_price:
+            max_allowed = max(min(
+                self.max_leverage,
+                self.maintenance + (1 - self.maintenance) / (self.twap/lock_price - 1)
+            ), 1)
+
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"FMarket.max_allowed_leverage: long -> {long}")
+            logger.debug(f"FMarket.max_allowed_leverage: lock_price -> {lock_price}")
+            logger.debug(f"FMarket.max_allowed_leverage: twap -> {self.twap}")
+            logger.debug(f"FMarket.max_allowed_leverage: price -> {self.price}")
+            logger.debug(f"FMarket.max_allowed_leverage: max_allowed_leverage -> {max_allowed}")
+
+        return max_allowed
+
     def fees(self,
              dn: float,
              build: bool,
@@ -141,6 +171,18 @@ class MonetaryFMarket:
         size = dn*leverage
         return min(size*self.base_fee, dn)
 
+    def peek_price(self,
+                   dn: float,
+                   build: bool,
+                   long: bool,
+                   leverage: float,
+                   fees: bool = True):
+        amount = dn
+        if fees:
+            amount -= self.fees(dn, build, long, leverage)
+
+        return (1 + self.slippage(amount, build, long, leverage)) * self.price
+
     def slippage(self,
                  dn: float,
                  build: bool,
@@ -148,7 +190,6 @@ class MonetaryFMarket:
                  leverage: float):
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
-        assert leverage < self.max_leverage, "slippage: leverage exceeds max_leverage"
         slippage = 0.0
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"FMarket.slippage: market -> {self.unique_id}")
@@ -216,7 +257,6 @@ class MonetaryFMarket:
         # k = (x + dx) * (y - dy)
         # dy = y - k/(x+dx)
         # TODO: dynamic k upon funding based off OVLETH liquidity changes
-        assert leverage < self.max_leverage, "_swap: leverage exceeds max_leverage"
         avg_price = 0.0
         if (build and long) or (not build and not long):
             # print("dn = +px*dx")
@@ -273,7 +313,7 @@ class MonetaryFMarket:
               long: bool,
               leverage: float,
               trader: Any = None):
-        # TODO: Factor in shares of lock pools for funding payment portions to work
+        assert leverage <= self.max_leverage, "build: leverage exceeds max_allowed_leverage"
         amount = self._impose_fees(
             dn, build=True, long=long, leverage=leverage)
         price = self._swap(amount, build=True, long=long, leverage=leverage)
@@ -309,9 +349,6 @@ class MonetaryFMarket:
             return None, 0.0
 
         # TODO: Account for pro-rata share of funding!
-        # TODO: Fix this! something's wrong and I'm getting negative reserve amounts upon unwind :(
-        # TODO: Locked long seems to go negative which is wrong. Why here?
-
         # Unlock from long/short pool first
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"unwind: dn = {dn}")
@@ -412,9 +449,10 @@ class MonetaryFMarket:
         #    logger.debug(f"fund: cum_price = {self.cum_price}")
         #    logger.debug(f"fund: last_cum_price = {self.last_cum_price}")
 
-        #twap_market=(self.cum_price - self.last_cum_price) / \
-        #             self.model.sampling_interval
-        #self.last_cum_price=self.cum_price
+        twap_market=(self.cum_price - self.last_cum_price) / \
+                     self.model.sampling_interval
+        self.last_twap_market = twap_market
+        self.last_cum_price=self.cum_price
 
         #if PERFORM_DEBUG_LOGGING:
         #    logger.debug(f"fund: twap_market = {twap_market}")
@@ -561,11 +599,12 @@ class MonetaryFMarket:
             return False
 
         # position initial margin fraction = 1/leverage
+        # Use TWAP over last sampling interval so resistant to flash loans
         side=1 if pos.long else -1
         open_position_notional = pos.amount*pos.leverage*(1 + \
-            side*(self.price - pos.lock_price)/pos.lock_price)
+            side*(self.twap - pos.lock_price)/pos.lock_price)
         value = pos.amount*(1 + \
-            pos.leverage*side*(self.price - pos.lock_price)/pos.lock_price)
+            pos.leverage*side*(self.twap - pos.lock_price)/pos.lock_price)
         open_leverage = open_position_notional/value
         open_margin = 1/open_leverage
         maintenance_margin = self.maintenance/pos.leverage
@@ -578,6 +617,8 @@ class MonetaryFMarket:
             logger.debug(f"liquidatable: pos.long {pos.long}")
             logger.debug(f"liquidatable: pos.leverage {pos.leverage}")
             logger.debug(f"liquidatable: pos.trader {pos.trader}")
+            logger.debug(f"liquidatable: fmarket.price {self.price}")
+            logger.debug(f"liquidatable: fmarket.twap {self.twap}")
             logger.debug(f"liquidatable: open_position_notional {open_position_notional}")
             logger.debug(f"liquidatable: value {value}")
             logger.debug(f"liquidatable: open_leverage {open_leverage}")
@@ -586,6 +627,32 @@ class MonetaryFMarket:
             logger.debug(f"liquidatable: open_margin < maintenance_margin {open_margin < maintenance_margin}")
 
         return open_margin < maintenance_margin
+
+    def reward_to_liquidate(self, pid: uuid.UUID) -> float:
+        if not self.liquidatable(pid):
+            return 0.0
+
+        pos = self.positions.get(pid)
+        fees = self.fees(dn=pos.amount,
+                         build=False,
+                         long=pos.long,
+                         leverage=pos.leverage)
+        amount = pos.amount-fees
+        unwind_price = self.peek_price(dn=amount,
+                                       build=False,
+                                       long=pos.long,
+                                       leverage=pos.leverage,
+                                       fees=False)
+
+        # Mint/burn from total supply the profits/losses
+        side = 1 if pos.long else -1
+        ds = amount * pos.leverage * side * \
+            (unwind_price - pos.lock_price)/pos.lock_price
+
+        if ds > 0.0:
+            return 0.0
+
+        return abs(ds) * self.liquidate_reward
 
     def liquidate(self, pid: uuid.UUID) -> float:
         can = self.liquidatable(pid)

@@ -34,7 +34,6 @@ from ovm.monetary.plot_labels import (
     inventory_wealth_quote_label,
     agent_wealth_ovl_label,
     GINI_LABEL,
-    GINI_ARBITRAGEURS_LABEL,
     SUPPLY_LABEL,
     TREASURY_LABEL,
     LIQUIDITY_LABEL
@@ -200,7 +199,7 @@ class MonetaryModel(Model):
                     quote_ticker: self.base_wealth*prices_ovl_quote[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
-            leverage_max = randint(1, 9)
+            leverage_max = randint(1, 5)
             init_delay = 0  # randint(0, sampling_interval)
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -262,7 +261,7 @@ class MonetaryModel(Model):
                     inventory=inventory,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
-                ape_leverage_max = randint(6, 9)
+                ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
                     sampling_interval*24*14, sampling_interval*24*60)
                 agent = MonetaryApe(
@@ -277,7 +276,7 @@ class MonetaryModel(Model):
                     unwind_delay=unwind_delay,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
-                ape_leverage_max = randint(6, 9)
+                ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
                     sampling_interval*24*14, sampling_interval*24*60)
                 agent = MonetaryApe(
@@ -338,10 +337,6 @@ class MonetaryModel(Model):
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
                     GINI_LABEL: GiniReporter(),
-                    GINI_ARBITRAGEURS_LABEL: GiniReporter(agent_type=MonetaryArbitrageur)
-                    # GINI_LABEL: compute_gini,
-                    # GINI_ARBITRAGEURS_LABEL: partial(
-                    #     compute_gini, agent_type=MonetaryArbitrageur)
                 })
 
             model_reporters.update({

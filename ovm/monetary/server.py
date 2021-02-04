@@ -59,8 +59,8 @@ treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_long_apes = int(total_supply*0.05/base_wealth)
-num_short_apes = int(total_supply*0.0/base_wealth)
+num_long_apes = int(total_supply*0.035/base_wealth)
+num_short_apes = int(total_supply*0.015/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
