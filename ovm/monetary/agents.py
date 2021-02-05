@@ -142,7 +142,7 @@ class MonetaryLiquidator(MonetaryAgent):
             self.wealth += reward
             self.last_trade_idx = self.model.schedule.steps
             pos.trader.locked -= pos.amount
-            pos.trader.wealth -= pos.amount
+            pos.trader.wealth -= min(pos.amount, pos.trader.wealth)
             if PERFORM_DEBUG_LOGGING:
                 logger.debug("Liquidated ...")
                 logger.debug(f"self.inventory['OVL'] -> {self.inventory[OVL_TICKER]}")
@@ -549,7 +549,7 @@ class MonetarySniper(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
-                    self.wealth -= fees
+                    self.wealth -= min(fees, self.wealth) # NOTE: this is hacky
                     self.last_trade_idx = idx
                     # Counter the futures trade on spot with sell to lock in the arb
                     # TODO: Check never goes negative and eventually implement with a spot CFMM
@@ -611,7 +611,7 @@ class MonetarySniper(MonetaryAgent):
                     self.positions[pos.id] = pos
                     self.inventory[OVL_TICKER] -= pos.amount + fees
                     self.locked += pos.amount
-                    self.wealth -= fees
+                    self.wealth -= min(fees, self.wealth)
                     self.last_trade_idx = idx
 
                     # Counter the futures trade on spot with buy to lock in the arb
@@ -671,7 +671,7 @@ class MonetaryApe(MonetaryAgent):
 
             self.inventory[OVL_TICKER] += pos.amount + ds - fees
             self.locked -= pos.amount
-            self.wealth += ds - fees
+            self.wealth += max(ds - fees, -self.wealth)
             self.last_trade_idx = self.model.schedule.steps
 
         self.positions = {}

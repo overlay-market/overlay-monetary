@@ -264,31 +264,31 @@ class MonetaryModel(Model):
                     inventory=inventory,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
-                ape_leverage_max = randint(4, 6)
+                #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*14, sampling_interval*24*60)
+                    sampling_interval*24*1, sampling_interval*24*1)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
                     side=1,
-                    leverage_max=ape_leverage_max,
+                    leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
                     unwind_delay=unwind_delay,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
-                ape_leverage_max = randint(4, 6)
+                #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*14, sampling_interval*24*60)
+                    sampling_interval*24*1, sampling_interval*24*7)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
                     side=-1,
-                    leverage_max=ape_leverage_max,
+                    leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
                     unwind_delay=unwind_delay,
@@ -429,7 +429,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if logger.getEffectiveLevel() <= 10 and self.schedule.steps % 10 == 0:
+        if logger.getEffectiveLevel() <= 10 and self.schedule.steps % 60 == 0:
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],
@@ -566,6 +566,7 @@ class MonetaryModel(Model):
             compute_spot_price,
             compute_skew_for_market,
             compute_open_positions_per_market,
+            compute_reserve_skew_for_market,
         )
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"step {self.schedule.steps}")
@@ -587,12 +588,17 @@ class MonetaryModel(Model):
                         f"fmarket: locked_short (OVL) {fmarket.locked_short}")
 
                     logger.debug(f"fmarket: futures price {fmarket.price}")
+                    logger.debug(f"fmarket: futures sliding TWAP {fmarket.sliding_twap}")
                     logger.debug(
                         f"fmarket: spot price {compute_spot_price(self, ticker)}")
                     logger.debug(f"fmarket: price_diff bw f/s "
                                  f"{compute_price_difference(self, ticker)}")
                     logger.debug(f"fmarket: positional imbalance "
                                  f"{compute_skew_for_market(self, ticker)}")
+                    logger.debug(f"fmarket: reserve skew "
+                                 f"{compute_reserve_skew_for_market(self, ticker, relative=False)}")
+                    logger.debug(f"fmarket: relative reserve skew "
+                                 f"{compute_reserve_skew_for_market(self, ticker, relative=True)}")
                     logger.debug(f"fmarket: open positions "
                                  f"{compute_open_positions_per_market(self, ticker)}")
 
