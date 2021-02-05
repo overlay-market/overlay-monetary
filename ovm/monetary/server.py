@@ -57,10 +57,12 @@ liquidity = 0.285*total_supply
 time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
+sampling_twap_granularity = int(
+    sampling_interval / 10)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_long_apes = int(total_supply*0.05/base_wealth)
-num_short_apes = int(total_supply*0.0/base_wealth)
+num_long_apes = int(total_supply*0.035/base_wealth)
+num_short_apes = int(total_supply*0.015/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.005/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
@@ -138,6 +140,7 @@ model_kwargs = {
     "liquidity_supply_emission": liquidity_supply_emission,
     "treasury": treasury,
     "sampling_interval": sampling_interval,
+    "sampling_twap_granularity": sampling_twap_granularity,
     "time_resolution": time_resolution
 }
 
