@@ -3,6 +3,7 @@ from typing import Any
 from dataclasses import dataclass
 import numpy as np
 import uuid
+from collections import deque
 
 from ovm.debug_level import PERFORM_DEBUG_LOGGING
 
@@ -32,6 +33,12 @@ class MonetaryFPosition:
             return self.amount * self.leverage
         else:
             return -self.amount * self.leverage
+
+
+@dataclass(frozen=True)
+class MonetaryFMarketObservation:
+    timestamp: int
+    cum_price: float
 
 
 class MonetaryFMarket:
@@ -76,6 +83,13 @@ class MonetaryFMarket:
         self.cum_price_idx = 0
         self.last_cum_price = 0.0
         self.last_twap_market = self.x / self.y
+        # Used for sliding twaps: will be an array in Solidity with push() only for gas cost (see Uniswap v2 sliding impl)
+        self.sliding_period_size = int(self.model.sampling_interval / self.model.sampling_twap_granularity)
+        self.sliding_observations = deque([
+            MonetaryFMarketObservation(timestamp=0, cum_price=0)
+            for i in range(self.sliding_period_size)
+        ])
+        self.last_sliding_observation_idx = 0
         self.last_liquidity = model.liquidity  # For liquidity adjustments
         self.last_block_price = self.x / self.y
         self.last_funding_idx = 0
@@ -98,8 +112,13 @@ class MonetaryFMarket:
         return self.x / self.y
 
     @property
-    def twap(self) -> float:
-        return self.last_twap_market
+    def sliding_twap(self) -> float:
+        oldest_obs = self.sliding_observations[0]
+        newest_obs = self.sliding_observations[-1]
+        # TODO: In solidity implementation this could cause problems in the first hour => solution could be leverage = 1.0 for first hour as cap
+        if oldest_obs.timestamp == 0:
+            return 0.0
+        return (newest_obs.cum_price - oldest_obs.cum_price) / (newest_obs.timestamp - oldest_obs.timestamp)
 
     def _update_cum_price(self):
         # TODO: cum_price and time_elapsed setters ...
@@ -108,6 +127,17 @@ class MonetaryFMarket:
         if idx > self.cum_price_idx:  # and last swap for idx ...
             self.cum_price += (idx - self.cum_price_idx) * self.price
             self.cum_price_idx = idx
+
+    def _update_sliding_observations(self):
+        # Pop oldest obs of top of queue then append newest
+        idx = self.model.schedule.steps
+        if idx - self.last_sliding_observation_idx >= self.model.sampling_twap_granularity:
+            self.sliding_observations.popleft()
+            self.sliding_observations.append(
+                MonetaryFMarketObservation(timestamp=idx,
+                                           cum_price=self.cum_price)
+            )
+            self.last_sliding_observation_idx = idx
 
     def _update_cum_locked_long(self):
         idx = self.model.schedule.steps
@@ -143,21 +173,24 @@ class MonetaryFMarket:
         # Accounts for use of TWAP in liquidatable check ...
         # Anything above this amount should get liquidated immediately
         max_allowed = self.max_leverage
-        if long and self.twap < lock_price:
+        if self.sliding_twap == 0.0:
+            return max_allowed
+
+        if long and self.sliding_twap < lock_price:
             max_allowed = max(min(
                 self.max_leverage,
-                self.maintenance + (1 - self.maintenance) / (1 - self.twap/lock_price)
+                self.maintenance + (1 - self.maintenance) / (1 - self.sliding_twap/lock_price)
             ), 1)
-        elif not long and self.twap > lock_price:
+        elif not long and self.sliding_twap > lock_price:
             max_allowed = max(min(
                 self.max_leverage,
-                self.maintenance + (1 - self.maintenance) / (self.twap/lock_price - 1)
+                self.maintenance + (1 - self.maintenance) / (self.sliding_twap/lock_price - 1)
             ), 1)
 
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"FMarket.max_allowed_leverage: long -> {long}")
             logger.debug(f"FMarket.max_allowed_leverage: lock_price -> {lock_price}")
-            logger.debug(f"FMarket.max_allowed_leverage: twap -> {self.twap}")
+            logger.debug(f"FMarket.max_allowed_leverage: sliding_twap -> {self.sliding_twap}")
             logger.debug(f"FMarket.max_allowed_leverage: price -> {self.price}")
             logger.debug(f"FMarket.max_allowed_leverage: max_allowed_leverage -> {max_allowed}")
 
@@ -304,6 +337,7 @@ class MonetaryFMarket:
             logger.debug(f"_swap: y -> {self.y}")
 
         self._update_cum_price()
+        self._update_sliding_observations()
         idx = self.model.schedule.steps
         self.last_trade_idx = idx
         return self.price
@@ -595,16 +629,16 @@ class MonetaryFMarket:
 
     def liquidatable(self, pid: uuid.UUID) -> bool:
         pos = self.positions.get(pid)
-        if pos is None or (pos.long and pos.leverage == 1.0):
+        if pos is None or (pos.long and pos.leverage == 1.0) or self.sliding_twap == 0.0:
             return False
 
         # position initial margin fraction = 1/leverage
         # Use TWAP over last sampling interval so resistant to flash loans
         side=1 if pos.long else -1
         open_position_notional = pos.amount*pos.leverage*(1 + \
-            side*(self.twap - pos.lock_price)/pos.lock_price)
+            side*(self.sliding_twap - pos.lock_price)/pos.lock_price)
         value = pos.amount*(1 + \
-            pos.leverage*side*(self.twap - pos.lock_price)/pos.lock_price)
+            pos.leverage*side*(self.sliding_twap - pos.lock_price)/pos.lock_price)
         open_leverage = open_position_notional/value
         open_margin = 1/open_leverage
         maintenance_margin = self.maintenance/pos.leverage
@@ -618,7 +652,7 @@ class MonetaryFMarket:
             logger.debug(f"liquidatable: pos.leverage {pos.leverage}")
             logger.debug(f"liquidatable: pos.trader {pos.trader}")
             logger.debug(f"liquidatable: fmarket.price {self.price}")
-            logger.debug(f"liquidatable: fmarket.twap {self.twap}")
+            logger.debug(f"liquidatable: fmarket.sliding_twap {self.sliding_twap}")
             logger.debug(f"liquidatable: open_position_notional {open_position_notional}")
             logger.debug(f"liquidatable: value {value}")
             logger.debug(f"liquidatable: open_leverage {open_leverage}")

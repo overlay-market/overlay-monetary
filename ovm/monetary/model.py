@@ -77,6 +77,7 @@ class MonetaryModel(Model):
         liquidity_supply_emission: tp.List[float],
         treasury: float,
         sampling_interval: int,
+        sampling_twap_granularity: int,
         time_resolution: TimeResolution,
         data_collection_options: DataCollectionOptions = DataCollectionOptions(),
         seed: tp.Optional[int] = None
@@ -129,6 +130,7 @@ class MonetaryModel(Model):
         self.treasury = treasury
         self.data_collection_options = data_collection_options
         self.sampling_interval = sampling_interval
+        self.sampling_twap_granularity = sampling_twap_granularity
         self.supply = base_wealth * self.num_agents + liquidity
         self.schedule = RandomActivation(self)
         # self.sims = sims  # { k: [ prices ] }
@@ -152,6 +154,7 @@ class MonetaryModel(Model):
             logger.info(f"base_wealth = {base_wealth}")
             logger.info(f"total_supply = {self.supply}")
             logger.info(f"sampling_interval = {self.sampling_interval}")
+            logger.info(f"sampling_twap_granularity = {self.sampling_twap_granularity}")
             logger.info(
                 f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 

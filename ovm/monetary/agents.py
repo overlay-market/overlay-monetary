@@ -29,7 +29,7 @@ class MonetaryAgent(Agent):
         model: MonetaryModel,
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
-        pos_max: float = 0.95,
+        pos_max: float = 0.19,
         deploy_max: float = 1.0,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
@@ -131,19 +131,6 @@ class MonetaryLiquidator(MonetaryAgent):
             return
         pid = pos_keys[(idx % len(pos_keys))]
         pos = self.fmarket.positions[pid]
-
-        side=1 if pos.long else -1
-        open_position_notional = pos.amount*pos.leverage*(1 + \
-            side*(self.fmarket.twap - pos.lock_price)/pos.lock_price)
-        value = pos.amount*(1 + \
-            pos.leverage*side*(self.fmarket.twap - pos.lock_price)/pos.lock_price)
-        open_leverage = open_position_notional/value
-        open_margin = 1/open_leverage
-        maintenance_margin = self.fmarket.maintenance/pos.leverage
-        if PERFORM_DEBUG_LOGGING:
-            logger.debug(f"Checking if liquidatable ... pid {pos.id}, amount {pos.amount}, leverage {pos.leverage}, long {pos.long}, lock_price {pos.lock_price}, market_price {self.fmarket.price}, trader id {pos.trader.unique_id}")
-            logger.debug(f"Open leverage {open_leverage}, leverage {pos.leverage}, open margin {open_margin}, maintenance margin {maintenance_margin}")
-            logger.debug(f"Is liquidatable? {self.fmarket.liquidatable(pid)}")
         if pos.amount > 0.0 \
            and self.fmarket.liquidatable(pid) \
            and self.fmarket.reward_to_liquidate(pid) > 0.0:
