@@ -88,9 +88,15 @@ class ModelReporterCollection(tp.Generic[ModelType]):
             hdf5_file: h5py.File,
             name_to_model_reporter_map:
             tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
+            parameter_name_to_parameter_map: tp.Optional[tp.Dict[str, tp.Any]] = None
     ):
         if not name_to_model_reporter_map:
             name_to_model_reporter_map = {}
+
+        if not parameter_name_to_parameter_map:
+            parameter_name_to_parameter_map = {}
+
+        self._parameter_name_to_parameter_map = parameter_name_to_parameter_map
 
         assert not any(name == STEP_COLUMN_NAME for name in name_to_model_reporter_map.keys())
 
@@ -123,17 +129,29 @@ class ModelReporterCollection(tp.Generic[ModelType]):
                                                                  dtype=reporter.dtype,
                                                                  maxshape=(None,),
                                                                  chunks=(save_interval,)))
+
+            for parameter_name, parameter_value in parameter_name_to_parameter_map.items():
+                print(f"{parameter_name}={parameter_value}")
+                if not parameter_value:
+                    parameter_value = 'None'
+                model_group.attrs[parameter_name] = parameter_value
         else:
             for name in self._reporter_names:
                 dataset = model_group.get(name)
                 assert dataset is not None
                 self._datasets.append(dataset)
 
+            assert parameter_name_to_parameter_map == model_group.attrs
+
         self._datasets = tuple(self._datasets)
 
     @property
     def reporter_names(self) -> tp.Sequence[str]:
         return self._reporter_names
+
+    @property
+    def parameter_name_to_parameter_map(self) -> tp.Dict[str, tp.Any]:
+        return self._parameter_name_to_parameter_map
 
     def _purge_buffer(self):
         if self._current_buffer_index == 0:
@@ -366,7 +384,11 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             model_reporters: tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
             agent_reporters: tp.Optional[tp.Dict[str, AbstractAgentReporter[ModelType]]] = None,
             output_data_directory: tp.Optional[str] = None,
+            model_parameter_name_to_parameter_value_map: tp.Optional[tp.Dict[str, tp.Any]] = None,  # metadata to attach to model group
     ):
+        if not model_parameter_name_to_parameter_value_map:
+            model_parameter_name_to_parameter_value_map = {}
+
         if not output_data_directory:
             output_data_directory = OUTPUT_DATA_DIRECTORY
 
@@ -407,7 +429,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
         self._model_reporter_collection = \
             ModelReporterCollection(save_interval=save_interval,
                                     name_to_model_reporter_map=model_reporters,
-                                    hdf5_file=self.hdf5_file)
+                                    hdf5_file=self.hdf5_file,
+                                    parameter_name_to_parameter_map=model_parameter_name_to_parameter_value_map)
 
         # agent reporter collection
         self._agent_reporter_collection = \
