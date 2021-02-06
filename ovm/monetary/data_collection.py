@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+import glob
 import os
 import typing as tp
 
@@ -568,6 +569,14 @@ class HDF5DataCollectionFile:
     def step_dataset(self) -> np.ndarray:
         return np.array(self._hdf5_file[STEP_COLUMN_NAME])
 
+    @property
+    def commit_hash(self) -> str:
+        return self._hdf5_file.attrs[GIT_COMMIT_HASH_NAME]
+
+    @property
+    def git_branch_name(self) -> str:
+        return self._hdf5_file.attrs[GIT_BRANCH_NAME]
+
     def get_model_dataframe(self,
                             unsliced_step_dataset: tp.Optional[np.ndarray] = None,
                             first_step: tp.Optional[int] = 0,
@@ -599,3 +608,7 @@ class HDF5DataCollectionFile:
 
     def __del__(self):
         self._hdf5_file.close()
+
+    @classmethod
+    def available_hdf5_files(cls, hdf5_base_path: str = OUTPUT_DATA_DIRECTORY) -> tp.Sequence[str]:
+        return glob.glob(os.path.join(hdf5_base_path, '*.h5'))
