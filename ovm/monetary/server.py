@@ -121,7 +121,7 @@ chart_elements = \
 model_kwargs = {
     "input_data": sims,
     "quote_ticker": quote_ticker,
-    "ovl_quote_ticker": ovl_quote_ticker,
+    # "ovl_quote_ticker": ovl_quote_ticker,
     "num_arbitrageurs": num_arbitrageurs,
     "num_keepers": num_keepers,
     "num_traders": num_traders,
@@ -141,7 +141,7 @@ model_kwargs = {
     "treasury": treasury,
     "sampling_interval": sampling_interval,
     "sampling_twap_granularity": sampling_twap_granularity,
-    "time_resolution": time_resolution
+    # "time_resolution": time_resolution
 }
 
 
