@@ -18,6 +18,8 @@ DATA_COLLECTOR_NAME = 'data_collector'
 STEP_COLUMN_NAME = 'step'
 MODEL_VARIABLES_GROUP_NAME = 'MODEL_VARIABLES'
 AGENT_VARIABLES_GROUP_NAME = 'AGENT_VARIABLES'
+GIT_COMMIT_HASH_NAME = 'GIT_COMMIT_HASH'
+GIT_BRANCH_NAME = 'GIT_BRANCH'
 
 AgentType = tp.TypeVar('AgentType', bound=Agent)
 ModelType = tp.TypeVar('ModelType', bound=Model)
@@ -87,16 +89,10 @@ class ModelReporterCollection(tp.Generic[ModelType]):
             save_interval: int,
             hdf5_file: h5py.File,
             name_to_model_reporter_map:
-            tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
-            parameter_name_to_parameter_map: tp.Optional[tp.Dict[str, tp.Any]] = None
+            tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None
     ):
         if not name_to_model_reporter_map:
             name_to_model_reporter_map = {}
-
-        if not parameter_name_to_parameter_map:
-            parameter_name_to_parameter_map = {}
-
-        self._parameter_name_to_parameter_map = parameter_name_to_parameter_map
 
         assert not any(name == STEP_COLUMN_NAME for name in name_to_model_reporter_map.keys())
 
@@ -115,6 +111,7 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         self._reporters = tuple(self._reporters)
         self._reporter_names = tuple(self._reporter_names)
         self._buffers = tuple(self._buffers)
+        self._hdf5_file = hdf5_file
 
         group_name = MODEL_VARIABLES_GROUP_NAME
         model_group = hdf5_file.get(group_name)
@@ -129,29 +126,17 @@ class ModelReporterCollection(tp.Generic[ModelType]):
                                                                  dtype=reporter.dtype,
                                                                  maxshape=(None,),
                                                                  chunks=(save_interval,)))
-
-            for parameter_name, parameter_value in parameter_name_to_parameter_map.items():
-                print(f"{parameter_name}={parameter_value}")
-                if not parameter_value:
-                    parameter_value = 'None'
-                model_group.attrs[parameter_name] = parameter_value
         else:
             for name in self._reporter_names:
                 dataset = model_group.get(name)
                 assert dataset is not None
                 self._datasets.append(dataset)
 
-            assert parameter_name_to_parameter_map == model_group.attrs
-
         self._datasets = tuple(self._datasets)
 
     @property
     def reporter_names(self) -> tp.Sequence[str]:
         return self._reporter_names
-
-    @property
-    def parameter_name_to_parameter_map(self) -> tp.Dict[str, tp.Any]:
-        return self._parameter_name_to_parameter_map
 
     def _purge_buffer(self):
         if self._current_buffer_index == 0:
@@ -195,16 +180,31 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         if not variable_selection:
             variable_selection = self._reporter_names
 
-        name_to_dataset_map = \
-            {name: np.array(dataset[first_step:last_step:stride])
-             for name, dataset
-             in zip(self._reporter_names, self._datasets)
-             if name in variable_selection}
+        model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
 
-        name_to_dataset_map.update({STEP_COLUMN_NAME:
+        return _get_model_df_from_hdf5_file(model_group=model_group,
+                                            unsliced_step_dataset=unsliced_step_dataset,
+                                            first_step=first_step,
+                                            last_step=last_step,
+                                            stride=stride,
+                                            variable_selection=variable_selection)
+
+
+def _get_model_df_from_hdf5_file(model_group: h5py.Group,
+                                 unsliced_step_dataset: np.ndarray,
+                                 variable_selection: tp.Sequence[str],
+                                 first_step: tp.Optional[int] = 0,
+                                 last_step: tp.Optional[int] = -1,
+                                 stride: int = 1) -> pd.DataFrame:
+    name_to_dataset_map = \
+        {name: np.array(model_group[name][first_step:last_step:stride])
+         for name
+         in variable_selection}
+
+    name_to_dataset_map.update({STEP_COLUMN_NAME:
                                     unsliced_step_dataset[first_step:last_step:stride]})
 
-        return pd.DataFrame(name_to_dataset_map)
+    return pd.DataFrame(name_to_dataset_map)
 
 
 ################################################################################
@@ -410,13 +410,24 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             assert self._step_dataset is not None
         else:
             git_commit_hash = git.Repo(search_parent_directories=True).head.object.hexsha
+            git_branch_name = git.Repo(search_parent_directories=True).active_branch.name
 
-            dt_string = \
-                datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
-            self.hdf5_filename = model.name + "_" + git_commit_hash + "_" + dt_string + '.h5'
+            # dt_string = \
+            #     datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
+            # self.hdf5_filename = model.name + "_" + git_commit_hash + "_" + dt_string + '.h5'
+            dt_string = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+            self.hdf5_filename = model.name + "_" + dt_string + '.h5'
             self.hdf5_path = os.path.join(output_data_directory, self.hdf5_filename)
 
             self.hdf5_file: h5py.File = h5py.File(self.hdf5_path, 'w')
+            self.hdf5_file.attrs[GIT_COMMIT_HASH_NAME] = git_commit_hash
+            self.hdf5_file.attrs[GIT_BRANCH_NAME] = git_branch_name
+
+            for parameter_name, parameter_value in model_parameter_name_to_parameter_value_map.items():
+                print(f"{parameter_name}={parameter_value}")
+                if not parameter_value:
+                    parameter_value = 'None'
+                self.hdf5_file.attrs[parameter_name] = parameter_value
 
             self._step_dataset = \
                 self.hdf5_file.create_dataset(name=STEP_COLUMN_NAME,
@@ -427,10 +438,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
         # model reporter collection
         self._model_reporter_collection = \
-            ModelReporterCollection(save_interval=save_interval,
-                                    name_to_model_reporter_map=model_reporters,
-                                    hdf5_file=self.hdf5_file,
-                                    parameter_name_to_parameter_map=model_parameter_name_to_parameter_value_map)
+            ModelReporterCollection(
+                save_interval=save_interval,
+                name_to_model_reporter_map=model_reporters,
+                hdf5_file=self.hdf5_file)
 
         # agent reporter collection
         self._agent_reporter_collection = \
@@ -545,3 +556,46 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
     def __del__(self):
         self.hdf5_file.close()
+
+
+class HDF5DataCollectionFile:
+    def __init__(self, filepath: str, ):
+        self._filepath = filepath
+        self._hdf5_file: h5py.File = h5py.File(self._filepath, 'r')
+        self._model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
+
+    @property
+    def step_dataset(self) -> np.ndarray:
+        return np.array(self._hdf5_file[STEP_COLUMN_NAME])
+
+    def get_model_dataframe(self,
+                            unsliced_step_dataset: tp.Optional[np.ndarray] = None,
+                            first_step: tp.Optional[int] = 0,
+                            last_step: tp.Optional[int] = -1,
+                            stride: int = 1,
+                            variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
+
+        if unsliced_step_dataset is None:
+            unsliced_step_dataset = self.step_dataset
+
+        if not variable_selection:
+            variable_selection = tuple(self._model_group.keys())
+
+        return _get_model_df_from_hdf5_file(model_group=self._model_group,
+                                            unsliced_step_dataset=unsliced_step_dataset,
+                                            first_step=first_step,
+                                            last_step=last_step,
+                                            stride=stride,
+                                            variable_selection=variable_selection)
+
+    def describe(self):
+        print(f'HDF5 Agent Based Simulation Result')
+        print(f'HDF5 File Path = {self._filepath}')
+        print(f'Number of simulation steps = {len(self._hdf5_file[STEP_COLUMN_NAME])}')
+
+        for name, value in self._hdf5_file.attrs.items():
+            print(f'{name} = {value}')
+
+    def __del__(self):
+        self._hdf5_file.close()
