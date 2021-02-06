@@ -29,7 +29,8 @@ class MonetaryAgent(Agent):
         model: MonetaryModel,
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
-        pos_max: float = 0.19,
+        pos_amount: float = 0.0,
+        pos_max: float = 0.5,
         deploy_max: float = 1.0,
         slippage_max: float = 0.02,
         leverage_max: float = 1.0,
@@ -53,7 +54,8 @@ class MonetaryAgent(Agent):
         self.wealth = model.base_wealth  # in ovl
         self.inventory = inventory
         self.locked = 0
-        self.pos_max = pos_max
+        self.pos_max = pos_max # max % of wealth to use in a pos amount
+        self.pos_amount = pos_amount # standard pos amount to use
         self.deploy_max = deploy_max
         self.slippage_max = slippage_max
         self.leverage_max = leverage_max
@@ -229,7 +231,7 @@ class MonetaryArbitrageur(MonetaryAgent):
 
         # Simple for now: tries to enter a pos_max amount of position if it wouldn't
         # breach the deploy_max threshold
-        amount = self.pos_max*self.wealth
+        amount = min(self.pos_max*self.wealth, self.pos_amount)
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
@@ -479,7 +481,7 @@ class MonetarySniper(MonetaryAgent):
 
     def _get_size(self, sprice, fprice, max_size, long):
         # Assume min size is zero
-        sizes = np.arange(self.size_increment*self.wealth, max_size, self.size_increment*self.wealth)
+        sizes = np.arange(self.size_increment*max_size, max_size, self.size_increment*max_size)
         edge_map = {}
         for size in sizes:
             filled_price = self._get_filled_price(fprice, size, long)
@@ -679,7 +681,7 @@ class MonetaryApe(MonetaryAgent):
     def trade(self):
         # Buys at any price and goes full force because YOLO
         idx = self.model.schedule.steps
-        amount = self.pos_max*self.wealth
+        amount = min(self.pos_max*self.wealth, self.pos_amount)
         long = (self.side == 1)
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Ape.trade: Ape bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")

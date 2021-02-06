@@ -202,7 +202,7 @@ class MonetaryModel(Model):
                     quote_ticker: self.base_wealth*prices_ovl_quote[0]
                 }
             # For leverage max, pick an integer between 1.0 & 5.0 (vary by agent)
-            leverage_max = randint(1, 5)
+            leverage_max = randint(1, 3)
             init_delay = 0  # randint(0, sampling_interval)
             if i < self.num_arbitraguers:
                 agent = MonetaryArbitrageur(
@@ -210,6 +210,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
@@ -221,6 +222,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders:
@@ -229,6 +231,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders:
@@ -237,6 +240,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
@@ -246,6 +250,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max,
                     size_increment=0.1,
                     init_delay=init_delay,
@@ -272,6 +277,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.5,
                     side=1,
                     leverage_max=leverage_max,
                     init_delay=init_delay,
@@ -287,6 +293,7 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
+                    pos_amount=self.base_wealth*0.5,
                     side=-1,
                     leverage_max=leverage_max,
                     init_delay=init_delay,
@@ -429,7 +436,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if logger.getEffectiveLevel() <= 10 and self.schedule.steps % 60 == 0:
+        if self.schedule.steps % 60 == 0: # logger.getEffectiveLevel() <= 10
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],

@@ -442,7 +442,7 @@ class MonetaryFMarket:
         # Calculate twap of market ... update cum price value first
         #twap_market = (self.cum_price - self.last_cum_price) / dt
         # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
-        twap_market=self.price
+        twap_market=self.price # TODO: self.sliding_twap
         funding=(twap_market - twap_feed) / twap_feed
 
         if PERFORM_DEBUG_LOGGING:

@@ -61,12 +61,12 @@ sampling_twap_granularity = int(
     sampling_interval / 10)
 
 num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_long_apes = int(total_supply*0.035/base_wealth)
-num_short_apes = int(total_supply*0.015/base_wealth)
+num_long_apes = int(total_supply*0.01/base_wealth)
+num_short_apes = int(total_supply*0.01/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.005/base_wealth)
+num_traders = int(total_supply*0.00/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.05/base_wealth)
+num_snipers = int(total_supply*0.085/base_wealth)
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
