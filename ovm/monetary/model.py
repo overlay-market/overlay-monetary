@@ -214,7 +214,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.005,
+                    min_edge=0.01,
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -252,10 +252,10 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     pos_amount=self.base_wealth*0.25,
                     leverage_max=leverage_max,
-                    size_increment=0.1,
+                    size_increment=0.25,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.005,
+                    min_edge=0.01,
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -271,13 +271,13 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
                 #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*1, sampling_interval*24*1)
+                    sampling_interval*24*30, sampling_interval*24*90)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    pos_amount=self.base_wealth*0.5,
+                    pos_amount=self.base_wealth,
                     side=1,
                     leverage_max=leverage_max,
                     init_delay=init_delay,
@@ -287,13 +287,13 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
                 #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*1, sampling_interval*24*7)
+                    sampling_interval*24*30, sampling_interval*24*90)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    pos_amount=self.base_wealth*0.5,
+                    pos_amount=self.base_wealth,
                     side=-1,
                     leverage_max=leverage_max,
                     init_delay=init_delay,

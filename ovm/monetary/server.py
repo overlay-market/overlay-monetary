@@ -60,13 +60,17 @@ sampling_interval = int(3600 / time_resolution.in_seconds)
 sampling_twap_granularity = int(
     sampling_interval / 10)
 
-num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_long_apes = int(total_supply*0.01/base_wealth)
-num_short_apes = int(total_supply*0.01/base_wealth)
+# For historical data to test different time periods
+start_idx = 0  # int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
+end_idx = None  # defaults to end of array
+
+num_arbitrageurs = int(total_supply*0.10/base_wealth)
+num_long_apes = int(total_supply*0.04/base_wealth)
+num_short_apes = int(total_supply*0.015/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.00/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.085/base_wealth)
+num_snipers = int(total_supply*0.05/base_wealth)
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
@@ -95,7 +99,9 @@ sims = construct_abs_data_input_with_historical_data(
             historical_data_source=historical_data_source,
             tickers=tickers,
             ovl_ticker=ovl_ticker,
-            ovl_quote_ticker=ovl_quote_ticker)
+            ovl_quote_ticker=ovl_quote_ticker,
+            start_idx=start_idx,
+            end_idx=end_idx)
 # Use historical data - End
 
 ################################################################################

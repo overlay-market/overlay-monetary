@@ -439,11 +439,9 @@ class MonetaryFMarket:
         cum_price_feed=np.sum(self.model.sims[self.unique_id][self.last_funding_idx:idx])
         twap_feed=cum_price_feed / dt
 
-        # Calculate twap of market ... update cum price value first
-        #twap_market = (self.cum_price - self.last_cum_price) / dt
-        # TODO: twap market instead of actual price below since this is bad (but just for testing sniper for now)
-        twap_market=self.price # TODO: self.sliding_twap
-        funding=(twap_market - twap_feed) / twap_feed
+        # Estimate for twap
+        twap_market = self.sliding_twap
+        funding = (twap_market - twap_feed) / twap_feed
 
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"funding: Checking funding for {self.unique_id}")

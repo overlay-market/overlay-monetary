@@ -30,6 +30,7 @@ class MonetaryAgent(Agent):
         fmarket: MonetaryFMarket,
         inventory: tp.Dict[str, float],
         pos_amount: float = 0.0,
+        pos_min: float = 0.05,
         pos_max: float = 0.5,
         deploy_max: float = 1.0,
         slippage_max: float = 0.02,
@@ -54,6 +55,7 @@ class MonetaryAgent(Agent):
         self.wealth = model.base_wealth  # in ovl
         self.inventory = inventory
         self.locked = 0
+        self.pos_min = pos_min # min % of pos_amount to enter a trade
         self.pos_max = pos_max # max % of wealth to use in a pos amount
         self.pos_amount = pos_amount # standard pos amount to use
         self.deploy_max = deploy_max
@@ -232,13 +234,16 @@ class MonetaryArbitrageur(MonetaryAgent):
         # Simple for now: tries to enter a pos_max amount of position if it wouldn't
         # breach the deploy_max threshold
         amount = min(self.pos_max*self.wealth, self.pos_amount)
+        if amount < self.pos_amount*self.pos_min:
+            return
+
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Arb.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
         if self.wealth > 0 and self.locked + amount < self.deploy_max*self.wealth:
             if sprice > fprice:
                 peek_price = self.fmarket.peek_price(amount, build=True, long=True, leverage=self.leverage_max)
-                leverage = self.fmarket.max_allowed_leverage(long=True, lock_price=peek_price)
+                leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=True, lock_price=peek_price))
                 fees = self.fmarket.fees(amount, build=True, long=True, leverage=leverage)
                 slippage = self.fmarket.slippage(amount-fees,
                                                  build=True,
@@ -302,7 +307,7 @@ class MonetaryArbitrageur(MonetaryAgent):
 
             elif sprice < fprice:
                 peek_price = self.fmarket.peek_price(amount, build=True, long=False, leverage=self.leverage_max)
-                leverage = self.fmarket.max_allowed_leverage(long=False, lock_price=peek_price)
+                leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=False, lock_price=peek_price))
                 fees = self.fmarket.fees(
                     amount, build=True, long=False, leverage=leverage)
                 # should be negative ...
@@ -514,7 +519,7 @@ class MonetarySniper(MonetaryAgent):
             logger.debug(f"Sniper.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
         available_size = self.wealth - self.locked
-        if available_size > 0:
+        if available_size > 0: # > pos_min * pos_amount
             if sprice > fprice:
                 if PERFORM_DEBUG_LOGGING:
                     logger.debug(f"Sniper.trade: Checking if long position on {self.fmarket.unique_id} is profitable after slippage ....")
@@ -524,7 +529,7 @@ class MonetarySniper(MonetaryAgent):
                     return self._unwind_positions()
 
                 peek_price = self.fmarket.peek_price(amount, build=True, long=True, leverage=self.leverage_max)
-                leverage = self.fmarket.max_allowed_leverage(long=True, lock_price=peek_price)
+                leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=True, lock_price=peek_price))
                 fees = self.fmarket.fees(amount, build=True, long=True, leverage=leverage)
                 slippage = self.fmarket.slippage(amount-fees,
                                                  build=True,
@@ -587,7 +592,7 @@ class MonetarySniper(MonetaryAgent):
                     return self._unwind_positions()
 
                 peek_price = self.fmarket.peek_price(amount, build=True, long=False, leverage=self.leverage_max)
-                leverage = self.fmarket.max_allowed_leverage(long=False, lock_price=peek_price)
+                leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=False, lock_price=peek_price))
                 fees = self.fmarket.fees(
                     amount, build=True, long=False, leverage=leverage)
                 # should be negative ...
@@ -679,16 +684,19 @@ class MonetaryApe(MonetaryAgent):
         self.positions = {}
 
     def trade(self):
-        # Buys at any price and goes full force because YOLO
+        # Buys at any price and goes full force with wealth because YOLO
         idx = self.model.schedule.steps
-        amount = min(self.pos_max*self.wealth, self.pos_amount)
+        amount = self.pos_max*self.wealth
+        if amount < self.pos_amount*self.pos_min:
+            return
+
         long = (self.side == 1)
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Ape.trade: Ape bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
         if self.wealth > 0 and self.locked + amount < self.deploy_max*self.wealth:
             peek_price = self.fmarket.peek_price(amount, build=True, long=long, leverage=self.leverage_max)
-            leverage = self.fmarket.max_allowed_leverage(long=long, lock_price=peek_price)
+            leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=long, lock_price=peek_price))
             fees = self.fmarket.fees(
                 amount, build=True, long=long, leverage=leverage)
             pos = self.fmarket.build(amount, long=long,
