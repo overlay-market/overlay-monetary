@@ -19,6 +19,7 @@ DATA_COLLECTOR_NAME = 'data_collector'
 STEP_COLUMN_NAME = 'step'
 MODEL_VARIABLES_GROUP_NAME = 'MODEL_VARIABLES'
 AGENT_VARIABLES_GROUP_NAME = 'AGENT_VARIABLES'
+AGENT_ID_TO_TYPE_GROUP_NAME = 'AGENT_ID_TO_TYPE'
 GIT_COMMIT_HASH_NAME = 'GIT_COMMIT_HASH'
 GIT_BRANCH_NAME = 'GIT_BRANCH'
 
@@ -114,11 +115,10 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         self._buffers = tuple(self._buffers)
         self._hdf5_file = hdf5_file
 
-        group_name = MODEL_VARIABLES_GROUP_NAME
-        model_group = hdf5_file.get(group_name)
+        model_group = hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
         if not model_group:
             # create a model group
-            model_group = hdf5_file.create_group(group_name)
+            model_group = hdf5_file.create_group(MODEL_VARIABLES_GROUP_NAME, track_order=True)
 
             # create a hdf5 dataset for each reporter
             for name, reporter in zip(self._reporter_names, self._reporters):
@@ -256,24 +256,27 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         self._reporter_names = tuple(self._reporter_names)
         self._buffers = tuple(self._buffers)
 
-        group_name = AGENT_VARIABLES_GROUP_NAME
-        agent_group = hdf5_file.get(group_name)
+        agent_group = hdf5_file.get(AGENT_VARIABLES_GROUP_NAME)
         if not agent_group:
             # create a model group
-            agent_group = hdf5_file.create_group(group_name)
+            agent_group = hdf5_file.create_group(AGENT_VARIABLES_GROUP_NAME, track_order=True)
 
             # create a hdf5 dataset for each reporter
             for name, reporter in zip(self._reporter_names, self._reporters):
-                (self
-                 ._datasets
-                 .append(agent_group.create_dataset(
-                                            name=name,
-                                            shape=(0, self.number_of_agents),
-                                            dtype=reporter.dtype,
-                                            maxshape=(None, self.number_of_agents),
-                                            chunks=(save_interval, self.number_of_agents))))
+                agent_dataset = \
+                    agent_group.create_dataset(name=name,
+                                               shape=(0, self.number_of_agents),
+                                               dtype=reporter.dtype,
+                                               maxshape=(None, self.number_of_agents),
+                                               chunks=(save_interval, self.number_of_agents))
 
-            # agent_group.create_dataset(name='AGENT_TYPES', data=self.agent_type_strings)
+                self._datasets.append(agent_dataset)
+
+            # create agent type group
+            agent_type_group = hdf5_file.create_group(AGENT_ID_TO_TYPE_GROUP_NAME, track_order=True)
+            for agent in self._agents:
+                agent_type_group.attrs[str(agent.unique_id)] = \
+                    _get_unqualified_class_name_from_object(agent)
         else:
             for name in self._reporter_names:
                 dataset = agent_group.get(name)
@@ -564,6 +567,7 @@ class HDF5DataCollectionFile:
         self._filepath = filepath
         self._hdf5_file: h5py.File = h5py.File(self._filepath, 'r')
         self._model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
+        self._agent_type_group = self._hdf5_file.get(AGENT_ID_TO_TYPE_GROUP_NAME)
 
     @property
     def step_dataset(self) -> np.ndarray:
@@ -597,6 +601,21 @@ class HDF5DataCollectionFile:
                                             last_step=last_step,
                                             stride=stride,
                                             variable_selection=variable_selection)
+
+    @property
+    def agent_types(self) -> tp.Sequence[str]:
+        return tuple(self._agent_type_group.attrs.values())
+
+    @property
+    def agent_id_to_type_map(self) -> tp.Dict[str, str]:
+        return dict(self._agent_type_group.attrs)
+
+    def _get_agent_type_indicator(self, agent_type_string: tp.Optional[str] = None) \
+            -> np.ndarray:
+        if not agent_type_string:
+            return np.full(shape=(len(self.agent_types), ), fill_value=True, dtype=np.bool)
+        else:
+            return np.array([a == agent_type_string for a in self.agent_types])
 
     def describe(self):
         print(f'HDF5 Agent Based Simulation Result')
