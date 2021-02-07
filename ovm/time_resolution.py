@@ -11,6 +11,26 @@ TIME_RESOLUTION_TO_SECONDS_MAP = {
     }
 
 
+class TimeScale(Enum):
+    SECONDS = 'seconds'
+    MINUTES = 'minutes'
+    HOURS = 'hours'
+    DAYS = 'days'
+    MONTHS = 'months'
+    YEARS = 'years'
+
+    def in_seconds(self) -> int:
+        time_scale_to_seconds_map = \
+            {TimeScale.SECONDS: 1,
+             TimeScale.MINUTES: 60,
+             TimeScale.HOURS: 60 * 60,
+             TimeScale.DAYS: 24 * 60 * 60,
+             TimeScale.MONTHS: 365.25 * 24 * 60 * 60 / 12,
+             TimeScale.YEARS: 365.25 * 24 * 60 * 60}
+
+        return time_scale_to_seconds_map[self]
+
+
 class TimeResolution(Enum):
     FIFTEEN_SECONDS = '15s'
     ONE_MINUTE = '1m'
@@ -49,22 +69,5 @@ class TimeResolution(Enum):
     def convert_time_in_days_to_number_of_steps(self, time_in_days: float) -> int:
         return int(time_in_days * 24 * 60 * 60 / self.in_seconds)
 
-
-class TimeScale(Enum):
-    SECONDS = 'seconds'
-    MINUTES = 'minutes'
-    HOURS = 'hours'
-    DAYS = 'days'
-    MONTHS = 'months'
-    YEARS = 'years'
-
-    def in_seconds(self) -> int:
-        time_scale_to_seconds_map = \
-            {TimeScale.SECONDS: 1,
-             TimeScale.MINUTES: 60,
-             TimeScale.HOURS: 60 * 60,
-             TimeScale.DAYS: 24 * 60 * 60,
-             TimeScale.MONTHS: 365.25 * 24 * 60 * 60 / 12,
-             TimeScale.YEARS: 365.25 * 24 * 60 * 60}
-
-        return time_scale_to_seconds_map[self]
+    def convert_steps_to_time_scale(self, steps: int, time_scale: TimeScale) -> float:
+        return self.in_seconds * steps / time_scale.in_seconds()
