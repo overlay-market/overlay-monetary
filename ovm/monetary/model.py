@@ -160,7 +160,9 @@ class MonetaryModel(Model):
                 "historical_data_source": input_data.historical_data_source.value,
                 "ovl_ticker": input_data.ovl_ticker,
                 "ovl_quote_ticker": input_data.ovl_quote_ticker,
-                "numpy_seed": input_data.numpy_seed
+                "numpy_seed": input_data.numpy_seed,
+                "is_resampled": input_data.is_resampled,
+                "data_collection_interval": data_collection_options.data_collection_interval
         }
 
         if PERFORM_INFO_LOGGING:

@@ -302,7 +302,7 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         return np.array([type(a) == agent_type for a in self._agents])
 
     @property
-    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
+    def agent_type_set(self) -> tp.Set[tp.Type[AgentType]]:
         return set(type(agent) for agent in self._agents)
 
     @property
@@ -521,8 +521,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                     variable_selection=model_variable_selection))
 
     @property
-    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
-        return self._agent_reporter_collection.agent_types
+    def agent_type_set(self) -> tp.Set[tp.Type[AgentType]]:
+        return self._agent_reporter_collection.agent_type_set
 
     @property
     def agent_reporter_names(self) -> tp.Sequence[str]:
@@ -567,6 +567,7 @@ class HDF5DataCollectionFile:
         self._filepath = filepath
         self._hdf5_file: h5py.File = h5py.File(self._filepath, 'r')
         self._model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
+        self._agent_group = self._hdf5_file.get(AGENT_VARIABLES_GROUP_NAME)
         self._agent_type_group = self._hdf5_file.get(AGENT_ID_TO_TYPE_GROUP_NAME)
 
     @property
@@ -603,19 +604,71 @@ class HDF5DataCollectionFile:
                                             variable_selection=variable_selection)
 
     @property
-    def agent_types(self) -> tp.Sequence[str]:
+    def agent_type_strings(self) -> tp.Sequence[str]:
         return tuple(self._agent_type_group.attrs.values())
+
+    @property
+    def agent_type_string_set(self) -> tp.Set[str]:
+        return set(self.agent_type_strings)
 
     @property
     def agent_id_to_type_map(self) -> tp.Dict[str, str]:
         return dict(self._agent_type_group.attrs)
 
+    def _agent_type_and_id_combined(self, agent_type_string: tp.Optional[str] = None) \
+            -> tp.Tuple[str, ...]:
+        return tuple(f"{type_string}-{id}"
+                     for id, type_string
+                     in self.agent_id_to_type_map.items()
+                     if type_string == agent_type_string)
+
+    def _agent_ids(self, agent_type_string: tp.Optional[str] = None) -> tp.Tuple[int, ...]:
+        return tuple(int(id)
+                     for id, type_string
+                     in self.agent_id_to_type_map.items()
+                     if type_string == agent_type_string)
+
     def _get_agent_type_indicator(self, agent_type_string: tp.Optional[str] = None) \
             -> np.ndarray:
         if not agent_type_string:
-            return np.full(shape=(len(self.agent_types), ), fill_value=True, dtype=np.bool)
+            return np.full(shape=(len(self.agent_type_strings),), fill_value=True, dtype=np.bool)
         else:
-            return np.array([a == agent_type_string for a in self.agent_types])
+            return np.array([a == agent_type_string for a in self.agent_type_strings])
+
+    def get_agent_report_dataframe(
+            self,
+            reporter_name: str,
+            unsliced_step_dataset: tp.Optional[np.ndarray] = None,
+            first_step: tp.Optional[int] = 0,
+            last_step: tp.Optional[int] = -1,
+            stride: int = 1,
+            use_agent_types_in_header: bool = False,
+            agent_type_string: tp.Optional[str] = None) -> pd.DataFrame:
+
+        if unsliced_step_dataset is None:
+            unsliced_step_dataset = self.step_dataset
+
+        array = np.array(self._agent_group[reporter_name][first_step:last_step:stride, :])
+
+        if agent_type_string:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+            array = array[:, agent_type_indicator]
+
+        if use_agent_types_in_header:
+            agent_header = self._agent_type_and_id_combined(agent_type_string)
+        else:
+            agent_header = self._agent_ids(agent_type_string)
+
+        return pd.DataFrame(data=array,
+                            index=unsliced_step_dataset[first_step:last_step:stride],
+                            columns=agent_header)
+
+    def get_model_level_parameter(self, name: str):
+        return self._hdf5_file.attrs[name]
+
+    @property
+    def model_level_parameters(self) -> tp.Dict[str, tp.Any]:
+        return dict(self._hdf5_file.attrs)
 
     def describe(self):
         print(f'HDF5 Agent Based Simulation Result')
