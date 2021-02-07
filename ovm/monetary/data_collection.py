@@ -563,7 +563,7 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
 
 class HDF5DataCollectionFile:
-    def __init__(self, filepath: str, ):
+    def __init__(self, filepath: str):
         self._filepath = filepath
         self._hdf5_file: h5py.File = h5py.File(self._filepath, 'r')
         self._model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
@@ -682,5 +682,7 @@ class HDF5DataCollectionFile:
         self._hdf5_file.close()
 
     @classmethod
-    def available_hdf5_files(cls, hdf5_base_path: str = OUTPUT_DATA_DIRECTORY) -> tp.Sequence[str]:
-        return glob.glob(os.path.join(hdf5_base_path, '*.h5'))
+    def available_hdf5_files(cls, hdf5_base_path: str = OUTPUT_DATA_DIRECTORY) -> tp.Tuple[str]:
+        files = glob.glob(os.path.join(hdf5_base_path, '*.h5'))
+        files.sort(key=os.path.getmtime)
+        return tuple(files)
