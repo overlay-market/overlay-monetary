@@ -11,10 +11,6 @@ from ovm.monetary.plot_labels import (
     futures_price_label,
     skew_label,
     open_positions_label,
-    inventory_wealth_ovl_label,
-    inventory_wealth_usd_label,
-    GINI_LABEL,
-    GINI_ARBITRAGEURS_LABEL,
     SUPPLY_LABEL,
     TREASURY_LABEL,
     LIQUIDITY_LABEL,
@@ -360,6 +356,84 @@ def plot_spot_vs_futures_price(
 
     plt.legend();
     plt.title(f'Spot Price vs Futures Price for {ticker}')
+
+
+def plot_all_model_level_variables(
+        model_vars_df: pd.DataFrame,
+        tickers: tp.Sequence[str],
+        plot_time_scale: TimeScale,
+        time_resolution: TimeResolution,
+        time_interval_to_plot_in_seconds:
+        tp.Optional[tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
+        figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
+        data_interval: int = 1):
+    # plot_supply
+    plot_supply(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_treasury
+    plot_treasury(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_liquidity
+    plot_liquidity(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_price_deviations
+    plot_price_deviations(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_open_positions
+    plot_open_positions(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_skews
+    plot_skews(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval)
+
+    # plot_spot_vs_futures_price
+    for ticker in tickers:
+        plot_spot_vs_futures_price(
+            model_vars_df=model_vars_df,
+            ticker=ticker,
+            plot_time_scale=plot_time_scale,
+            time_resolution=time_resolution,
+            time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+            figure_size=figure_size,
+            data_interval=data_interval)
 
 
 def random_color():
