@@ -18,7 +18,8 @@ from ovm.tickers import OVL_TICKER
 
 from ovm.monetary.data_collection import (
     DataCollectionOptions,
-    HDF5DataCollector
+    HDF5DataCollector,
+    HDF5DataCollectionFile
 )
 
 from ovm.monetary.data_io import AgentBasedSimulationInputData
@@ -644,3 +645,17 @@ class MonetaryModel(Model):
             if self.data_collection_options.use_hdf5:
                 # ToDo: Flush buffer to HDF5 file
                 self.data_collector.flush()
+
+
+class MonetaryModelHDF5DataCollectionFile(HDF5DataCollectionFile):
+    @property
+    def tickers(self) -> tp.Sequence[str]:
+        return eval(self.get_model_level_parameter('tickers'))
+
+    @property
+    def time_resolution(self) -> TimeResolution:
+        return TimeResolution(self.get_model_level_parameter('time_resolution'))
+
+    @property
+    def data_collection_interval(self) -> int:
+        return self.get_model_level_parameter('data_collection_interval')
