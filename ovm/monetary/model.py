@@ -162,7 +162,8 @@ class MonetaryModel(Model):
                 "ovl_quote_ticker": input_data.ovl_quote_ticker,
                 "numpy_seed": input_data.numpy_seed,
                 "is_resampled": input_data.is_resampled,
-                "data_collection_interval": data_collection_options.data_collection_interval
+                "data_collection_interval": data_collection_options.data_collection_interval,
+                "tickers": repr(list(input_data.ticker_to_series_of_prices_map.keys()))
         }
 
         if PERFORM_INFO_LOGGING:
