@@ -364,10 +364,13 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         self._purge_buffer()
 
         reporter_index = self._reporter_names.index(reporter_name)
-        array = np.array(self._datasets[reporter_index][first_step:last_step:stride, :])
+
+        dataset = self._datasets[reporter_index]
         if agent_type:
             agent_type_indicator = self._get_agent_type_indicator(agent_type)
-            array = array[:, agent_type_indicator]
+            array = np.array(dataset[first_step:last_step:stride, agent_type_indicator])
+        else:
+            array = np.array(dataset[first_step:last_step:stride, :])
 
         if use_agent_types_in_header:
             agent_header = self._agent_type_and_id_combined(agent_type)
@@ -583,21 +586,17 @@ class HDF5DataCollectionFile:
         return self._hdf5_file.attrs[GIT_BRANCH_NAME]
 
     def get_model_dataframe(self,
-                            unsliced_step_dataset: tp.Optional[np.ndarray] = None,
                             first_step: tp.Optional[int] = 0,
                             last_step: tp.Optional[int] = -1,
                             stride: int = 1,
                             variable_selection: tp.Optional[tp.Sequence[str]] = None) \
             -> pd.DataFrame:
 
-        if unsliced_step_dataset is None:
-            unsliced_step_dataset = self.step_dataset
-
         if not variable_selection:
             variable_selection = tuple(self._model_group.keys())
 
         return _get_model_df_from_hdf5_file(model_group=self._model_group,
-                                            unsliced_step_dataset=unsliced_step_dataset,
+                                            unsliced_step_dataset=self.step_dataset,
                                             first_step=first_step,
                                             last_step=last_step,
                                             stride=stride,
@@ -638,21 +637,17 @@ class HDF5DataCollectionFile:
     def get_agent_report_dataframe(
             self,
             reporter_name: str,
-            unsliced_step_dataset: tp.Optional[np.ndarray] = None,
             first_step: tp.Optional[int] = 0,
             last_step: tp.Optional[int] = -1,
             stride: int = 1,
             use_agent_types_in_header: bool = False,
             agent_type_string: tp.Optional[str] = None) -> pd.DataFrame:
-
-        if unsliced_step_dataset is None:
-            unsliced_step_dataset = self.step_dataset
-
-        array = np.array(self._agent_group[reporter_name][first_step:last_step:stride, :])
-
         if agent_type_string:
             agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
-            array = array[:, agent_type_indicator]
+            dataset = self._agent_group[reporter_name]
+            array = np.array(dataset[first_step:last_step:stride, agent_type_indicator])
+        else:
+            array = np.array(self._agent_group[reporter_name][first_step:last_step:stride, :])
 
         if use_agent_types_in_header:
             agent_header = self._agent_type_and_id_combined(agent_type_string)
@@ -660,7 +655,7 @@ class HDF5DataCollectionFile:
             agent_header = self._agent_ids(agent_type_string)
 
         return pd.DataFrame(data=array,
-                            index=unsliced_step_dataset[first_step:last_step:stride],
+                            index=self.step_dataset[first_step:last_step:stride],
                             columns=agent_header)
 
     def get_model_level_parameter(self, name: str):
