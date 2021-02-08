@@ -585,6 +585,14 @@ class HDF5DataCollectionFile:
     def git_branch_name(self) -> str:
         return self._hdf5_file.attrs[GIT_BRANCH_NAME]
 
+    @property
+    def agent_reporter_names(self) -> tp.Tuple[str, ...]:
+        return tuple(self._agent_group.keys())
+
+    @property
+    def model_reporter_names(self) -> tp.Tuple[str, ...]:
+        return tuple(self._model_group.keys())
+
     def get_model_dataframe(self,
                             first_step: tp.Optional[int] = 0,
                             last_step: tp.Optional[int] = -1,
@@ -593,7 +601,7 @@ class HDF5DataCollectionFile:
             -> pd.DataFrame:
 
         if not variable_selection:
-            variable_selection = tuple(self._model_group.keys())
+            variable_selection = self.model_reporter_names
 
         return _get_model_df_from_hdf5_file(model_group=self._model_group,
                                             unsliced_step_dataset=self.step_dataset,
@@ -625,7 +633,7 @@ class HDF5DataCollectionFile:
         return tuple(int(id)
                      for id, type_string
                      in self.agent_id_to_type_map.items()
-                     if type_string == agent_type_string)
+                     if type_string == agent_type_string or agent_type_string is None)
 
     def _get_agent_type_indicator(self, agent_type_string: tp.Optional[str] = None) \
             -> np.ndarray:
@@ -657,6 +665,48 @@ class HDF5DataCollectionFile:
         return pd.DataFrame(data=array,
                             index=self.step_dataset[first_step:last_step:stride],
                             columns=agent_header)
+
+    def get_agent_report_series_for_specific_time_step(
+            self,
+            reporter_name: str,
+            time_step: int,
+            agent_type_string: tp.Optional[str] = None) \
+            -> pd.Series:
+
+        if not agent_type_string:
+            agent_type_indicator = Ellipsis
+        else:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+
+        return pd.Series(data=self._agent_group[reporter_name][time_step, agent_type_indicator],
+                         index=self._agent_ids(agent_type_string),
+                         name=reporter_name)
+
+    def get_agent_report_dataframe_for_specific_time_step(
+            self,
+            time_step: int,
+            agent_type_string: tp.Optional[str] = None,
+            variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
+
+        if variable_selection is None:
+            variable_selection = self.agent_reporter_names
+
+        if not agent_type_string:
+            agent_type_indicator = Ellipsis
+        else:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+
+        data_series = \
+            {variable_name: self._agent_group[variable_name][time_step, agent_type_indicator]
+             for variable_name
+             in variable_selection}
+
+        agent_ids = self._agent_ids(agent_type_string)
+
+        df = pd.DataFrame(data=data_series, index=agent_ids)
+        df.index.rename('agent_id', inplace=True)
+        return df
 
     def get_model_level_parameter(self, name: str):
         return self._hdf5_file.attrs[name]
