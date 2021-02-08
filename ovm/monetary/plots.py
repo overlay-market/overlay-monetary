@@ -1,3 +1,4 @@
+import os
 import random
 import typing as tp
 
@@ -11,10 +12,6 @@ from ovm.monetary.plot_labels import (
     futures_price_label,
     skew_label,
     open_positions_label,
-    inventory_wealth_ovl_label,
-    inventory_wealth_usd_label,
-    GINI_LABEL,
-    GINI_ARBITRAGEURS_LABEL,
     SUPPLY_LABEL,
     TREASURY_LABEL,
     LIQUIDITY_LABEL,
@@ -26,6 +23,14 @@ from ovm.time_resolution import (
 )
 
 DEFAULT_FIGURE_SIZE = (16, 9)
+
+SUPPLY_FILE_NAME = 'supply_plot'
+TREASURY_FILE_NAME = 'treasury_plot'
+LIQUIDITY_FILE_NAME = 'liquidity_plot'
+PRICE_DEVIATIONS_FILE_NAME = 'price_deviations_plot'
+OPEN_POSITIONS_FILE_NAME = 'open_positions_plot'
+SKEWS_FILE_NAME = 'skews_plot'
+SPOT_VS_FUTURES_PRICE_FILE_NAME_START = "spot_vs_futures_price"
 
 
 def convert_time_in_seconds_to_index(
@@ -121,7 +126,10 @@ def plot_multiple_variables_over_time(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        title: tp.Optional[str] = None,
+        legend: bool = True,
+        figure_save_path: tp.Optional[str] = None):
     begin_index, end_index, time_axis_to_plot = \
         get_indices_and_time_axis_to_plot(
             data_length=model_vars_df.shape[0],
@@ -137,6 +145,15 @@ def plot_multiple_variables_over_time(
 
     plt.xlabel(f'time in {plot_time_scale.value}');
 
+    if title is not None:
+        plt.title(title);
+
+    if legend:
+        plt.legend();
+
+    if figure_save_path is not None:
+        plt.savefig(figure_save_path)
+
 
 def plot_price_deviations(
         model_vars_df: pd.DataFrame,
@@ -146,7 +163,8 @@ def plot_price_deviations(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     column_name_to_label_map = \
         {price_deviation_label(ticker): price_deviation_label(ticker)
          for ticker in tickers}
@@ -158,10 +176,10 @@ def plot_price_deviations(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.legend();
-    plt.title('Deviation between Spot and Futures Prices');
+        data_interval=data_interval,
+        title='Deviation between Spot and Futures Prices',
+        legend=True,
+        figure_save_path=figure_save_path)
 
 
 def plot_skews(
@@ -172,7 +190,8 @@ def plot_skews(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     column_name_to_label_map = \
         {skew_label(ticker): skew_label(ticker)
          for ticker in tickers}
@@ -184,10 +203,10 @@ def plot_skews(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.legend();
-    plt.title('Positional Imbalance in Terms of OVL');
+        data_interval=data_interval,
+        title='Positional Imbalance in Terms of OVL',
+        legend=True,
+        figure_save_path=figure_save_path)
 
 
 def plot_open_positions(
@@ -198,7 +217,8 @@ def plot_open_positions(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     column_name_to_label_map = \
         {open_positions_label(ticker): open_positions_label(ticker)
          for ticker in tickers}
@@ -210,10 +230,10 @@ def plot_open_positions(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.legend();
-    plt.title('Number of Open Positions');
+        data_interval=data_interval,
+        title='Number of Open Positions',
+        legend=True,
+        figure_save_path=figure_save_path)
 
 
 def plot_single_variable_over_time_from_numpy_array(
@@ -223,7 +243,9 @@ def plot_single_variable_over_time_from_numpy_array(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        title: tp.Optional[str] = None,
+        figure_save_path: tp.Optional[str] = None):
     if array.ndim != 1:
         raise ValueError(f'array must be a NumPy array with one axis but has shape {array.shape}')
 
@@ -239,6 +261,11 @@ def plot_single_variable_over_time_from_numpy_array(
     plt.figure(figsize=figure_size);
     plt.plot(time_axis_to_plot, data_to_plot);
     plt.xlabel(f'time in {plot_time_scale.value}');
+    if title is not None:
+        plt.title(title)
+
+    if figure_save_path is not None:
+        plt.savefig(figure_save_path)
 
 
 def plot_single_variable_over_time(
@@ -249,27 +276,18 @@ def plot_single_variable_over_time(
         time_interval_to_plot_in_seconds: tp.Optional[
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        title: tp.Optional[str] = None,
+        figure_save_path: tp.Optional[str] = None):
     plot_single_variable_over_time_from_numpy_array(
         array=model_vars_df.loc[:, column_name].values,
         plot_time_scale=plot_time_scale,
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    # begin_index, end_index, time_axis_to_plot = \
-    #     get_indices_and_time_axis_to_plot(
-    #         data_length=model_vars_df.shape[0],
-    #         plot_time_scale=plot_time_scale,
-    #         time_resolution=time_resolution,
-    #         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
-    #         data_interval=data_interval)
-    # data_to_plot = model_vars_df.loc[:, column_name].values[begin_index:end_index]
-    #
-    # plt.figure(figsize=figure_size);
-    # plt.plot(time_axis_to_plot, data_to_plot);
-    # plt.xlabel(f'time in {plot_time_scale.value}');
+        data_interval=data_interval,
+        title=title,
+        figure_save_path=figure_save_path)
 
 
 def plot_supply(
@@ -280,7 +298,8 @@ def plot_supply(
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         supply_label: str = SUPPLY_LABEL,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     plot_single_variable_over_time(
         model_vars_df=model_vars_df,
         column_name=supply_label,
@@ -288,9 +307,9 @@ def plot_supply(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.title('OVL Supply');
+        data_interval=data_interval,
+        title='OVL Supply',
+        figure_save_path=figure_save_path)
 
 
 def plot_treasury(
@@ -301,7 +320,8 @@ def plot_treasury(
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         treasury_label: str = TREASURY_LABEL,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     plot_single_variable_over_time(
         model_vars_df=model_vars_df,
         column_name=treasury_label,
@@ -309,9 +329,9 @@ def plot_treasury(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.title('Treasury');
+        data_interval=data_interval,
+        title='Treasury',
+        figure_save_path=figure_save_path)
 
 
 def plot_liquidity(
@@ -322,7 +342,8 @@ def plot_liquidity(
             tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         liquidity_label: str = LIQUIDITY_LABEL,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
-        data_interval: int = 1):
+        data_interval: int = 1,
+        figure_save_path: tp.Optional[str] = None):
     plot_single_variable_over_time(
         model_vars_df=model_vars_df,
         column_name=liquidity_label,
@@ -330,9 +351,9 @@ def plot_liquidity(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
-
-    plt.title('Liquidity');
+        data_interval=data_interval,
+        title='Liquidity',
+        figure_save_path=figure_save_path)
 
 
 def plot_spot_vs_futures_price(
@@ -344,7 +365,7 @@ def plot_spot_vs_futures_price(
         tp.Optional[tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
         figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
         data_interval: int = 1,
-):
+        figure_save_path: tp.Optional[str] = None):
     column_name_to_label_map = \
         {futures_price_label(ticker): futures_price_label(ticker),
          spot_price_label(ticker): spot_price_label(ticker)}
@@ -356,11 +377,128 @@ def plot_spot_vs_futures_price(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        title=f'Spot Price vs Futures Price for {ticker}',
+        legend=True,
+        figure_save_path=figure_save_path)
 
-    plt.legend();
-    plt.title(f'Spot Price vs Futures Price for {ticker}')
+
+def plot_all_model_level_variables(
+        model_vars_df: pd.DataFrame,
+        tickers: tp.Sequence[str],
+        plot_time_scale: TimeScale,
+        time_resolution: TimeResolution,
+        time_interval_to_plot_in_seconds:
+        tp.Optional[tp.Tuple[tp.Optional[float], tp.Optional[float]]] = None,
+        figure_size: tp.Tuple[float, float] = DEFAULT_FIGURE_SIZE,
+        data_interval: int = 1,
+        figure_save_directory: tp.Optional[str] = None):
+
+    if figure_save_directory is not None:
+        if not os.path.exists(figure_save_directory):
+            os.makedirs(figure_save_directory)
+
+        supply_file_path = os.path.join(figure_save_directory, SUPPLY_FILE_NAME)
+        treasury_file_path = os.path.join(figure_save_directory, TREASURY_FILE_NAME)
+        liquidity_file_path = os.path.join(figure_save_directory, LIQUIDITY_FILE_NAME)
+        price_deviations_file_path = \
+            os.path.join(figure_save_directory, PRICE_DEVIATIONS_FILE_NAME)
+        open_positions_file_path = \
+            os.path.join(figure_save_directory, OPEN_POSITIONS_FILE_NAME)
+        skews_file_path = \
+            os.path.join(figure_save_directory, SKEWS_FILE_NAME)
+    else:
+        supply_file_path = None
+        treasury_file_path = None
+        liquidity_file_path = None
+        price_deviations_file_path = None
+        open_positions_file_path = None
+        skews_file_path = None
+
+    # plot_supply
+    plot_supply(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=supply_file_path)
+
+    # plot_treasury
+    plot_treasury(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=treasury_file_path)
+
+    # plot_liquidity
+    plot_liquidity(
+        model_vars_df=model_vars_df,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=liquidity_file_path)
+
+    # plot_price_deviations
+    plot_price_deviations(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=price_deviations_file_path)
+
+    # plot_open_positions
+    plot_open_positions(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=open_positions_file_path)
+
+    # plot_skews
+    plot_skews(
+        model_vars_df=model_vars_df,
+        tickers=tickers,
+        plot_time_scale=plot_time_scale,
+        time_resolution=time_resolution,
+        time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+        figure_size=figure_size,
+        data_interval=data_interval,
+        figure_save_path=skews_file_path)
+
+    # plot_spot_vs_futures_price
+    for ticker in tickers:
+        if figure_save_directory is not None:
+            spot_vs_future_price_file_path = \
+                os.path.join(figure_save_directory,
+                             f'{SPOT_VS_FUTURES_PRICE_FILE_NAME_START}_{ticker}')
+        else:
+            spot_vs_future_price_file_path = None
+
+        plot_spot_vs_futures_price(
+            model_vars_df=model_vars_df,
+            ticker=ticker,
+            plot_time_scale=plot_time_scale,
+            time_resolution=time_resolution,
+            time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
+            figure_size=figure_size,
+            data_interval=data_interval,
+            figure_save_path=spot_vs_future_price_file_path)
 
 
 def random_color():
-    return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    return '#%02X%02X%02X' % (random.randint(0, 255),
+                              random.randint(0, 255),
+                              random.randint(0, 255))

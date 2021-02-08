@@ -18,7 +18,8 @@ from ovm.tickers import OVL_TICKER
 
 from ovm.monetary.data_collection import (
     DataCollectionOptions,
-    HDF5DataCollector
+    HDF5DataCollector,
+    HDF5DataCollectionFile
 )
 
 from ovm.monetary.data_io import AgentBasedSimulationInputData
@@ -67,7 +68,6 @@ class MonetaryModel(Model):
         # sims: tp.Dict[str, np.ndarray],
         input_data: AgentBasedSimulationInputData,
         quote_ticker: str,
-        ovl_quote_ticker: str,
         base_wealth: float,
         base_market_fee: float,
         base_max_leverage: float,
@@ -78,7 +78,6 @@ class MonetaryModel(Model):
         treasury: float,
         sampling_interval: int,
         sampling_twap_granularity: int,
-        time_resolution: TimeResolution,
         data_collection_options: DataCollectionOptions = DataCollectionOptions(),
         seed: tp.Optional[int] = None
     ):
@@ -136,13 +135,42 @@ class MonetaryModel(Model):
         # self.sims = sims  # { k: [ prices ] }
         self.input_data = input_data
         self.quote_ticker = quote_ticker
-        self.ovl_quote_ticker = ovl_quote_ticker
-        self.time_resolution = time_resolution
+        self.ovl_quote_ticker = input_data.ovl_quote_ticker
+        self.time_resolution = input_data.time_resolution
+
+        model_parameter_name_to_parameter_map = {
+                "quote_ticker": quote_ticker,
+                "num_arbitrageurs": num_arbitrageurs,
+                "num_keepers": num_keepers,
+                "num_traders": num_traders,
+                "num_holders": num_holders,
+                "num_snipers": num_snipers,
+                "num_long_apes": num_long_apes,
+                "num_short_apes": num_short_apes,
+                "num_liquidators": num_liquidators,
+                "base_wealth": base_wealth,
+                "base_market_fee": base_market_fee,
+                "base_max_leverage": base_max_leverage,
+                "base_liquidate_reward": base_liquidate_reward,
+                "base_maintenance": base_maintenance,
+                "liquidity": liquidity,
+                "treasury": treasury,
+                "sampling_interval": sampling_interval,
+                "sampling_twap_granularity": sampling_twap_granularity,
+                "time_resolution": input_data.time_resolution.value,
+                "historical_data_source": input_data.historical_data_source.value,
+                "ovl_ticker": input_data.ovl_ticker,
+                "ovl_quote_ticker": input_data.ovl_quote_ticker,
+                "numpy_seed": input_data.numpy_seed,
+                "is_resampled": input_data.is_resampled,
+                "data_collection_interval": data_collection_options.data_collection_interval,
+                "tickers": repr(list(input_data.ticker_to_series_of_prices_map.keys()))
+        }
 
         if PERFORM_INFO_LOGGING:
             logger.info("Model kwargs for initial conditions of sim:")
             logger.info(f"quote_ticker = {quote_ticker}")
-            logger.info(f"ovl_quote_ticker = {ovl_quote_ticker}")
+            logger.info(f"ovl_quote_ticker = {input_data.ovl_quote_ticker}")
             logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
             logger.info(f"num_snipers = {num_snipers}")
             logger.info(f"num_long_apes = {num_long_apes}")
@@ -383,7 +411,7 @@ class MonetaryModel(Model):
             save_interval = \
                 int(24 * 60 * 60 /
                     data_collection_options.data_collection_interval /
-                    time_resolution.in_seconds)
+                    input_data.time_resolution.in_seconds)
 
             if data_collection_options.use_hdf5:
                 self.data_collector = \
@@ -391,7 +419,9 @@ class MonetaryModel(Model):
                         model=self,
                         save_interval=save_interval,
                         model_reporters=model_reporters,
-                        agent_reporters={"Wealth": AgentWealthReporter()})
+                        agent_reporters={"Wealth": AgentWealthReporter()},
+                        model_parameter_name_to_parameter_value_map
+                        =model_parameter_name_to_parameter_map)
             else:
                 self.data_collector = DataCollector(
                     model_reporters=model_reporters,
@@ -615,3 +645,17 @@ class MonetaryModel(Model):
             if self.data_collection_options.use_hdf5:
                 # ToDo: Flush buffer to HDF5 file
                 self.data_collector.flush()
+
+
+class MonetaryModelHDF5DataCollectionFile(HDF5DataCollectionFile):
+    @property
+    def tickers(self) -> tp.Sequence[str]:
+        return eval(self.get_model_level_parameter('tickers'))
+
+    @property
+    def time_resolution(self) -> TimeResolution:
+        return TimeResolution(self.get_model_level_parameter('time_resolution'))
+
+    @property
+    def data_collection_interval(self) -> int:
+        return self.get_model_level_parameter('data_collection_interval')

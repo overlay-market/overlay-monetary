@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+import glob
 import os
 import typing as tp
 
@@ -18,6 +19,10 @@ DATA_COLLECTOR_NAME = 'data_collector'
 STEP_COLUMN_NAME = 'step'
 MODEL_VARIABLES_GROUP_NAME = 'MODEL_VARIABLES'
 AGENT_VARIABLES_GROUP_NAME = 'AGENT_VARIABLES'
+AGENT_ID_TO_TYPE_GROUP_NAME = 'AGENT_ID_TO_TYPE'
+GIT_COMMIT_HASH_NAME = 'GIT_COMMIT_HASH'
+GIT_BRANCH_NAME = 'GIT_BRANCH'
+SIMULATION_START_TIME_NAME = 'SIMULATION_START_TIME'
 
 AgentType = tp.TypeVar('AgentType', bound=Agent)
 ModelType = tp.TypeVar('ModelType', bound=Model)
@@ -87,7 +92,7 @@ class ModelReporterCollection(tp.Generic[ModelType]):
             save_interval: int,
             hdf5_file: h5py.File,
             name_to_model_reporter_map:
-            tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
+            tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None
     ):
         if not name_to_model_reporter_map:
             name_to_model_reporter_map = {}
@@ -109,12 +114,12 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         self._reporters = tuple(self._reporters)
         self._reporter_names = tuple(self._reporter_names)
         self._buffers = tuple(self._buffers)
+        self._hdf5_file = hdf5_file
 
-        group_name = MODEL_VARIABLES_GROUP_NAME
-        model_group = hdf5_file.get(group_name)
+        model_group = hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
         if not model_group:
             # create a model group
-            model_group = hdf5_file.create_group(group_name)
+            model_group = hdf5_file.create_group(MODEL_VARIABLES_GROUP_NAME, track_order=True)
 
             # create a hdf5 dataset for each reporter
             for name, reporter in zip(self._reporter_names, self._reporters):
@@ -177,16 +182,31 @@ class ModelReporterCollection(tp.Generic[ModelType]):
         if not variable_selection:
             variable_selection = self._reporter_names
 
-        name_to_dataset_map = \
-            {name: np.array(dataset[first_step:last_step:stride])
-             for name, dataset
-             in zip(self._reporter_names, self._datasets)
-             if name in variable_selection}
+        model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
 
-        name_to_dataset_map.update({STEP_COLUMN_NAME:
+        return _get_model_df_from_hdf5_file(model_group=model_group,
+                                            unsliced_step_dataset=unsliced_step_dataset,
+                                            first_step=first_step,
+                                            last_step=last_step,
+                                            stride=stride,
+                                            variable_selection=variable_selection)
+
+
+def _get_model_df_from_hdf5_file(model_group: h5py.Group,
+                                 unsliced_step_dataset: np.ndarray,
+                                 variable_selection: tp.Sequence[str],
+                                 first_step: tp.Optional[int] = 0,
+                                 last_step: tp.Optional[int] = -1,
+                                 stride: int = 1) -> pd.DataFrame:
+    name_to_dataset_map = \
+        {name: np.array(model_group[name][first_step:last_step:stride])
+         for name
+         in variable_selection}
+
+    name_to_dataset_map.update({STEP_COLUMN_NAME:
                                     unsliced_step_dataset[first_step:last_step:stride]})
 
-        return pd.DataFrame(name_to_dataset_map)
+    return pd.DataFrame(name_to_dataset_map)
 
 
 ################################################################################
@@ -237,24 +257,27 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         self._reporter_names = tuple(self._reporter_names)
         self._buffers = tuple(self._buffers)
 
-        group_name = AGENT_VARIABLES_GROUP_NAME
-        agent_group = hdf5_file.get(group_name)
+        agent_group = hdf5_file.get(AGENT_VARIABLES_GROUP_NAME)
         if not agent_group:
             # create a model group
-            agent_group = hdf5_file.create_group(group_name)
+            agent_group = hdf5_file.create_group(AGENT_VARIABLES_GROUP_NAME, track_order=True)
 
             # create a hdf5 dataset for each reporter
             for name, reporter in zip(self._reporter_names, self._reporters):
-                (self
-                 ._datasets
-                 .append(agent_group.create_dataset(
-                                            name=name,
-                                            shape=(0, self.number_of_agents),
-                                            dtype=reporter.dtype,
-                                            maxshape=(None, self.number_of_agents),
-                                            chunks=(save_interval, self.number_of_agents))))
+                agent_dataset = \
+                    agent_group.create_dataset(name=name,
+                                               shape=(0, self.number_of_agents),
+                                               dtype=reporter.dtype,
+                                               maxshape=(None, self.number_of_agents),
+                                               chunks=(save_interval, self.number_of_agents))
 
-            # agent_group.create_dataset(name='AGENT_TYPES', data=self.agent_type_strings)
+                self._datasets.append(agent_dataset)
+
+            # create agent type group
+            agent_type_group = hdf5_file.create_group(AGENT_ID_TO_TYPE_GROUP_NAME, track_order=True)
+            for agent in self._agents:
+                agent_type_group.attrs[str(agent.unique_id)] = \
+                    _get_unqualified_class_name_from_object(agent)
         else:
             for name in self._reporter_names:
                 dataset = agent_group.get(name)
@@ -280,7 +303,7 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         return np.array([type(a) == agent_type for a in self._agents])
 
     @property
-    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
+    def agent_type_set(self) -> tp.Set[tp.Type[AgentType]]:
         return set(type(agent) for agent in self._agents)
 
     @property
@@ -342,10 +365,13 @@ class AgentReporterCollection(tp.Generic[ModelType, AgentType]):
         self._purge_buffer()
 
         reporter_index = self._reporter_names.index(reporter_name)
-        array = np.array(self._datasets[reporter_index][first_step:last_step:stride, :])
+
+        dataset = self._datasets[reporter_index]
         if agent_type:
             agent_type_indicator = self._get_agent_type_indicator(agent_type)
-            array = array[:, agent_type_indicator]
+            array = np.array(dataset[first_step:last_step:stride, agent_type_indicator])
+        else:
+            array = np.array(dataset[first_step:last_step:stride, :])
 
         if use_agent_types_in_header:
             agent_header = self._agent_type_and_id_combined(agent_type)
@@ -366,7 +392,11 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             model_reporters: tp.Optional[tp.Dict[str, AbstractModelReporter[ModelType]]] = None,
             agent_reporters: tp.Optional[tp.Dict[str, AbstractAgentReporter[ModelType]]] = None,
             output_data_directory: tp.Optional[str] = None,
+            model_parameter_name_to_parameter_value_map: tp.Optional[tp.Dict[str, tp.Any]] = None,  # metadata to attach to model group
     ):
+        if not model_parameter_name_to_parameter_value_map:
+            model_parameter_name_to_parameter_value_map = {}
+
         if not output_data_directory:
             output_data_directory = OUTPUT_DATA_DIRECTORY
 
@@ -388,13 +418,25 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             assert self._step_dataset is not None
         else:
             git_commit_hash = git.Repo(search_parent_directories=True).head.object.hexsha
+            git_branch_name = git.Repo(search_parent_directories=True).active_branch.name
 
-            dt_string = \
-                datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
-            self.hdf5_filename = model.name + "_" + git_commit_hash + "_" + dt_string + '.h5'
+            # dt_string = \
+            #     datetime.now().strftime("%d-%m-%Y-%H-%M-%S(day-month-year-hour-minute-second)")
+            # self.hdf5_filename = model.name + "_" + git_commit_hash + "_" + dt_string + '.h5'
+            dt_string = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+            self.hdf5_filename = model.name + "_" + dt_string + '.h5'
             self.hdf5_path = os.path.join(output_data_directory, self.hdf5_filename)
 
             self.hdf5_file: h5py.File = h5py.File(self.hdf5_path, 'w')
+            self.hdf5_file.attrs[GIT_COMMIT_HASH_NAME] = git_commit_hash
+            self.hdf5_file.attrs[GIT_BRANCH_NAME] = git_branch_name
+            self.hdf5_file.attrs[SIMULATION_START_TIME_NAME] = dt_string
+
+            for parameter_name, parameter_value in model_parameter_name_to_parameter_value_map.items():
+                print(f"{parameter_name}={parameter_value}")
+                if not parameter_value:
+                    parameter_value = 'None'
+                self.hdf5_file.attrs[parameter_name] = parameter_value
 
             self._step_dataset = \
                 self.hdf5_file.create_dataset(name=STEP_COLUMN_NAME,
@@ -405,9 +447,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
         # model reporter collection
         self._model_reporter_collection = \
-            ModelReporterCollection(save_interval=save_interval,
-                                    name_to_model_reporter_map=model_reporters,
-                                    hdf5_file=self.hdf5_file)
+            ModelReporterCollection(
+                save_interval=save_interval,
+                name_to_model_reporter_map=model_reporters,
+                hdf5_file=self.hdf5_file)
 
         # agent reporter collection
         self._agent_reporter_collection = \
@@ -415,6 +458,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                                     save_interval=save_interval,
                                     name_to_agent_reporter_map=agent_reporters,
                                     hdf5_file=self.hdf5_file)
+
+    @property
+    def simulation_start_time(self) -> str:
+        return self.hdf5_file.attrs[SIMULATION_START_TIME_NAME]
 
     @property
     def model_reporter_names(self) -> tp.Sequence[str]:
@@ -483,8 +530,8 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                     variable_selection=model_variable_selection))
 
     @property
-    def agent_types(self) -> tp.Set[tp.Type[AgentType]]:
-        return self._agent_reporter_collection.agent_types
+    def agent_type_set(self) -> tp.Set[tp.Type[AgentType]]:
+        return self._agent_reporter_collection.agent_type_set
 
     @property
     def agent_reporter_names(self) -> tp.Sequence[str]:
@@ -522,3 +569,175 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
 
     def __del__(self):
         self.hdf5_file.close()
+
+
+class HDF5DataCollectionFile:
+    def __init__(self, filepath: str):
+        self._filepath = filepath
+        self._hdf5_file: h5py.File = h5py.File(self._filepath, 'r')
+        self._model_group = self._hdf5_file.get(MODEL_VARIABLES_GROUP_NAME)
+        self._agent_group = self._hdf5_file.get(AGENT_VARIABLES_GROUP_NAME)
+        self._agent_type_group = self._hdf5_file.get(AGENT_ID_TO_TYPE_GROUP_NAME)
+
+    @property
+    def commit_hash(self) -> str:
+        return self._hdf5_file.attrs[GIT_COMMIT_HASH_NAME]
+
+    @property
+    def git_branch_name(self) -> str:
+        return self._hdf5_file.attrs[GIT_BRANCH_NAME]
+
+    @property
+    def simulation_start_time(self) -> str:
+        return self._hdf5_file.attrs[SIMULATION_START_TIME_NAME]
+
+    @property
+    def step_dataset(self) -> np.ndarray:
+        return np.array(self._hdf5_file[STEP_COLUMN_NAME])
+
+    @property
+    def agent_reporter_names(self) -> tp.Tuple[str, ...]:
+        return tuple(self._agent_group.keys())
+
+    @property
+    def model_reporter_names(self) -> tp.Tuple[str, ...]:
+        return tuple(self._model_group.keys())
+
+    def get_model_dataframe(self,
+                            first_step: tp.Optional[int] = 0,
+                            last_step: tp.Optional[int] = -1,
+                            stride: int = 1,
+                            variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
+
+        if not variable_selection:
+            variable_selection = self.model_reporter_names
+
+        return _get_model_df_from_hdf5_file(model_group=self._model_group,
+                                            unsliced_step_dataset=self.step_dataset,
+                                            first_step=first_step,
+                                            last_step=last_step,
+                                            stride=stride,
+                                            variable_selection=variable_selection)
+
+    @property
+    def agent_type_strings(self) -> tp.Sequence[str]:
+        return tuple(self._agent_type_group.attrs.values())
+
+    @property
+    def agent_type_string_set(self) -> tp.Set[str]:
+        return set(self.agent_type_strings)
+
+    @property
+    def agent_id_to_type_map(self) -> tp.Dict[str, str]:
+        return dict(self._agent_type_group.attrs)
+
+    def _agent_type_and_id_combined(self, agent_type_string: tp.Optional[str] = None) \
+            -> tp.Tuple[str, ...]:
+        return tuple(f"{type_string}-{id}"
+                     for id, type_string
+                     in self.agent_id_to_type_map.items()
+                     if type_string == agent_type_string)
+
+    def _agent_ids(self, agent_type_string: tp.Optional[str] = None) -> tp.Tuple[int, ...]:
+        return tuple(int(id)
+                     for id, type_string
+                     in self.agent_id_to_type_map.items()
+                     if type_string == agent_type_string or agent_type_string is None)
+
+    def _get_agent_type_indicator(self, agent_type_string: tp.Optional[str] = None) \
+            -> np.ndarray:
+        if not agent_type_string:
+            return np.full(shape=(len(self.agent_type_strings),), fill_value=True, dtype=np.bool)
+        else:
+            return np.array([a == agent_type_string for a in self.agent_type_strings])
+
+    def get_agent_report_dataframe(
+            self,
+            reporter_name: str,
+            first_step: tp.Optional[int] = 0,
+            last_step: tp.Optional[int] = -1,
+            stride: int = 1,
+            use_agent_types_in_header: bool = False,
+            agent_type_string: tp.Optional[str] = None) -> pd.DataFrame:
+        if agent_type_string:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+            dataset = self._agent_group[reporter_name]
+            array = np.array(dataset[first_step:last_step:stride, agent_type_indicator])
+        else:
+            array = np.array(self._agent_group[reporter_name][first_step:last_step:stride, :])
+
+        if use_agent_types_in_header:
+            agent_header = self._agent_type_and_id_combined(agent_type_string)
+        else:
+            agent_header = self._agent_ids(agent_type_string)
+
+        return pd.DataFrame(data=array,
+                            index=self.step_dataset[first_step:last_step:stride],
+                            columns=agent_header)
+
+    def get_agent_report_series_for_specific_time_step(
+            self,
+            reporter_name: str,
+            time_step: int,
+            agent_type_string: tp.Optional[str] = None) \
+            -> pd.Series:
+
+        if not agent_type_string:
+            agent_type_indicator = Ellipsis
+        else:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+
+        return pd.Series(data=self._agent_group[reporter_name][time_step, agent_type_indicator],
+                         index=self._agent_ids(agent_type_string),
+                         name=reporter_name)
+
+    def get_agent_report_dataframe_for_specific_time_step(
+            self,
+            time_step: int,
+            agent_type_string: tp.Optional[str] = None,
+            variable_selection: tp.Optional[tp.Sequence[str]] = None) \
+            -> pd.DataFrame:
+
+        if variable_selection is None:
+            variable_selection = self.agent_reporter_names
+
+        if not agent_type_string:
+            agent_type_indicator = Ellipsis
+        else:
+            agent_type_indicator = self._get_agent_type_indicator(agent_type_string)
+
+        data_series = \
+            {variable_name: self._agent_group[variable_name][time_step, agent_type_indicator]
+             for variable_name
+             in variable_selection}
+
+        agent_ids = self._agent_ids(agent_type_string)
+
+        df = pd.DataFrame(data=data_series, index=agent_ids)
+        df.index.rename('agent_id', inplace=True)
+        return df
+
+    def get_model_level_parameter(self, name: str):
+        return self._hdf5_file.attrs[name]
+
+    @property
+    def model_level_parameters(self) -> tp.Dict[str, tp.Any]:
+        return dict(self._hdf5_file.attrs)
+
+    def describe(self):
+        print(f'HDF5 Agent Based Simulation Result')
+        print(f'HDF5 File Path = {self._filepath}')
+        print(f'Number of simulation steps = {len(self._hdf5_file[STEP_COLUMN_NAME])}')
+
+        for name, value in self._hdf5_file.attrs.items():
+            print(f'{name} = {value}')
+
+    def __del__(self):
+        self._hdf5_file.close()
+
+    @classmethod
+    def available_hdf5_files(cls, hdf5_base_path: str = OUTPUT_DATA_DIRECTORY) -> tp.Tuple[str]:
+        files = glob.glob(os.path.join(hdf5_base_path, '*.h5'))
+        files.sort(key=os.path.getmtime)
+        return tuple(files)
