@@ -36,6 +36,8 @@ SIMULATED_DATA_DIRECTORY = \
 OUTPUT_DATA_DIRECTORY = \
     os.path.join(DATA_OUTPUT_BASE_PATH, 'agent_based_simulation_output_data')
 
+OUTPUT_PLOT_DIRECTORY = os.path.join(OUTPUT_DATA_DIRECTORY, 'plots')
+
 
 class HistoricalDataSource(Enum):
     BINANCE = 'binance'

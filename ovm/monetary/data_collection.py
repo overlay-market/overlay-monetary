@@ -22,6 +22,7 @@ AGENT_VARIABLES_GROUP_NAME = 'AGENT_VARIABLES'
 AGENT_ID_TO_TYPE_GROUP_NAME = 'AGENT_ID_TO_TYPE'
 GIT_COMMIT_HASH_NAME = 'GIT_COMMIT_HASH'
 GIT_BRANCH_NAME = 'GIT_BRANCH'
+SIMULATION_START_TIME_NAME = 'SIMULATION_START_TIME'
 
 AgentType = tp.TypeVar('AgentType', bound=Agent)
 ModelType = tp.TypeVar('ModelType', bound=Model)
@@ -429,6 +430,7 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
             self.hdf5_file: h5py.File = h5py.File(self.hdf5_path, 'w')
             self.hdf5_file.attrs[GIT_COMMIT_HASH_NAME] = git_commit_hash
             self.hdf5_file.attrs[GIT_BRANCH_NAME] = git_branch_name
+            self.hdf5_file.attrs[SIMULATION_START_TIME_NAME] = dt_string
 
             for parameter_name, parameter_value in model_parameter_name_to_parameter_value_map.items():
                 print(f"{parameter_name}={parameter_value}")
@@ -456,6 +458,10 @@ class HDF5DataCollector(tp.Generic[ModelType, AgentType]):
                                     save_interval=save_interval,
                                     name_to_agent_reporter_map=agent_reporters,
                                     hdf5_file=self.hdf5_file)
+
+    @property
+    def simulation_start_time(self) -> str:
+        return self.hdf5_file.attrs[SIMULATION_START_TIME_NAME]
 
     @property
     def model_reporter_names(self) -> tp.Sequence[str]:
@@ -574,16 +580,20 @@ class HDF5DataCollectionFile:
         self._agent_type_group = self._hdf5_file.get(AGENT_ID_TO_TYPE_GROUP_NAME)
 
     @property
-    def step_dataset(self) -> np.ndarray:
-        return np.array(self._hdf5_file[STEP_COLUMN_NAME])
-
-    @property
     def commit_hash(self) -> str:
         return self._hdf5_file.attrs[GIT_COMMIT_HASH_NAME]
 
     @property
     def git_branch_name(self) -> str:
         return self._hdf5_file.attrs[GIT_BRANCH_NAME]
+
+    @property
+    def simulation_start_time(self) -> str:
+        return self._hdf5_file.attrs[SIMULATION_START_TIME_NAME]
+
+    @property
+    def step_dataset(self) -> np.ndarray:
+        return np.array(self._hdf5_file[STEP_COLUMN_NAME])
 
     @property
     def agent_reporter_names(self) -> tp.Tuple[str, ...]:
