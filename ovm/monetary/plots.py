@@ -24,6 +24,14 @@ from ovm.time_resolution import (
 
 DEFAULT_FIGURE_SIZE = (16, 9)
 
+SUPPLY_FILE_NAME = 'supply_plot'
+TREASURY_FILE_NAME = 'treasury_plot'
+LIQUIDITY_FILE_NAME = 'liquidity_plot'
+PRICE_DEVIATIONS_FILE_NAME = 'price_deviations_plot'
+OPEN_POSITIONS_FILE_NAME = 'open_positions_plot'
+SKEWS_FILE_NAME = 'skews_plot'
+SPOT_VS_FUTURES_PRICE_FILE_NAME_START = "spot_vs_futures_price"
+
 
 def convert_time_in_seconds_to_index(
     time_resolution: TimeResolution,
@@ -386,21 +394,26 @@ def plot_all_model_level_variables(
         data_interval: int = 1,
         figure_save_directory: tp.Optional[str] = None):
 
-    SUPPLY_FILE_NAME_START = 'supply_plot'
-    TREASURY_FILE_NAME_START = 'treasury_plot'
-    LIQUIDITY_FILE_NAME_START = 'liquidity_plot'
-    PRICE_DEVIATIONS_FILE_NAME_START = 'price_deviations_plot'
-    OPEN_POSITIONS_FILE_NAME_START = 'open_positions_plot'
-    SKEWS_FILE_NAME_START = 'skews_plot'
-    SPOT_VS_FUTURES_PRICE_FILE_NAME_START = ""
-
     if figure_save_directory is not None:
         if not os.path.exists(figure_save_directory):
             os.makedirs(figure_save_directory)
 
-        supply_file_path = os.path.join(figure_save_directory, SUPPLY_FILE_NAME_START)
+        supply_file_path = os.path.join(figure_save_directory, SUPPLY_FILE_NAME)
+        treasury_file_path = os.path.join(figure_save_directory, TREASURY_FILE_NAME)
+        liquidity_file_path = os.path.join(figure_save_directory, LIQUIDITY_FILE_NAME)
+        price_deviations_file_path = \
+            os.path.join(figure_save_directory, PRICE_DEVIATIONS_FILE_NAME)
+        open_positions_file_path = \
+            os.path.join(figure_save_directory, OPEN_POSITIONS_FILE_NAME)
+        skews_file_path = \
+            os.path.join(figure_save_directory, SKEWS_FILE_NAME)
     else:
         supply_file_path = None
+        treasury_file_path = None
+        liquidity_file_path = None
+        price_deviations_file_path = None
+        open_positions_file_path = None
+        skews_file_path = None
 
     # plot_supply
     plot_supply(
@@ -409,7 +422,8 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval, figure_save_path=supply_file_path)
+        data_interval=data_interval,
+        figure_save_path=supply_file_path)
 
     # plot_treasury
     plot_treasury(
@@ -418,7 +432,8 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        figure_save_path=treasury_file_path)
 
     # plot_liquidity
     plot_liquidity(
@@ -427,7 +442,8 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        figure_save_path=liquidity_file_path)
 
     # plot_price_deviations
     plot_price_deviations(
@@ -437,7 +453,8 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        figure_save_path=price_deviations_file_path)
 
     # plot_open_positions
     plot_open_positions(
@@ -447,7 +464,8 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        figure_save_path=open_positions_file_path)
 
     # plot_skews
     plot_skews(
@@ -457,10 +475,18 @@ def plot_all_model_level_variables(
         time_resolution=time_resolution,
         time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
         figure_size=figure_size,
-        data_interval=data_interval)
+        data_interval=data_interval,
+        figure_save_path=skews_file_path)
 
     # plot_spot_vs_futures_price
     for ticker in tickers:
+        if figure_save_directory is not None:
+            spot_vs_future_price_file_path = \
+                os.path.join(figure_save_directory,
+                             f'{SPOT_VS_FUTURES_PRICE_FILE_NAME_START}_{ticker}')
+        else:
+            spot_vs_future_price_file_path = None
+
         plot_spot_vs_futures_price(
             model_vars_df=model_vars_df,
             ticker=ticker,
@@ -468,8 +494,11 @@ def plot_all_model_level_variables(
             time_resolution=time_resolution,
             time_interval_to_plot_in_seconds=time_interval_to_plot_in_seconds,
             figure_size=figure_size,
-            data_interval=data_interval)
+            data_interval=data_interval,
+            figure_save_path=spot_vs_future_price_file_path)
 
 
 def random_color():
-    return '#%02X%02X%02X' % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    return '#%02X%02X%02X' % (random.randint(0, 255),
+                              random.randint(0, 255),
+                              random.randint(0, 255))
