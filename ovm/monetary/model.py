@@ -33,6 +33,9 @@ from ovm.monetary.plot_labels import (
     inventory_wealth_ovl_label,
     inventory_wealth_quote_label,
     agent_wealth_ovl_label,
+    funding_supply_change_label,
+    funding_pay_long_label,
+    funding_pay_short_label,
     GINI_LABEL,
     SUPPLY_LABEL,
     TREASURY_LABEL,
@@ -108,7 +111,10 @@ class MonetaryModel(Model):
             SkewReporter,
             ReserveSkewRelativeReporter,
             OpenPositionReporter,
-            AgentWealthReporter
+            AgentWealthReporter,
+            FundingSupplyChangeReporter,
+            FundingPaymentsLongReporter,
+            FundingPaymentsShortReporter,
         )
 
         super().__init__(seed=seed)
@@ -218,7 +224,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.05, # NOTE: intense here sort of emulates high gas costs (sort of)
+                    min_edge=0.025, # NOTE: intense here sort of emulates high gas costs (sort of)
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -259,7 +265,7 @@ class MonetaryModel(Model):
                     size_increment=0.2,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.05, # NOTE: intense here sort of emulates high gas costs (sort of)
+                    min_edge=0.025, # NOTE: intense here sort of emulates high gas costs (sort of)
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -345,6 +351,18 @@ class MonetaryModel(Model):
             model_reporters.update({
                 # open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
                open_positions_label(ticker): OpenPositionReporter(ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+               funding_supply_change_label(ticker): FundingSupplyChangeReporter(ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+               funding_pay_long_label(ticker): FundingPaymentsLongReporter(ticker=ticker)
+                for ticker in tickers
+            })
+            model_reporters.update({
+               funding_pay_short_label(ticker): FundingPaymentsShortReporter(ticker=ticker)
                 for ticker in tickers
             })
 

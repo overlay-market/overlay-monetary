@@ -261,6 +261,39 @@ class OpenPositionReporter(AbstractMarketLevelReporter[MonetaryModel]):
 
 
 ################################################################################
+# Cumulative funding payments
+################################################################################
+
+def compute_cumulative_funding_ds(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_ds
+
+
+def compute_cumulative_funding_pay_long(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_pay_long
+
+
+def compute_cumulative_funding_pay_short(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_pay_short
+
+
+class FundingSupplyChangeReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_ds(model, self.ticker)
+
+
+class FundingPaymentsLongReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_pay_long(model, self.ticker)
+
+
+class FundingPaymentsShortReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_pay_short(model, self.ticker)
+
+################################################################################
 # Agent Level Reporters
 ################################################################################
 class AgentWealthReporter(AbstractAgentReporter[MonetaryAgent]):

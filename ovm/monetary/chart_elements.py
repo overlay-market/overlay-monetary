@@ -3,9 +3,13 @@ import typing as tp
 from mesa.visualization.modules import ChartModule
 
 from ovm.monetary.data_collection import DATA_COLLECTOR_NAME, DataCollectionOptions
-from ovm.monetary.plot_labels import SUPPLY_LABEL, TREASURY_LABEL, price_deviation_label, \
-    skew_label, reserve_skew_relative_label, open_positions_label, agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL, \
-    GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label
+from ovm.monetary.plot_labels import (
+    SUPPLY_LABEL, TREASURY_LABEL, price_deviation_label,
+    skew_label, reserve_skew_relative_label, open_positions_label,
+    agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL,
+    GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label,
+    funding_supply_change_label, funding_pay_long_label, funding_pay_short_label
+)
 from ovm.monetary.plots import random_color
 
 
@@ -67,6 +71,14 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
             ChartModule([
                 {"Label": spot_price_label(ticker), "Color": "Black"},
                 {"Label": futures_price_label(ticker), "Color": "Red"},
+            ], data_collector_name='data_collector')
+        )
+
+        chart_elements.append(
+            ChartModule([
+                {"Label": funding_supply_change_label(ticker), "Color": "Purple"},
+                {"Label": funding_pay_long_label(ticker), "Color": "Red"},
+                {"Label": funding_pay_short_label(ticker), "Color": "Blue"},
             ], data_collector_name='data_collector')
         )
 
