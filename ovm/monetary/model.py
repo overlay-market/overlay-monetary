@@ -78,6 +78,7 @@ class MonetaryModel(Model):
         treasury: float,
         sampling_interval: int,
         sampling_twap_granularity: int,
+        trade_limit: int,
         time_resolution: TimeResolution,
         data_collection_options: DataCollectionOptions = DataCollectionOptions(),
         seed: tp.Optional[int] = None
@@ -137,25 +138,27 @@ class MonetaryModel(Model):
         self.input_data = input_data
         self.quote_ticker = quote_ticker
         self.ovl_quote_ticker = ovl_quote_ticker
+        self.trade_limit = trade_limit
         self.time_resolution = time_resolution
 
         if PERFORM_INFO_LOGGING:
-            logger.info("Model kwargs for initial conditions of sim:")
-            logger.info(f"quote_ticker = {quote_ticker}")
-            logger.info(f"ovl_quote_ticker = {ovl_quote_ticker}")
-            logger.info(f"num_arbitrageurs = {num_arbitrageurs}")
-            logger.info(f"num_snipers = {num_snipers}")
-            logger.info(f"num_long_apes = {num_long_apes}")
-            logger.info(f"num_short_apes = {num_short_apes}")
-            logger.info(f"num_keepers = {num_keepers}")
-            logger.info(f"num_traders = {num_traders}")
-            logger.info(f"num_holders = {num_holders}")
-            logger.info(f"num_liquidators = {num_liquidators}")
-            logger.info(f"base_wealth = {base_wealth}")
-            logger.info(f"total_supply = {self.supply}")
-            logger.info(f"sampling_interval = {self.sampling_interval}")
-            logger.info(f"sampling_twap_granularity = {self.sampling_twap_granularity}")
-            logger.info(
+            print("Model kwargs for initial conditions of sim:")
+            print(f"quote_ticker = {quote_ticker}")
+            print(f"ovl_quote_ticker = {ovl_quote_ticker}")
+            print(f"num_arbitrageurs = {num_arbitrageurs}")
+            print(f"num_snipers = {num_snipers}")
+            print(f"num_long_apes = {num_long_apes}")
+            print(f"num_short_apes = {num_short_apes}")
+            print(f"num_keepers = {num_keepers}")
+            print(f"num_traders = {num_traders}")
+            print(f"num_holders = {num_holders}")
+            print(f"num_liquidators = {num_liquidators}")
+            print(f"base_wealth = {base_wealth}")
+            print(f"total_supply = {self.supply}")
+            print(f"sampling_interval = {self.sampling_interval}")
+            print(f"sampling_twap_granularity = {self.sampling_twap_granularity}")
+            print(f"trade_limit = {self.trade_limit}")
+            print(
                 f"num_agents * base_wealth + liquidity = {self.num_agents*self.base_wealth + self.liquidity}")
 
         # Markets: Assume OVL-QUOTE is in here and only have X-QUOTE pairs for now ...
@@ -178,6 +181,7 @@ class MonetaryModel(Model):
                 max_leverage=base_max_leverage,
                 liquidate_reward=base_liquidate_reward,
                 maintenance=base_maintenance,
+                trade_limit=trade_limit,
                 model=self,
             )
             for ticker, prices in self.sims.items()
@@ -214,7 +218,7 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.01,
+                    min_edge=0.05, # NOTE: intense here sort of emulates high gas costs (sort of)
                 )
             elif i < self.num_arbitraguers + self.num_keepers:
                 agent = MonetaryKeeper(
@@ -250,12 +254,12 @@ class MonetaryModel(Model):
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    pos_amount=self.base_wealth*0.25,
+                    pos_amount=self.base_wealth*0.5,
                     leverage_max=leverage_max,
-                    size_increment=0.25,
+                    size_increment=0.2,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.01,
+                    min_edge=0.05, # NOTE: intense here sort of emulates high gas costs (sort of)
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -271,7 +275,7 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
                 #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*30, sampling_interval*24*90)
+                    sampling_interval*24*1, sampling_interval*24*7)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -287,7 +291,7 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
                 #ape_leverage_max = randint(4, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*30, sampling_interval*24*90)
+                    sampling_interval*24*1, sampling_interval*24*7)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -436,7 +440,7 @@ class MonetaryModel(Model):
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
             self.data_collector.collect(self)
 
-        if self.schedule.steps % 60 == 0: # logger.getEffectiveLevel() <= 10
+        if self.schedule.steps % (24 * self.sampling_interval) == 0: # logger.getEffectiveLevel() <= 10
             # Snipers
             top_10_snipers = sorted(
                 [a for a in self.schedule.agents if type(a) == MonetarySniper],
@@ -456,10 +460,10 @@ class MonetaryModel(Model):
                 for a in bottom_10_snipers
             }
             if PERFORM_INFO_LOGGING:
-                logger.info("========================================")
-                logger.info(
+                print("========================================")
+                print(
                     f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Sniper wealths bottom 10 -> {bottom_10_snipers_wealth}")
 
             # Arbs
@@ -483,10 +487,10 @@ class MonetaryModel(Model):
                 for a in bottom_10_arbs
             }
             if PERFORM_INFO_LOGGING:
-                logger.info("========================================")
-                logger.info(
+                print("========================================")
+                print(
                     f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Arb wealths bottom 10 -> {bottom_10_arbs_wealth}")
 
             # Liquidators
@@ -510,10 +514,10 @@ class MonetaryModel(Model):
                 for a in bottom_10_liqs
             }
             if PERFORM_INFO_LOGGING:
-                logger.info("========================================")
-                logger.info(
+                print("========================================")
+                print(
                     f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
 
             # Apes
@@ -556,14 +560,14 @@ class MonetaryModel(Model):
                 for a in bottom_10_short_apes
             }
             if PERFORM_INFO_LOGGING:
-                logger.info("========================================")
-                logger.info(
+                print("========================================")
+                print(
                     f"Model.step: Ape long wealths top 10 -> {top_10_long_apes_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Ape long wealths bottom 10 -> {bottom_10_long_apes_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Ape short wealths top 10 -> {top_10_short_apes_wealth}")
-                logger.info(
+                print(
                     f"Model.step: Ape short wealths bottom 10 -> {bottom_10_short_apes_wealth}")
 
         from ovm.monetary.reporters import (
@@ -576,37 +580,37 @@ class MonetaryModel(Model):
             compute_reserve_skew_for_market,
         )
         if PERFORM_DEBUG_LOGGING:
-            logger.debug(f"step {self.schedule.steps}")
-            logger.debug(f"supply {compute_supply(self)}")
-            logger.debug(f"treasury {compute_treasury(self)}")
-            if self.schedule.steps % 60 == 0:
+            print(f"step {self.schedule.steps}")
+            print(f"supply {compute_supply(self)}")
+            print(f"treasury {compute_treasury(self)}")
+            if self.schedule.steps % (24 * self.sampling_interval) == 0:
                 for ticker, fmarket in self.fmarkets.items():
-                    logger.debug(f"fmarket: ticker {ticker}")
-                    logger.debug(f"fmarket: nx {fmarket.nx}")
-                    logger.debug(f"fmarket: px {fmarket.px}")
-                    logger.debug(f"fmarket: ny {fmarket.ny}")
-                    logger.debug(f"fmarket: py {fmarket.py}")
-                    logger.debug(f"fmarket: x {fmarket.x}")
-                    logger.debug(f"fmarket: y {fmarket.y}")
-                    logger.debug(f"fmarket: k {fmarket.k}")
-                    logger.debug(
+                    print(f"fmarket: ticker {ticker}")
+                    print(f"fmarket: nx {fmarket.nx}")
+                    print(f"fmarket: px {fmarket.px}")
+                    print(f"fmarket: ny {fmarket.ny}")
+                    print(f"fmarket: py {fmarket.py}")
+                    print(f"fmarket: x {fmarket.x}")
+                    print(f"fmarket: y {fmarket.y}")
+                    print(f"fmarket: k {fmarket.k}")
+                    print(
                         f"fmarket: locked_long (OVL) {fmarket.locked_long}")
-                    logger.debug(
+                    print(
                         f"fmarket: locked_short (OVL) {fmarket.locked_short}")
 
-                    logger.debug(f"fmarket: futures price {fmarket.price}")
-                    logger.debug(f"fmarket: futures sliding TWAP {fmarket.sliding_twap}")
-                    logger.debug(
+                    print(f"fmarket: futures price {fmarket.price}")
+                    print(f"fmarket: futures sliding TWAP {fmarket.sliding_twap}")
+                    print(
                         f"fmarket: spot price {compute_spot_price(self, ticker)}")
-                    logger.debug(f"fmarket: price_diff bw f/s "
+                    print(f"fmarket: price_diff bw f/s "
                                  f"{compute_price_difference(self, ticker)}")
-                    logger.debug(f"fmarket: positional imbalance "
+                    print(f"fmarket: positional imbalance "
                                  f"{compute_skew_for_market(self, ticker)}")
-                    logger.debug(f"fmarket: reserve skew "
+                    print(f"fmarket: reserve skew "
                                  f"{compute_reserve_skew_for_market(self, ticker, relative=False)}")
-                    logger.debug(f"fmarket: relative reserve skew "
+                    print(f"fmarket: relative reserve skew "
                                  f"{compute_reserve_skew_for_market(self, ticker, relative=True)}")
-                    logger.debug(f"fmarket: open positions "
+                    print(f"fmarket: open positions "
                                  f"{compute_open_positions_per_market(self, ticker)}")
 
         self.schedule.step()

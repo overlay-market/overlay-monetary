@@ -53,7 +53,8 @@ class MonetaryFMarket:
                  base_fee: float,
                  max_leverage: float,
                  liquidate_reward: float,
-                 maintenance: float, # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0
+                 maintenance: float, # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0,
+                 trade_limit: int, # number of trades allowed per idx
                  model: MonetaryModel):
         self.unique_id = unique_id  # ticker
         self.nx = nx
@@ -81,10 +82,8 @@ class MonetaryFMarket:
         self.last_cum_locked_short = 0.0
         self.cum_price = 0.0
         self.cum_price_idx = 0
-        self.last_cum_price = 0.0
-        self.last_twap_market = self.x / self.y
         # Used for sliding twaps: will be an array in Solidity with push() only for gas cost (see Uniswap v2 sliding impl)
-        self.sliding_period_size = int(self.model.sampling_interval / self.model.sampling_twap_granularity)
+        self.sliding_period_size = int(self.model.sampling_interval / self.model.sampling_twap_granularity) + 1
         self.sliding_observations = deque([
             MonetaryFMarketObservation(timestamp=0, cum_price=0)
             for i in range(self.sliding_period_size)
@@ -92,8 +91,12 @@ class MonetaryFMarket:
         self.last_sliding_observation_idx = 0
         self.last_liquidity = model.liquidity  # For liquidity adjustments
         self.last_block_price = self.x / self.y
+        self.last_fund_cum_price = 0.0
+        self.last_twap_market = self.x / self.y
         self.last_funding_idx = 0
         self.last_trade_idx = 0
+        self.trade_limit = trade_limit
+        self.trades_in_idx = 0
         self.last_funding_rate = 0
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
@@ -152,6 +155,14 @@ class MonetaryFMarket:
             self.cum_locked_short += (idx
                                       - self.cum_locked_short_idx) * self.locked_short
             self.cum_locked_short_idx = idx
+
+    def _update_trades_in_idx(self):
+        idx = self.model.schedule.steps
+        if idx == self.last_trade_idx:
+            self.trades_in_idx += 1
+        else:
+            self.last_trade_idx = idx
+            self.trades_in_idx = 1
 
     def _impose_fees(self,
                      dn: float,
@@ -282,6 +293,13 @@ class MonetaryFMarket:
 
         return slippage
 
+    def can_trade(self):
+        idx = self.model.schedule.steps
+        return (
+            idx != self.last_trade_idx or
+            self.trades_in_idx <= self.trade_limit
+        )
+
     def _swap(self,
               dn: float,
               build: bool,
@@ -336,10 +354,11 @@ class MonetaryFMarket:
             logger.debug(f"_swap: ny -> {self.ny}")
             logger.debug(f"_swap: y -> {self.y}")
 
+        # Market cache updates
         self._update_cum_price()
         self._update_sliding_observations()
-        idx = self.model.schedule.steps
-        self.last_trade_idx = idx
+        self._update_trades_in_idx()
+
         return self.price
 
     def build(self,
@@ -432,7 +451,7 @@ class MonetaryFMarket:
         # View for current estimate of the funding rate over current sampling period
         idx=self.model.schedule.steps
         dt=idx - self.last_funding_idx
-        if dt == 0 or self.cum_price_idx == self.last_funding_idx:
+        if dt == 0:
             return 0.0
 
         # Calculate twap of oracle feed ... each step is value 1 in time weight
@@ -449,7 +468,7 @@ class MonetaryFMarket:
             logger.debug(f"funding: Time since last funding (dt) = {dt}")
             logger.debug(f"funding: twap_feed = {twap_feed}")
             logger.debug(f"funding: cum_price = {self.cum_price}")
-            logger.debug(f"funding: last_cum_price = {self.last_cum_price}")
+            logger.debug(f"funding: last_fund_cum_price = {self.last_fund_cum_price}")
             logger.debug(f"funding: twap_market = {twap_market}")
 
         return funding
@@ -477,14 +496,28 @@ class MonetaryFMarket:
         # Calculate twap of market ... update cum price value first
         #self._update_cum_price()
 
-        #if PERFORM_DEBUG_LOGGING:
-        #    logger.debug(f"fund: cum_price = {self.cum_price}")
-        #    logger.debug(f"fund: last_cum_price = {self.last_cum_price}")
+        if PERFORM_DEBUG_LOGGING:
+            print(f"fund: Comparing with sliding twap for {self.unique_id} ...")
+            print("fund: last_twap_market (before)", self.last_twap_market)
+            print("fund: last_fund_cum_price (before)", self.last_fund_cum_price)
+            print("fund: last_funding_idx (before)", self.last_funding_idx)
 
-        twap_market=(self.cum_price - self.last_cum_price) / \
-                     self.model.sampling_interval
+        # NOTE: Something is OFF with twap_market ... but sliding twap is working beautifully => use that here for the time being in funding payment calc
+        twap_market=(self.cum_price - self.last_fund_cum_price) / \
+                     (idx - self.last_funding_idx)
         self.last_twap_market = twap_market
-        self.last_cum_price=self.cum_price
+        self.last_fund_cum_price=self.cum_price
+
+        if PERFORM_DEBUG_LOGGING:
+            print("fund: last_twap_market (after)", self.last_twap_market)
+            print("fund: last_fund_cum_price (after)", self.last_fund_cum_price)
+            print("fund: cum_price", self.cum_price)
+            print("fund: cum_feed", cum_price_feed)
+            print("fund: twap_feed", twap_feed)
+            print("fund: twap_market", twap_market)
+            print("fund: sliding_twap", self.sliding_twap)
+            print("fund: market price", self.price)
+            print("fund: sliding_observations", self.sliding_observations)
 
         #if PERFORM_DEBUG_LOGGING:
         #    logger.debug(f"fund: twap_market = {twap_market}")
@@ -524,6 +557,18 @@ class MonetaryFMarket:
 
         # Mark the last funding idx as now
         self.last_funding_idx=idx
+        if PERFORM_DEBUG_LOGGING:
+            print("fund: last_funding_idx (after)", self.last_funding_idx)
+            print("fund: Using funding with the slidding TWAP ...")
+
+        funding = (self.sliding_twap - twap_feed) / twap_feed
+        funding_last_twap = (twap_market - twap_feed) / twap_feed
+
+        if PERFORM_DEBUG_LOGGING:
+            print(f"fund: funding % (sliding) => {funding*100.0}%")
+            print(f"fund: funding % (last fund twap) => {funding_last_twap*100.0}%")
+        # NOTE: Likely better if we do funding based off of sliding TWAP values, so we don't run into a situation
+        # where a prior m
 
         # Mint/burn funding
         #funding=(twap_market - twap_feed) / twap_feed
@@ -708,6 +753,7 @@ class MonetaryFMarket:
 
         # Anything left over after the burn is pos.amount - abs(ds) (leftover margin) ... split this
         margin = max(pos.amount - abs(ds), 0)
+        assert margin >= 0.0, f"margin should be positive but are {margin} on liquidate"
 
         # Any maintenance margin should be split between burn and treasury
         self.model.treasury += 0.5 * margin

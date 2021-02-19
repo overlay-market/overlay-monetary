@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Simulation Parameters
 ################################################################################
 historical_data_source = HistoricalDataSource.KUCOIN
-time_resolution = TimeResolution.ONE_MINUTE
+time_resolution = TimeResolution.FIFTEEN_MINUTES
 DATA_SIM_RNG = 42
 
 # Load sims from csv files as arrays
@@ -58,19 +58,21 @@ time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 sampling_twap_granularity = int(
-    sampling_interval / 10)
+    3600 / (time_resolution.in_seconds * 2))  # every 30 min
+# num trades allowed on a market per idx
+trade_limit = int(time_resolution.in_seconds/15.0)  # 1 per min
 
 # For historical data to test different time periods
 start_idx = 0  # int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
 end_idx = None  # defaults to end of array
 
-num_arbitrageurs = int(total_supply*0.10/base_wealth)
+num_arbitrageurs = int(total_supply*0.125/base_wealth)
 num_long_apes = int(total_supply*0.04/base_wealth)
 num_short_apes = int(total_supply*0.015/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.00/base_wealth)
 num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.05/base_wealth)
+num_snipers = int(total_supply*0.025/base_wealth)  # TODO: Fix these!
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
@@ -147,7 +149,8 @@ model_kwargs = {
     "treasury": treasury,
     "sampling_interval": sampling_interval,
     "sampling_twap_granularity": sampling_twap_granularity,
-    "time_resolution": time_resolution
+    "time_resolution": time_resolution,
+    "trade_limit": trade_limit,
 }
 
 

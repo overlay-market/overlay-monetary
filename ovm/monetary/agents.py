@@ -164,8 +164,8 @@ class MonetaryLiquidator(MonetaryAgent):
         idx = self.model.schedule.steps
         # Allow only one trader to trade on a market per block.
         # Add in a trade delay to simulate cooldown due to gas.
-        if (self.fmarket.last_trade_idx != idx) and \
-           (idx >= self.init_delay) and \
+        if (idx >= self.init_delay) and \
+           self.fmarket.can_trade() and \
            (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.scope_liquidations()
 
@@ -179,9 +179,13 @@ class MonetaryArbitrageur(MonetaryAgent):
         sprice = self.model.sims[self.fmarket.unique_id][idx]
         sprice_ovl_quote = self.model.sims[self.model.ovl_quote_ticker][idx]
         for pid, pos in self.positions.items():
+            if PERFORM_DEBUG_LOGGING:
+                print(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+
             fees = self.fmarket.fees(pos.amount, build=False, long=(
                 not pos.long), leverage=pos.leverage)
             _, ds = self.fmarket.unwind(pos.amount, pid)
+
             if PERFORM_DEBUG_LOGGING:
                 logger.debug(f"Arb._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
                 logger.debug(f"Unwound: ds -> {ds}")
@@ -375,8 +379,8 @@ class MonetaryArbitrageur(MonetaryAgent):
         idx = self.model.schedule.steps
         # Allow only one trader to trade on a market per block.
         # Add in a trade delay to simulate cooldown due to gas.
-        if (self.fmarket.last_trade_idx != idx) and \
-           (idx >= self.init_delay) and \
+        if (idx >= self.init_delay) and \
+           self.fmarket.can_trade() and \
            (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
 
@@ -414,8 +418,8 @@ class MonetarySniper(MonetaryAgent):
         for pid, pos in self.positions.items():
             unwind_amount = self._get_unwind_amount(self.fmarket.funding(), pos.amount, pos.long)
             unwind_amount = min(pos.amount, unwind_amount)
-            if PERFORM_DEBUG_LOGGING:
-                logger.debug(f"Sniper._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}; unwind amount {unwind_amount}")
+            if PERFORM_DEBUG_LOGGING: # NOTE: Never getting to unwind_positions! so not entering any?
+                print(f"Sniper._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}; unwind amount {unwind_amount}")
 
             if unwind_amount == 0.0:
                 continue
@@ -518,7 +522,10 @@ class MonetarySniper(MonetaryAgent):
         if PERFORM_DEBUG_LOGGING:
             logger.debug(f"Sniper.trade: Arb bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
 
-        available_size = self.wealth - self.locked
+        available_size = self.wealth - self.locked # min(self.wealth - self.locked, self.pos_amount)
+        if available_size < self.pos_amount*self.pos_min:
+            return
+
         if available_size > 0: # > pos_min * pos_amount
             if sprice > fprice:
                 if PERFORM_DEBUG_LOGGING:
@@ -545,13 +552,13 @@ class MonetarySniper(MonetaryAgent):
 
                     # enter the trade to arb
                     pos = self.fmarket.build(amount, long=True, leverage=leverage, trader=self)
-                    if PERFORM_DEBUG_LOGGING:
-                        logger.debug(f"Sniper.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
-                        logger.debug("Sniper.trade: Entered long arb trade w pos params ...")
-                        logger.debug(f"Sniper.trade: pos.amount -> {pos.amount}")
-                        logger.debug(f"Sniper.trade: pos.long -> {pos.long}")
-                        logger.debug(f"Sniper.trade: pos.leverage -> {pos.leverage}")
-                        logger.debug(f"Sniper.trade: pos.lock_price -> {pos.lock_price}")
+                    if PERFORM_DEBUG_LOGGING: # TODO: Fixing unwind from sniper above
+                        print(f"Sniper.trade: fees: {fees}; slippage: {slippage}; deploy fraction: {deploy_fraction}; amount: {amount}; fill price {fill_price}; edge {edge}; edge surplus {edge - self.min_edge}")
+                        print("Sniper.trade: Entered long arb trade w pos params ...")
+                        print(f"Sniper.trade: pos.amount -> {pos.amount}")
+                        print(f"Sniper.trade: pos.long -> {pos.long}")
+                        print(f"Sniper.trade: pos.leverage -> {pos.leverage}")
+                        print(f"Sniper.trade: pos.lock_price -> {pos.lock_price}")
 
                     self.positions[pos.id] = pos
                     self.inventory[OVL_TICKER] -= pos.amount + fees
@@ -574,14 +581,14 @@ class MonetarySniper(MonetaryAgent):
                         (sprice/pos.lock_price - 1.0)
                     # TODO: incorporate fee structure!
                     if PERFORM_DEBUG_LOGGING:
-                        logger.debug("Sniper.trade: Selling base curr on spot to lock in arb ...")
-                        logger.debug(f"Sniper.trade: spot sell amount (OVL) -> {pos.amount}")
-                        logger.debug(f"Sniper.trade: spot sell amount ({self.fmarket.base_currency}) -> {spot_sell_amount}")
-                        logger.debug(f"Sniper.trade: spot sell fees ({self.fmarket.base_currency}) -> {spot_sell_fees}")
-                        logger.debug(f"Sniper.trade: spot sell received ({self.model.quote_ticker}) -> {spot_sell_received}")
-                        logger.debug(f"Sniper.trade: inventory -> {self.inventory}")
-                        logger.debug(f"Sniper.trade: arb profit locked in (OVL) = {locked_in_approx}")
-                        logger.debug(f"Sniper.trade: arb profit locked in ({self.model.quote_ticker}) = {locked_in_approx*sprice_ovl_quote}")
+                        print("Sniper.trade: Selling base curr on spot to lock in arb ...")
+                        print(f"Sniper.trade: spot sell amount (OVL) -> {pos.amount}")
+                        print(f"Sniper.trade: spot sell amount ({self.fmarket.base_currency}) -> {spot_sell_amount}")
+                        print(f"Sniper.trade: spot sell fees ({self.fmarket.base_currency}) -> {spot_sell_fees}")
+                        print(f"Sniper.trade: spot sell received ({self.model.quote_ticker}) -> {spot_sell_received}")
+                        print(f"Sniper.trade: inventory -> {self.inventory}")
+                        print(f"Sniper.trade: arb profit locked in (OVL) = {locked_in_approx}")
+                        print(f"Sniper.trade: arb profit locked in ({self.model.quote_ticker}) = {locked_in_approx*sprice_ovl_quote}")
             elif sprice < fprice:
                 if PERFORM_DEBUG_LOGGING:
                     logger.debug(f"Sniper.trade: Checking if short position on {self.fmarket.unique_id} is profitable after slippage ....")
@@ -655,8 +662,8 @@ class MonetarySniper(MonetaryAgent):
         idx = self.model.schedule.steps
         # Allow only one trader to trade on a market per block.
         # Add in a trade delay to simulate cooldown due to gas.
-        if (self.fmarket.last_trade_idx != idx) and \
-           (idx >= self.init_delay) and \
+        if (idx >= self.init_delay) and \
+           self.fmarket.can_trade() and \
            (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
 
@@ -669,9 +676,13 @@ class MonetaryApe(MonetaryAgent):
 
     def _unwind_positions(self):
         for pid, pos in self.positions.items():
+            if PERFORM_DEBUG_LOGGING:
+                print(f"Ape._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+
             fees = self.fmarket.fees(pos.amount, build=False, long=(
                 not pos.long), leverage=pos.leverage)
             _, ds = self.fmarket.unwind(pos.amount, pid)
+
             if PERFORM_DEBUG_LOGGING:
                 logger.debug(f"Ape._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
                 logger.debug(f"Unwound: ds -> {ds}")
@@ -725,7 +736,7 @@ class MonetaryApe(MonetaryAgent):
         idx = self.model.schedule.steps
         # Allow only one trader to trade on a market per block.
         # Add in a trade delay to simulate cooldown due to gas.
-        if (self.fmarket.last_trade_idx != idx) and \
-           (idx >= self.init_delay) and \
+        if (idx >= self.init_delay) and \
+           self.fmarket.can_trade() and \
            (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
