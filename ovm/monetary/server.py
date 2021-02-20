@@ -11,6 +11,7 @@ from ovm.tickers import (
     ETC_ETH_TICKER,
     MKR_ETH_TICKER,
     SNX_ETH_TICKER,
+    TRX_ETH_TICKER,
     XRP_ETH_TICKER,
     ETH_TICKER,
     get_ovl_quote_ticker,
@@ -39,7 +40,8 @@ DATA_SIM_RNG = 42
 # Load sims from csv files as arrays
 tickers = [EOS_ETH_TICKER,
            ETC_ETH_TICKER,
-           MKR_ETH_TICKER,
+           # MKR_ETH_TICKER, # NOTE: MKR_ETH has some 3x spikes in a span of an hour or two (likely wrong but good test bed for "insurance" mechanism of socializing losses)
+           TRX_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
 

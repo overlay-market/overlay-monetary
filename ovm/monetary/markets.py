@@ -73,6 +73,8 @@ class MonetaryFMarket:
         self.model = model
         self.positions = {}  # { id: [MonetaryFPosition] }
         self.base_currency = unique_id[:-len(f"-{model.quote_ticker}")]
+        self.outstanding_amount_long = 0.0 # pos amounts (credits)
+        self.outstanding_amount_short = 0.0 # pos amounts (credits)
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
         self.cum_locked_long = 0.0
@@ -112,7 +114,7 @@ class MonetaryFMarket:
         self.cum_funding_pay_short = 0.0
         self.cum_funding_ds = 0.0
         self.last_funding_rate = 0
-        if PERFORM_DEBUG_LOGGING:
+        if True: # PERFORM_DEBUG_LOGGING:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
             logger.debug(f"FMarket {self.unique_id} has x = {self.x}")
             logger.debug(f"FMarket {self.unique_id} has nx={self.nx} OVL")
@@ -193,6 +195,26 @@ class MonetaryFMarket:
     def _update_cum_locked(self):
         self._update_cum_locked_long()
         self._update_cum_locked_short()
+
+    def _update_locked_amount(self, dn: float, build: bool, long: bool):
+        if build and long:
+            self.locked_long += dn
+        elif build and not long:
+            self.locked_short += dn
+        elif not build and long:
+            self.locked_long -= min(self.locked_long, dn)
+        else:
+            self.locked_short -= min(self.locked_short, dn)
+
+    def _update_outstanding_amount(self, amount: float, build: bool, long: bool):
+        if build and long:
+            self.outstanding_amount_long += amount
+        elif build and not long:
+            self.outstanding_amount_short += amount
+        elif not build and long:
+            self.outstanding_amount_long -= min(amount, self.outstanding_amount_long)
+        else:
+            self.outstanding_amount_short -= min(amount, self.outstanding_amount_short)
 
     def _update_trades_in_idx(self):
         idx = self.model.schedule.steps
@@ -304,6 +326,12 @@ class MonetaryFMarket:
             amount -= self.fees(dn, build, long, leverage)
 
         return (1 + self.slippage(amount, build, long, leverage)) * self.price
+
+    def pro_rata_amount_locked(self, amount: float, long: bool):
+        if long:
+            return (amount/self.outstanding_amount_long) * self.locked_long
+        else:
+            return (amount/self.outstanding_amount_short) * self.locked_short
 
     def slippage(self,
                  dn: float,
@@ -434,7 +462,6 @@ class MonetaryFMarket:
 
         # Market cache updates
         self._update_cum_price()
-        self._update_cum_locked()
         self._update_sliding_observations()
         self._update_trades_in_idx()
 
@@ -448,6 +475,14 @@ class MonetaryFMarket:
         assert leverage <= self.max_leverage, "build: leverage exceeds max_allowed_leverage"
         amount = self._impose_fees(
             dn, build=True, long=long, leverage=leverage)
+
+        # Update locked amount
+        self._update_locked_amount(amount, build=True, long=long)
+
+        # Update cumulative cache
+        self._update_cum_locked()
+
+        # Do the swap
         price = self._swap(amount, build=True, long=long, leverage=leverage)
         pos = MonetaryFPosition(fmarket_ticker=self.unique_id,
                                 lock_price=price,
@@ -457,16 +492,14 @@ class MonetaryFMarket:
                                 trader=trader)
         self.positions[pos.id] = pos
 
-        # Lock into long/short pool last
-        if long:
-            self.locked_long += amount
-            self._update_cum_locked_long()
-        else:
-            self.locked_short += amount
-            self._update_cum_locked_short()
+        # Update outstanding pos amounts
+        self._update_outstanding_amount(amount, build=True, long=long)
+
         return pos
 
-    # TODO: Fix for open interest share of locked_long/short
+    # TODO: Fix for open interest share of locked_long/short; pro rata share
+    # of locked! (do we need to change nx/ny on funding pay given reserve skew?)
+    #  => do this first, then assess funding stability and whether to shift
     def unwind(self,
                dn: float,
                pid: uuid.UUID):
@@ -474,7 +507,6 @@ class MonetaryFMarket:
         if pos is None:
             if PERFORM_DEBUG_LOGGING:
                 logger.debug(f"No position with pid {pid} exists on market {self.unique_id}")
-
             return None, 0.0
         elif pos.amount < dn:
             if PERFORM_DEBUG_LOGGING:
@@ -489,20 +521,32 @@ class MonetaryFMarket:
             logger.debug(f"unwind: locked_long = {self.locked_long}")
             logger.debug(f"unwind: locked_short = {self.locked_short}")
 
-        # TODO: Fix for funding pro-rata logic .... for now just min it ...
-        if pos.long:
-            dn=min(dn, self.locked_long)
-            assert dn <= self.locked_long, "unwind: Not enough locked in self.locked_long for unwind"
-            self.locked_long -= dn
-            self._update_cum_locked_long()
-        else:
-            dn=min(dn, self.locked_short)
-            assert dn <= self.locked_short, "unwind: Not enough locked in self.locked_short for unwind"
-            self.locked_short -= dn
-            self._update_cum_locked_short()
+        # Update outstanding pos amounts
+        self._update_outstanding_amount(dn, build=False, long=pos.long)
 
+        # TODO: Fix for funding pro-rata logic .... for now just min it ...
+        print(f"unwind: Getting pro rata amount locked ...")
+        print(f"unwind: dn = {dn}")
+        print(f"unwind: long = {pos.long}")
+        print(f"unwind: outstanding_amount_long = {self.outstanding_amount_long}")
+        print(f"unwind: outstanding_amount_short = {self.outstanding_amount_short}")
+        print(f"unwind: locked_long = {self.locked_long}")
+        print(f"unwind: locked_short = {self.locked_short}")
+
+        # TODO: Fix this logic => screwing it up ...
+        #amount = self.pro_rata_amount_locked(dn, long=pos.long)
+        #print(f"unwind: amount = {amount}")
+        amount = dn
+
+        # Update locked amount
+        self._update_locked_amount(amount, build=False, long=pos.long)
+
+        # Update cumulative cache
+        self._update_cum_locked()
+
+        # Do the swap
         amount=self._impose_fees(
-            dn, build = False, long = pos.long, leverage = pos.leverage)
+            amount, build = False, long = pos.long, leverage = pos.leverage)
         price=self._swap(amount, build = False,
                          long = pos.long, leverage = pos.leverage)
         side=1 if pos.long else -1
@@ -526,6 +570,9 @@ class MonetaryFMarket:
             self.positions[pid]=pos
 
         return pos, ds
+
+    # TODO: adjust liquidity for nx, ny based on funding ...
+    # def _update_liquidity
 
     def funding(self):
         # View for current estimate of the funding rate over current sampling period
@@ -558,6 +605,7 @@ class MonetaryFMarket:
             print(f"fund: sampling_interval => {self.model.sampling_interval}")
             print(f"fund: idx => {idx}")
             print(f"fund: last_funding_idx (prior) => {self.last_funding_idx}")
+            print(f"fund: sliding fobservations => {self.sliding_fobservations}")
 
         # Mark the last funding idx as now
         self.last_funding_idx=idx
@@ -576,42 +624,41 @@ class MonetaryFMarket:
         print(f"fund: twao_short = {twao_short}")
 
         self.last_funding_rate=funding
-        pay_long = pay_short = ds = 0.0
-        if funding == 0.0:
-            pass
-        elif funding > 0.0:
-            # burn from longs, mint to shorts
-            pay_long=-min(twao_long*funding, self.locked_long) # can't have negative locked long
-            pay_short=twao_short*funding
-            ds = pay_long + pay_short
-        else:
-            # burn from shorts, mint to longs
-            pay_long=twao_long*abs(funding)
-            pay_short=-min(twao_short*abs(funding), self.locked_short) # can't have negative locked short
-            ds = pay_long + pay_short
+        #pay_long = pay_short = ds = 0.0
+        #if funding == 0.0:
+        #    pass
+        #elif funding > 0.0:
+        #    # burn from longs, mint to shorts
+        #    pay_long=-min(twao_long*funding, self.locked_long) # can't have negative locked long
+        #    pay_short=twao_short*funding
+        #    ds = pay_long + pay_short
+        #else:
+        #    # burn from shorts, mint to longs
+        #    pay_long=twao_long*abs(funding)
+        #    pay_short=-min(twao_short*abs(funding), self.locked_short) # can't have negative locked short
+        #    ds = pay_long + pay_short
 
-        # TODO: Pay funding to locked OVL balances
-        self.locked_long += pay_long
-        self.locked_short += pay_short
+        # TODO: Pay funding to locked OVL balances via swaps
+        #self.locked_long += pay_long
+        #self.locked_short += pay_short
 
         # Change currency supply
-        self.model.supply += ds
-        self.cum_funding_ds += ds
+        #self.model.supply += ds
 
         # Update cumulate stats
-        self.cum_funding_ds += ds
-        self.cum_funding_pay_long += pay_long
-        self.cum_funding_pay_short += pay_short
+        #self.cum_funding_ds += ds
+        #self.cum_funding_pay_long += pay_long
+        #self.cum_funding_pay_short += pay_short
 
-        if True: # PERFORM_DEBUG_LOGGING:
-            print(f"fund: Paying funding for {self.unique_id}")
-            print(f"fund: funding = {funding}")
-            print(f"fund: pay_long = {pay_long}")
-            print(f"fund: pay_short = {pay_short}")
-            print(f"fund: ds = {ds} OVL")
-            print(f"fund: cum_funding_ds = {self.cum_funding_ds} OVL")
-            print(f"fund: cum_funding_pay_long = {self.cum_funding_pay_long} OVL")
-            print(f"fund: cum_funding_pay_short = {self.cum_funding_pay_short} OVL")
+        #if True: # PERFORM_DEBUG_LOGGING:
+        #    print(f"fund: Paying funding for {self.unique_id}")
+        #    print(f"fund: funding = {funding}")
+        #    print(f"fund: pay_long = {pay_long}")
+        #    print(f"fund: pay_short = {pay_short}")
+        #    print(f"fund: ds = {ds} OVL")
+        #    print(f"fund: cum_funding_ds = {self.cum_funding_ds} OVL")
+        #    print(f"fund: cum_funding_pay_long = {self.cum_funding_pay_long} OVL")
+        #    print(f"fund: cum_funding_pay_short = {self.cum_funding_pay_short} OVL")
 
         # Update virtual liquidity reserves
         # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
@@ -644,6 +691,7 @@ class MonetaryFMarket:
         # Fetch OVL-ETH FMarket and get twap_spot of feed to use in px, py adjustment
         ovl_quote_fmarket = self.model.fmarkets[self.model.ovl_quote_ticker]
 
+        # Use twap for OVL-ETH and spot feed to reset price ("funding")
         # TODO: spin off into separate _update function for sensitivity coeffs
         twap_ovl_quote_feed = ovl_quote_fmarket.sliding_twap_spot
         twap_feed = self.sliding_twap_spot
@@ -657,14 +705,35 @@ class MonetaryFMarket:
 
             print(f"fund: px (prior) = {self.px}")
             print(f"fund: py (prior) = {self.py}")
+            print(f"fund: nx (prior) = {self.nx}")
+            print(f"fund: ny (prior) = {self.ny}")
+            print(f"fund: x (prior) = {self.x}")
+            print(f"fund: y (prior) = {self.y}")
+            print(f"fund: k (prior) = {self.k}")
             print(f"fund: price (prior) = {self.price}")
+            price_prior = self.price
 
             self.px=twap_ovl_quote_feed  # px = n_quote/n_ovl
             self.py=twap_ovl_quote_feed/twap_feed  # py = px/p
 
+            # This is funding: Have p = px/py => spot twap by resetting nx = ny
+            # Choose midpoint between nx, ny to limit liquidity bump ups over time: think about it more in terms of placement on x*y=k curve
+            n_mid = (self.nx + self.ny) / 2.0
+            self.nx = n_mid
+            self.ny = n_mid
+            self.x = self.nx * self.px
+            self.y = self.ny * self.py
+            self.k = self.x*self.y
+
             print(f"fund: px (updated) = {self.px}")
             print(f"fund: py (updated) = {self.py}")
-            print(f"fund: price (updated... should be same) = {self.price}")
+            print(f"fund: nx (updated) = {self.nx}")
+            print(f"fund: ny (updated) = {self.ny}")
+            print(f"fund: x (updated) = {self.x}")
+            print(f"fund: y (updated) = {self.y}")
+            print(f"fund: k (updated) = {self.k}")
+            print(f"fund: price (updated) = {self.price}")
+            print(f"fund: price diff (%) = {(self.price - price_prior)/price_prior}")
 
     def liquidatable(self, pid: uuid.UUID) -> bool:
         pos = self.positions.get(pid)

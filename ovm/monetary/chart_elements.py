@@ -62,8 +62,6 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
         chart_elements += [
             ChartModule([{"Label": GINI_LABEL, "Color": "Black"}],
                         data_collector_name=DATA_COLLECTOR_NAME),
-            ChartModule([{"Label": GINI_ARBITRAGEURS_LABEL, "Color": "Blue"}],
-                        data_collector_name=DATA_COLLECTOR_NAME),
     ]
 
     for ticker in tickers:
@@ -74,12 +72,12 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
             ], data_collector_name='data_collector')
         )
 
-        chart_elements.append(
-            ChartModule([
-                {"Label": funding_supply_change_label(ticker), "Color": "Purple"},
-                {"Label": funding_pay_long_label(ticker), "Color": "Red"},
-                {"Label": funding_pay_short_label(ticker), "Color": "Blue"},
-            ], data_collector_name='data_collector')
-        )
+        #chart_elements.append(
+        #    ChartModule([
+        #        {"Label": funding_supply_change_label(ticker), "Color": "Purple"},
+        #        {"Label": funding_pay_long_label(ticker), "Color": "Red"},
+        #        {"Label": funding_pay_short_label(ticker), "Color": "Blue"},
+        #    ], data_collector_name='data_collector')
+        #)
 
     return chart_elements
