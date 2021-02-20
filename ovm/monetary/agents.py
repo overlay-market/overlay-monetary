@@ -102,7 +102,10 @@ class MonetaryAgent(Agent):
 class MonetaryKeeper(MonetaryAgent):
     def distribute_funding(self):
         # Sends funding payments on each agent's positions and updates px, py
-        self.fmarket.fund()
+        reward = self.fmarket.fund()
+        self.wealth += reward
+        print(f"keeper: reward = {reward}")
+        print(f"keeper: wealth = {self.wealth}")
 
     def update_market_liquidity(self):
         # Updates k value per funding payment to adjust slippage

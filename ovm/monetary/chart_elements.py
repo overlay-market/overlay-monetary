@@ -8,7 +8,7 @@ from ovm.monetary.plot_labels import (
     skew_label, reserve_skew_relative_label, open_positions_label,
     agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL,
     GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label,
-    funding_supply_change_label, funding_pay_long_label, funding_pay_short_label
+    funding_fees_label,
 )
 from ovm.monetary.plots import random_color
 
@@ -43,7 +43,7 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Snipers", "Apes"]:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Keepers", "Snipers", "Apes"]:
             chart_elements += [
                 ChartModule([{"Label": agent_wealth_ovl_label(agent_type_name), "Color": random_color()}],
                             data_collector_name=DATA_COLLECTOR_NAME),
@@ -72,12 +72,10 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
             ], data_collector_name='data_collector')
         )
 
-        #chart_elements.append(
-        #    ChartModule([
-        #        {"Label": funding_supply_change_label(ticker), "Color": "Purple"},
-        #        {"Label": funding_pay_long_label(ticker), "Color": "Red"},
-        #        {"Label": funding_pay_short_label(ticker), "Color": "Blue"},
-        #    ], data_collector_name='data_collector')
-        #)
+        chart_elements.append(
+            ChartModule([
+                {"Label": funding_fees_label(ticker), "Color": "Purple"},
+            ], data_collector_name='data_collector')
+        )
 
     return chart_elements

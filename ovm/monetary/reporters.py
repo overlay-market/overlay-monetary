@@ -279,6 +279,11 @@ def compute_cumulative_funding_pay_short(model: MonetaryModel, ticker: str) -> f
     return fmarket.cum_funding_pay_short
 
 
+def compute_cumulative_funding_fees(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_fees
+
+
 class FundingSupplyChangeReporter(AbstractMarketLevelReporter[MonetaryModel]):
     def report(self, model: MonetaryModel) -> float:
         return compute_cumulative_funding_ds(model, self.ticker)
@@ -292,6 +297,11 @@ class FundingPaymentsLongReporter(AbstractMarketLevelReporter[MonetaryModel]):
 class FundingPaymentsShortReporter(AbstractMarketLevelReporter[MonetaryModel]):
     def report(self, model: MonetaryModel) -> float:
         return compute_cumulative_funding_pay_short(model, self.ticker)
+
+
+class FundingFeesReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_fees(model, self.ticker)
 
 ################################################################################
 # Agent Level Reporters

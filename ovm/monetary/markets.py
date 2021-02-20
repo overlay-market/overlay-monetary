@@ -55,6 +55,7 @@ class MonetaryFMarket:
                  base_fee: float,
                  max_leverage: float,
                  liquidate_reward: float,
+                 funding_reward: float,
                  maintenance: float, # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0,
                  trade_limit: int, # number of trades allowed per idx
                  model: MonetaryModel):
@@ -69,6 +70,7 @@ class MonetaryFMarket:
         self.base_fee = base_fee
         self.max_leverage = max_leverage
         self.liquidate_reward = liquidate_reward
+        self.funding_reward = funding_reward
         self.maintenance = maintenance
         self.model = model
         self.positions = {}  # { id: [MonetaryFPosition] }
@@ -110,10 +112,13 @@ class MonetaryFMarket:
         self.last_trade_idx = 0
         self.trade_limit = trade_limit
         self.trades_in_idx = 0
+        self.cum_funding_fees = 0.0
+        self.last_funding_rate = 0
+        # Deprecated next three attrs below
+        self.cum_funding_ds = 0.0
         self.cum_funding_pay_long = 0.0
         self.cum_funding_pay_short = 0.0
-        self.cum_funding_ds = 0.0
-        self.last_funding_rate = 0
+
         if True: # PERFORM_DEBUG_LOGGING:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
             logger.debug(f"FMarket {self.unique_id} has x = {self.x}")
@@ -274,9 +279,15 @@ class MonetaryFMarket:
         fees = min(size*self.base_fee, dn)
         assert fees >= 0.0, f"fees should be positive but are {fees} on build={build}"
 
-        # Burn 50% and other 50% send to treasury
+        # Burn 50%, {funding_reward}% to cum fund fees and
+        # other {(50 - funding_reward)}% send to treasury
         self.model.supply -= 0.5*fees
-        self.model.treasury += 0.5*fees
+        self.model.treasury += (0.5 - self.funding_reward)*fees
+        self.cum_funding_fees += self.funding_reward * fees
+
+        print(f"_impose_fees: supply burn = {0.5*fees}")
+        print(f"_impose_fees: add to treasury = {(0.5 - self.funding_reward)*fees}")
+        print(f"_impose_fees: accumulated to funding fees = {self.funding_reward * fees}")
 
         return dn - fees
 
@@ -595,7 +606,7 @@ class MonetaryFMarket:
            self._has_empty_sliding_observations() or \
            start_idx == end_idx or \
            (idx == self.last_funding_idx):
-            return
+            return 0.0
 
         # Calculate twap of oracle feed using timestamps from sliding observations
         if PERFORM_DEBUG_LOGGING:
@@ -728,6 +739,13 @@ class MonetaryFMarket:
             #print(f"fund: k (updated) = {self.k}")
             #print(f"fund: price (updated) = {self.price}")
             #print(f"fund: price diff (%) = {(self.price - price_prior)/price_prior}")
+
+        print(f"fund: cum_funding_fees (before) = {self.cum_funding_fees}")
+        reward = self.cum_funding_fees
+        self.cum_funding_fees = 0.0
+        print(f"fund: cum_funding_fees (after) = {self.cum_funding_fees}")
+        return reward
+
 
     def liquidatable(self, pid: uuid.UUID) -> bool:
         pos = self.positions.get(pid)

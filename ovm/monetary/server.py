@@ -55,6 +55,7 @@ base_wealth = 0.0005*total_supply  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
 base_liquidate_reward = 0.1
+base_funding_reward = 0.01
 base_maintenance = 0.6
 liquidity = 0.285*total_supply
 time_liquidity_mine = time_resolution.steps_per_month_clamped
@@ -145,6 +146,7 @@ model_kwargs = {
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
     "base_liquidate_reward": base_liquidate_reward,
+    "base_funding_reward": base_funding_reward,
     "base_maintenance": base_maintenance,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": liquidity,

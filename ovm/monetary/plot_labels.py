@@ -4,7 +4,7 @@ FUTURES_PRICE_LABEL_START = 'f-'
 SKEW_LABEL_START = 'Skew'
 RESERVE_SKEW_LABEL_START = 'Reserve Skew'
 OPEN_POSITIONS_LABEL_START = 'Number of Open Positions on'
-FUNDING_LABEL_START = 'Cumulative Funding'
+FUNDING_LABEL_START = 'Accumulated Funding'
 
 
 def price_deviation_label(ticker: str) -> str:
@@ -45,6 +45,10 @@ def funding_pay_long_label(ticker: str) -> str:
 
 def funding_pay_short_label(ticker: str) -> str:
     return f"{FUNDING_LABEL_START} Payments Short on {FUTURES_PRICE_LABEL_START}{ticker}"
+
+
+def funding_fees_label(ticker: str) -> str:
+    return f"{FUNDING_LABEL_START} Fees on {FUTURES_PRICE_LABEL_START}{ticker}"
 
 
 def inventory_wealth_ovl_label(agent_type_name: str) -> str:

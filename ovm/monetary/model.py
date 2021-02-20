@@ -36,6 +36,7 @@ from ovm.monetary.plot_labels import (
     funding_supply_change_label,
     funding_pay_long_label,
     funding_pay_short_label,
+    funding_fees_label,
     GINI_LABEL,
     SUPPLY_LABEL,
     TREASURY_LABEL,
@@ -76,6 +77,7 @@ class MonetaryModel(Model):
         base_max_leverage: float,
         base_maintenance: float,
         base_liquidate_reward: float,
+        base_funding_reward: float,
         liquidity: float,
         liquidity_supply_emission: tp.List[float],
         treasury: float,
@@ -115,6 +117,7 @@ class MonetaryModel(Model):
             FundingSupplyChangeReporter,
             FundingPaymentsLongReporter,
             FundingPaymentsShortReporter,
+            FundingFeesReporter,
         )
 
         super().__init__(seed=seed)
@@ -176,6 +179,7 @@ class MonetaryModel(Model):
             list(self.sims.keys())[i]: 1
             for i in range(n)
         }
+        # See param table in https://github.com/overlay-market/OIPs/blob/master/OIPS/oip-1.md#feeds-on-launch
         self.fmarkets = {
             ticker: MonetaryFMarket(
                 unique_id=ticker,
@@ -186,6 +190,7 @@ class MonetaryModel(Model):
                 base_fee=base_market_fee,
                 max_leverage=base_max_leverage,
                 liquidate_reward=base_liquidate_reward,
+                funding_reward=base_funding_reward,
                 maintenance=base_maintenance,
                 trade_limit=trade_limit,
                 model=self,
@@ -365,6 +370,10 @@ class MonetaryModel(Model):
                funding_pay_short_label(ticker): FundingPaymentsShortReporter(ticker=ticker)
                 for ticker in tickers
             })
+            model_reporters.update({
+               funding_fees_label(ticker): FundingFeesReporter(ticker=ticker)
+                for ticker in tickers
+            })
 
             if self.data_collection_options.compute_gini_coefficient:
                 model_reporters.update({
@@ -391,6 +400,7 @@ class MonetaryModel(Model):
                                                 ("Traders", MonetaryTrader),
                                                 ("Holders", MonetaryHolder),
                                                 ("Liquidators", MonetaryLiquidator),
+                                                ("Keepers", MonetaryKeeper),
                                                 ("Snipers", MonetarySniper),
                                                 ("Apes", MonetaryApe)]:
                 if self.data_collection_options.compute_wealth:
