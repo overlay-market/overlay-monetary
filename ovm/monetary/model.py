@@ -284,9 +284,10 @@ class MonetaryModel(Model):
                     inventory=inventory,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
-                #ape_leverage_max = randint(4, 6)
+                ape_leverage_max = randint(1, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*1, sampling_interval*24*7)
+                    sampling_interval*6, sampling_interval*24*7)
+                ape_init_delay = sampling_interval*randint(1, 24*7)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -294,15 +295,16 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     pos_amount=self.base_wealth,
                     side=1,
-                    leverage_max=leverage_max,
-                    init_delay=init_delay,
+                    leverage_max=ape_leverage_max,
+                    init_delay=ape_init_delay,
                     trade_delay=5,
                     unwind_delay=unwind_delay,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
-                #ape_leverage_max = randint(4, 6)
+                ape_leverage_max = randint(1, 6)
                 unwind_delay = randint(
-                    sampling_interval*24*1, sampling_interval*24*7)
+                    sampling_interval*6, sampling_interval*24*7)
+                ape_init_delay = sampling_interval*randint(1, 24*7)
                 agent = MonetaryApe(
                     unique_id=i,
                     model=self,
@@ -310,8 +312,8 @@ class MonetaryModel(Model):
                     inventory=inventory,
                     pos_amount=self.base_wealth,
                     side=-1,
-                    leverage_max=leverage_max,
-                    init_delay=init_delay,
+                    leverage_max=ape_leverage_max,
+                    init_delay=ape_init_delay,
                     trade_delay=5,
                     unwind_delay=unwind_delay,
                 )
@@ -462,6 +464,7 @@ class MonetaryModel(Model):
             MonetaryArbitrageur,
             MonetarySniper,
             MonetaryLiquidator,
+            MonetaryKeeper,
             MonetaryApe,
         )
         if self.data_collection_options.perform_data_collection and \
@@ -547,6 +550,33 @@ class MonetaryModel(Model):
                     f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
                 print(
                     f"Model.step: Liq wealths bottom 10 -> {bottom_10_liqs_wealth}")
+
+            # Keepers
+            top_10_keeps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryKeeper],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_keeps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryKeeper],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_keeps_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_keeps
+            }
+            bottom_10_keeps_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_keeps
+            }
+            if True: # PERFORM_INFO_LOGGING:
+                print("========================================")
+                print(
+                    f"Model.step: Keep wealths top 10 -> {top_10_keeps_wealth}")
+                print(
+                    f"Model.step: Keep wealths bottom 10 -> {bottom_10_keeps_wealth}")
 
             # Apes
             top_10_long_apes = sorted(

@@ -285,10 +285,6 @@ class MonetaryFMarket:
         self.model.treasury += (0.5 - self.funding_reward)*fees
         self.cum_funding_fees += self.funding_reward * fees
 
-        print(f"_impose_fees: supply burn = {0.5*fees}")
-        print(f"_impose_fees: add to treasury = {(0.5 - self.funding_reward)*fees}")
-        print(f"_impose_fees: accumulated to funding fees = {self.funding_reward * fees}")
-
         return dn - fees
 
     def max_allowed_leverage(self, long: bool, lock_price: float):
@@ -740,10 +736,8 @@ class MonetaryFMarket:
             #print(f"fund: price (updated) = {self.price}")
             #print(f"fund: price diff (%) = {(self.price - price_prior)/price_prior}")
 
-        print(f"fund: cum_funding_fees (before) = {self.cum_funding_fees}")
         reward = self.cum_funding_fees
         self.cum_funding_fees = 0.0
-        print(f"fund: cum_funding_fees (after) = {self.cum_funding_fees}")
         return reward
 
 
