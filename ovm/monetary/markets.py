@@ -327,12 +327,6 @@ class MonetaryFMarket:
 
         return (1 + self.slippage(amount, build, long, leverage)) * self.price
 
-    def pro_rata_amount_locked(self, amount: float, long: bool):
-        if long:
-            return (amount/self.outstanding_amount_long) * self.locked_long
-        else:
-            return (amount/self.outstanding_amount_short) * self.locked_short
-
     def slippage(self,
                  dn: float,
                  build: bool,
@@ -525,13 +519,13 @@ class MonetaryFMarket:
         self._update_outstanding_amount(dn, build=False, long=pos.long)
 
         # TODO: Fix for funding pro-rata logic .... for now just min it ...
-        print(f"unwind: Getting pro rata amount locked ...")
-        print(f"unwind: dn = {dn}")
-        print(f"unwind: long = {pos.long}")
-        print(f"unwind: outstanding_amount_long = {self.outstanding_amount_long}")
-        print(f"unwind: outstanding_amount_short = {self.outstanding_amount_short}")
-        print(f"unwind: locked_long = {self.locked_long}")
-        print(f"unwind: locked_short = {self.locked_short}")
+        #print(f"unwind: Getting pro rata amount locked ...")
+        #print(f"unwind: dn = {dn}")
+        #print(f"unwind: long = {pos.long}")
+        #print(f"unwind: outstanding_amount_long = {self.outstanding_amount_long}")
+        #print(f"unwind: outstanding_amount_short = {self.outstanding_amount_short}")
+        #print(f"unwind: locked_long = {self.locked_long}")
+        #print(f"unwind: locked_short = {self.locked_short}")
 
         # TODO: Fix this logic => screwing it up ...
         #amount = self.pro_rata_amount_locked(dn, long=pos.long)
@@ -588,8 +582,13 @@ class MonetaryFMarket:
     def fund(self):
         # Pay out funding to each respective pool based on underlying market
         # oracle fetch
-        # TODO: funding reward ...
+        # TODO: funding reward for those that call this function! build into swap fee structure ...
         idx=self.model.schedule.steps
+
+        # First update cache quantities for freshness
+        self._update_cum_price()
+        self._update_sliding_observations()
+
         start_idx, end_idx = self._sliding_observations_window()
         if (idx % self.model.sampling_interval != 0) or \
            (idx-self.model.sampling_interval < 0) or \
@@ -599,7 +598,7 @@ class MonetaryFMarket:
             return
 
         # Calculate twap of oracle feed using timestamps from sliding observations
-        if True: # PERFORM_DEBUG_LOGGING:
+        if PERFORM_DEBUG_LOGGING:
             print(f"fund: start_idx => {start_idx}")
             print(f"fund: end_idx => {end_idx}")
             print(f"fund: sampling_interval => {self.model.sampling_interval}")
@@ -611,54 +610,11 @@ class MonetaryFMarket:
         self.last_funding_idx=idx
         funding = (self.sliding_twap - self.sliding_twap_spot) / self.sliding_twap_spot
 
-        if True: # PERFORM_DEBUG_LOGGING:
+        if PERFORM_DEBUG_LOGGING:
             print(f"fund: funding % (sliding) => {funding*100.0}%")
             print(f"fund: last_funding_idx (updated) => {self.last_funding_idx}")
 
-        # Mint/burn funding
-        # Calculate twa open interest for each side over sampling interval
-        twao_long=self.sliding_twao_long
-        print(f"fund: twao_long = {twao_long}")
-
-        twao_short=self.sliding_twao_short
-        print(f"fund: twao_short = {twao_short}")
-
         self.last_funding_rate=funding
-        #pay_long = pay_short = ds = 0.0
-        #if funding == 0.0:
-        #    pass
-        #elif funding > 0.0:
-        #    # burn from longs, mint to shorts
-        #    pay_long=-min(twao_long*funding, self.locked_long) # can't have negative locked long
-        #    pay_short=twao_short*funding
-        #    ds = pay_long + pay_short
-        #else:
-        #    # burn from shorts, mint to longs
-        #    pay_long=twao_long*abs(funding)
-        #    pay_short=-min(twao_short*abs(funding), self.locked_short) # can't have negative locked short
-        #    ds = pay_long + pay_short
-
-        # TODO: Pay funding to locked OVL balances via swaps
-        #self.locked_long += pay_long
-        #self.locked_short += pay_short
-
-        # Change currency supply
-        #self.model.supply += ds
-
-        # Update cumulate stats
-        #self.cum_funding_ds += ds
-        #self.cum_funding_pay_long += pay_long
-        #self.cum_funding_pay_short += pay_short
-
-        #if True: # PERFORM_DEBUG_LOGGING:
-        #    print(f"fund: Paying funding for {self.unique_id}")
-        #    print(f"fund: funding = {funding}")
-        #    print(f"fund: pay_long = {pay_long}")
-        #    print(f"fund: pay_short = {pay_short}")
-        #    print(f"fund: ds = {ds} OVL")
-        #    print(f"fund: cum_funding_ds = {self.cum_funding_ds} OVL")
-        #    print(f"fund: cum_funding_pay_long = {self.cum_funding_pay_long} OVL")
-        #    print(f"fund: cum_funding_pay_short = {self.cum_funding_pay_short} OVL")
 
         # Update virtual liquidity reserves
         # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
@@ -693,28 +649,66 @@ class MonetaryFMarket:
 
         # Use twap for OVL-ETH and spot feed to reset price ("funding")
         # TODO: spin off into separate _update function for sensitivity coeffs
+        twap_ovl_quote_market = ovl_quote_fmarket.sliding_twap
         twap_ovl_quote_feed = ovl_quote_fmarket.sliding_twap_spot
         twap_feed = self.sliding_twap_spot
+        twap_market = self.sliding_twap
 
-        if twap_ovl_quote_feed != 0.0 and twap_feed != 0.0:
-            print(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
-            print(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
-            print(f"fund: twap_feed = {twap_feed}")
-            print(f"fund: ovl_quote_feed = {self.model.sims[ovl_quote_fmarket.unique_id][idx]}")
-            print(f"fund: feed = {self.model.sims[self.unique_id][idx]}")
+        #print(f"fund: twap_ovl_quote_feed (spot) = {twap_ovl_quote_feed}")
+        #print(f"fund: twap_ovl_quote_market (futures) = {twap_ovl_quote_market}")
+        #print(f"fund: twap_feed (spot) = {twap_feed}")
+        #print(f"fund: twap_market (futures) = {twap_market}")
 
-            print(f"fund: px (prior) = {self.px}")
-            print(f"fund: py (prior) = {self.py}")
-            print(f"fund: nx (prior) = {self.nx}")
-            print(f"fund: ny (prior) = {self.ny}")
-            print(f"fund: x (prior) = {self.x}")
-            print(f"fund: y (prior) = {self.y}")
-            print(f"fund: k (prior) = {self.k}")
-            print(f"fund: price (prior) = {self.price}")
+        # I can still do this twap futures fanciness, but
+
+        # NOTE: these below only update when trading is happening
+        if twap_ovl_quote_market != 0.0 and twap_ovl_quote_feed != 0.0 and \
+           twap_market != 0.0 and twap_feed != 0.0:
+            #print(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
+            #print(f"fund: Step idx {idx}")
+            # print(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
+            # print(f"fund: twap_feed = {twap_feed}")
+            # print(f"fund: ovl_quote_feed = {self.model.sims[ovl_quote_fmarket.unique_id][idx]}")
+            # print(f"fund: feed = {self.model.sims[self.unique_id][idx]}")
+
+            #print(f"fund: px (prior) = {self.px}")
+            #print(f"fund: py (prior) = {self.py}")
+            #print(f"fund: nx (prior) = {self.nx}")
+            #print(f"fund: ny (prior) = {self.ny}")
+            #print(f"fund: x (prior) = {self.x}")
+            #print(f"fund: y (prior) = {self.y}")
+            #print(f"fund: k (prior) = {self.k}")
+            #print(f"fund: price (prior) = {self.price}")
             price_prior = self.price
+            p = self.px/self.py
 
-            self.px=twap_ovl_quote_feed  # px = n_quote/n_ovl
-            self.py=twap_ovl_quote_feed/twap_feed  # py = px/p
+            #print(f"fund: px (before) = {self.px}")
+            #print(f"fund: py (before) = {self.py}")
+            #print(f"fund: p = px/py (before) = {p}")
+
+            # Adjust px by diff bw OVL-QUOTE spot twap and futures twap
+            # self.px = self.px_old + ((self.px_new - self.px_old) / self.px_old) * self.px_old
+            # NOTE: Do we actually want to do it this way or simply set it to the spot?
+            ovl_quote_diff = (twap_ovl_quote_feed - twap_ovl_quote_market) / twap_ovl_quote_market
+            #print(f"fund: twap_ovl_quote_feed (spot) = {twap_ovl_quote_feed}")
+            #print(f"fund: twap_ovl_quote_market (futures) = {twap_ovl_quote_market}")
+            #print(f"fund: ovl_quote_diff = {ovl_quote_diff}")
+            self.px *= (1 + ovl_quote_diff)
+
+            market_diff = (twap_feed - twap_market) / twap_market
+            #print(f"fund: twap_feed (spot) = {twap_feed}")
+            #print(f"fund: twap_market (futures) = {twap_market}")
+            #print(f"fund: market_diff = {market_diff}")
+            p *= (1 + market_diff)
+            self.py = self.px/p
+
+            #print(f"fund: px (after) = {self.px}")
+            #print(f"fund: py (after) = {self.py}")
+            #print(f"fund: p = px/py (after) = {p}")
+
+            # NOTE: next two lines are OLD (this is TWAP spot direct resetting)
+            #self.px=twap_ovl_quote_feed  # px = n_quote/n_ovl
+            #self.py=twap_ovl_quote_feed/twap_feed  # py = px/p
 
             # This is funding: Have p = px/py => spot twap by resetting nx = ny
             # Choose midpoint between nx, ny to limit liquidity bump ups over time: think about it more in terms of placement on x*y=k curve
@@ -725,15 +719,15 @@ class MonetaryFMarket:
             self.y = self.ny * self.py
             self.k = self.x*self.y
 
-            print(f"fund: px (updated) = {self.px}")
-            print(f"fund: py (updated) = {self.py}")
-            print(f"fund: nx (updated) = {self.nx}")
-            print(f"fund: ny (updated) = {self.ny}")
-            print(f"fund: x (updated) = {self.x}")
-            print(f"fund: y (updated) = {self.y}")
-            print(f"fund: k (updated) = {self.k}")
-            print(f"fund: price (updated) = {self.price}")
-            print(f"fund: price diff (%) = {(self.price - price_prior)/price_prior}")
+            # print(f"fund: px (updated) = {self.px}")
+            # print(f"fund: py (updated) = {self.py}")
+            #print(f"fund: nx (updated) = {self.nx}")
+            #print(f"fund: ny (updated) = {self.ny}")
+            #print(f"fund: x (updated) = {self.x}")
+            #print(f"fund: y (updated) = {self.y}")
+            #print(f"fund: k (updated) = {self.k}")
+            #print(f"fund: price (updated) = {self.price}")
+            #print(f"fund: price diff (%) = {(self.price - price_prior)/price_prior}")
 
     def liquidatable(self, pid: uuid.UUID) -> bool:
         pos = self.positions.get(pid)

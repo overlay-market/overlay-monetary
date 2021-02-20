@@ -147,7 +147,7 @@ class MonetaryModel(Model):
         self.trade_limit = trade_limit
         self.time_resolution = time_resolution
 
-        if PERFORM_INFO_LOGGING:
+        if True: # PERFORM_INFO_LOGGING:
             print("Model kwargs for initial conditions of sim:")
             print(f"quote_ticker = {quote_ticker}")
             print(f"ovl_quote_ticker = {ovl_quote_ticker}")
@@ -477,7 +477,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_snipers
             }
-            if PERFORM_INFO_LOGGING:
+            if True: # PERFORM_INFO_LOGGING:
                 print("========================================")
                 print(
                     f"Model.step: Sniper wealths top 10 -> {top_10_snipers_wealth}")
@@ -504,7 +504,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_arbs
             }
-            if PERFORM_INFO_LOGGING:
+            if True: # PERFORM_INFO_LOGGING:
                 print("========================================")
                 print(
                     f"Model.step: Arb wealths top 10 -> {top_10_arbs_wealth}")
@@ -531,7 +531,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_liqs
             }
-            if PERFORM_INFO_LOGGING:
+            if True: # PERFORM_INFO_LOGGING:
                 print("========================================")
                 print(
                     f"Model.step: Liq wealths top 10 -> {top_10_liqs_wealth}")
@@ -577,7 +577,7 @@ class MonetaryModel(Model):
                 a.unique_id: a.wealth
                 for a in bottom_10_short_apes
             }
-            if PERFORM_INFO_LOGGING:
+            if True: # PERFORM_INFO_LOGGING:
                 print("========================================")
                 print(
                     f"Model.step: Ape long wealths top 10 -> {top_10_long_apes_wealth}")
@@ -597,7 +597,7 @@ class MonetaryModel(Model):
             compute_open_positions_per_market,
             compute_reserve_skew_for_market,
         )
-        if PERFORM_DEBUG_LOGGING:
+        if True: # PERFORM_DEBUG_LOGGING:
             print(f"step {self.schedule.steps}")
             print(f"supply {compute_supply(self)}")
             print(f"treasury {compute_treasury(self)}")
@@ -618,6 +618,7 @@ class MonetaryModel(Model):
 
                     print(f"fmarket: futures price {fmarket.price}")
                     print(f"fmarket: futures sliding TWAP {fmarket.sliding_twap}")
+                    print(f"fmarket: spot sliding TWAP {fmarket.sliding_twap_spot}")
                     print(
                         f"fmarket: spot price {compute_spot_price(self, ticker)}")
                     print(f"fmarket: price_diff bw f/s "

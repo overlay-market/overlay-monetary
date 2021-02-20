@@ -40,7 +40,8 @@ DATA_SIM_RNG = 42
 # Load sims from csv files as arrays
 tickers = [EOS_ETH_TICKER,
            ETC_ETH_TICKER,
-           # MKR_ETH_TICKER, # NOTE: MKR_ETH has some 3x spikes in a span of an hour or two (likely wrong but good test bed for "insurance" mechanism of socializing losses)
+           # NOTE: MKR_ETH has some 3x spikes in a span of an hour or two (likely wrong but good test bed for "insurance" mechanism of socializing losses)
+           MKR_ETH_TICKER,
            TRX_ETH_TICKER,
            SNX_ETH_TICKER,
            XRP_ETH_TICKER]
@@ -68,13 +69,13 @@ trade_limit = int(time_resolution.in_seconds/15.0)  # 1 per min
 start_idx = 0  # int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
 end_idx = None  # defaults to end of array
 
-num_arbitrageurs = int(total_supply*0.125/base_wealth)
-num_long_apes = int(total_supply*0.04/base_wealth)
-num_short_apes = int(total_supply*0.015/base_wealth)
+num_arbitrageurs = int(total_supply*0.010/base_wealth)
+num_long_apes = int(total_supply*0.00/base_wealth)
+num_short_apes = int(total_supply*0.00/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.00/base_wealth)
-num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.025/base_wealth)  # TODO: Fix these!
+num_holders = int(total_supply*0.695/base_wealth)
+num_snipers = int(total_supply*0.000/base_wealth)  # TODO: Fix these!
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
