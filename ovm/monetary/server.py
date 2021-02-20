@@ -67,16 +67,19 @@ sampling_twap_granularity = int(
 trade_limit = int(time_resolution.in_seconds/15.0)  # 1 per min
 
 # For historical data to test different time periods
-start_idx = 0  # int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
+# int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
+start_idx = int(1.25*365.25*86400.0/time_resolution.in_seconds)
 end_idx = None  # defaults to end of array
 
-num_arbitrageurs = int(total_supply*0.120/base_wealth)
-num_long_apes = int(total_supply*0.04/base_wealth)
-num_short_apes = int(total_supply*0.045/base_wealth)
+num_arbitrageurs = int(total_supply*0.110/base_wealth)
+num_long_apes = int(total_supply*0.03/base_wealth)
+num_short_apes = int(total_supply*0.0125/base_wealth)
+num_long_chimps = int(total_supply*0.03/base_wealth)
+num_short_chimps = int(total_supply*0.0125/base_wealth)
 num_keepers = int(total_supply*0.005/base_wealth)
 num_traders = int(total_supply*0.00/base_wealth)
 num_holders = int(total_supply*0.500/base_wealth)
-num_snipers = int(total_supply*0.000/base_wealth)  # TODO: Fix these!
+num_snipers = int(total_supply*0.010/base_wealth)  # TODO: Fix these!
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
@@ -141,6 +144,8 @@ model_kwargs = {
     "num_snipers": num_snipers,
     "num_long_apes": num_long_apes,
     "num_short_apes": num_short_apes,
+    "num_long_chimps": num_long_chimps,
+    "num_short_chimps": num_short_chimps,
     "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,

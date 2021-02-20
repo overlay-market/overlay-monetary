@@ -741,3 +741,80 @@ class MonetaryApe(MonetaryAgent):
            self.fmarket.can_trade() and \
            (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
             self.trade()
+
+
+# Younger cousin of the ape. Not as brave, so doesn't all in on wealth 🐒
+class MonetaryChimp(MonetaryAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self.side != 0, f"Chimp.__init__: chimps must choose a side (side != 0): long = 1 or short = -1"
+
+    def _unwind_positions(self):
+        for pid, pos in self.positions.items():
+            if PERFORM_DEBUG_LOGGING:
+                print(f"Chimp._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+
+            fees = self.fmarket.fees(pos.amount, build=False, long=(
+                not pos.long), leverage=pos.leverage)
+            _, ds = self.fmarket.unwind(pos.amount, pid)
+
+            if PERFORM_DEBUG_LOGGING:
+                logger.debug(f"Chimp._unwind_positions: Unwinding position {pid} on {self.fmarket.unique_id}")
+                logger.debug(f"Unwound: ds -> {ds}")
+
+            self.inventory[OVL_TICKER] += pos.amount + ds - fees
+            self.locked -= pos.amount
+            self.wealth += max(ds - fees, -self.wealth)
+            self.last_trade_idx = self.model.schedule.steps
+
+        self.positions = {}
+
+    def trade(self):
+        # Buys at any price and goes full force with wealth because YOLO
+        idx = self.model.schedule.steps
+
+        # Simple for now: tries to enter a pos_max amount of position if it wouldn't
+        # breach the deploy_max threshold
+        amount = min(self.pos_max*self.wealth, self.pos_amount)
+        if amount < self.pos_amount*self.pos_min:
+            return
+
+        long = (self.side == 1)
+        if PERFORM_DEBUG_LOGGING:
+            logger.debug(f"Chimp.trade: Ape bot {self.unique_id} has {self.wealth-self.locked} OVL left to deploy")
+
+        if self.wealth > 0 and self.locked + amount < self.deploy_max*self.wealth:
+            peek_price = self.fmarket.peek_price(amount, build=True, long=long, leverage=self.leverage_max)
+            leverage = min(self.leverage_max, self.fmarket.max_allowed_leverage(long=long, lock_price=peek_price))
+            fees = self.fmarket.fees(
+                amount, build=True, long=long, leverage=leverage)
+            pos = self.fmarket.build(amount, long=long,
+                                     leverage=leverage, trader=self)
+            if PERFORM_DEBUG_LOGGING:
+                logger.debug("Chimp.trade: Entered short arb trade w pos params ...")
+                logger.debug(f"Chimp.trade: pos.amount -> {pos.amount}")
+                logger.debug(f"Chimp.trade: pos.long -> {pos.long}")
+                logger.debug(f"Chimp.trade: pos.leverage -> {pos.leverage}")
+                logger.debug(f"Chimp.trade: pos.lock_price -> {pos.lock_price}")
+
+            self.positions[pos.id] = pos
+            self.inventory[OVL_TICKER] -= pos.amount + fees
+            self.locked += pos.amount
+            self.wealth -= min(fees, self.wealth)
+            self.last_trade_idx = idx
+        elif (idx - self.last_trade_idx) > self.unwind_delay:
+            # TODO: Chimp should only unwind if massively profitable as well, otherwise keep the YOLO
+            self._unwind_positions()
+
+    def step(self):
+        """
+        Modify this method to change what an individual agent will do during each step.
+        Can include logic based on neighbors states.
+        """
+        idx = self.model.schedule.steps
+        # Allow only one trader to trade on a market per block.
+        # Add in a trade delay to simulate cooldown due to gas.
+        if (idx >= self.init_delay) and \
+           self.fmarket.can_trade() and \
+           (self.last_trade_idx == 0 or (idx - self.last_trade_idx) > self.trade_delay):
+            self.trade()

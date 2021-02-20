@@ -67,6 +67,8 @@ class MonetaryModel(Model):
         num_snipers: int,
         num_long_apes: int,
         num_short_apes: int,
+        num_long_chimps: int,
+        num_short_chimps: int,
         num_liquidators: int,
         # sims: tp.Dict[str, np.ndarray],
         input_data: AgentBasedSimulationInputData,
@@ -96,6 +98,7 @@ class MonetaryModel(Model):
             MonetarySniper,
             MonetaryLiquidator,
             MonetaryApe,
+            MonetaryChimp,
         )
 
         from ovm.monetary.markets import MonetaryFMarket
@@ -123,7 +126,7 @@ class MonetaryModel(Model):
         super().__init__(seed=seed)
         self.num_agents = num_arbitrageurs + num_keepers + \
             num_traders + num_holders + num_snipers + num_liquidators + \
-            num_long_apes + num_short_apes
+            num_long_apes + num_short_apes + num_long_chimps + num_short_chimps
         self.num_arbitraguers = num_arbitrageurs
         self.num_keepers = num_keepers
         self.num_traders = num_traders
@@ -131,6 +134,8 @@ class MonetaryModel(Model):
         self.num_snipers = num_snipers
         self.num_long_apes = num_long_apes
         self.num_short_apes = num_short_apes
+        self.num_long_chimps = num_long_chimps
+        self.num_short_chimps = num_short_chimps
         self.num_liquidators = num_liquidators
         self.base_wealth = base_wealth
         self.base_market_fee = base_market_fee
@@ -158,6 +163,8 @@ class MonetaryModel(Model):
             print(f"num_snipers = {num_snipers}")
             print(f"num_long_apes = {num_long_apes}")
             print(f"num_short_apes = {num_short_apes}")
+            print(f"num_long_chimps = {num_long_chimps}")
+            print(f"num_short_chimps = {num_short_chimps}")
             print(f"num_keepers = {num_keepers}")
             print(f"num_traders = {num_traders}")
             print(f"num_holders = {num_holders}")
@@ -286,7 +293,7 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes:
                 ape_leverage_max = randint(1, 6)
                 unwind_delay = randint(
-                    sampling_interval*6, sampling_interval*24*7)
+                    sampling_interval*6, sampling_interval*24*30*3)
                 ape_init_delay = sampling_interval*randint(1, 24*7)
                 agent = MonetaryApe(
                     unique_id=i,
@@ -303,7 +310,7 @@ class MonetaryModel(Model):
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes:
                 ape_leverage_max = randint(1, 6)
                 unwind_delay = randint(
-                    sampling_interval*6, sampling_interval*24*7)
+                    sampling_interval*6, sampling_interval*24*30*3)
                 ape_init_delay = sampling_interval*randint(1, 24*7)
                 agent = MonetaryApe(
                     unique_id=i,
@@ -314,6 +321,40 @@ class MonetaryModel(Model):
                     side=-1,
                     leverage_max=ape_leverage_max,
                     init_delay=ape_init_delay,
+                    trade_delay=5,
+                    unwind_delay=unwind_delay,
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes + self.num_long_chimps:
+                chimp_leverage_max = randint(1, 6)
+                unwind_delay = randint(
+                    sampling_interval*6, sampling_interval*24*30*3)
+                chimp_init_delay = sampling_interval*randint(1, 24*7)
+                agent = MonetaryChimp(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
+                    side=1,
+                    leverage_max=chimp_leverage_max,
+                    init_delay=chimp_init_delay,
+                    trade_delay=5,
+                    unwind_delay=unwind_delay,
+                )
+            elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes + self.num_long_chimps + self.num_short_chimps:
+                chimp_leverage_max = randint(1, 6)
+                unwind_delay = randint(
+                    sampling_interval*6, sampling_interval*24*30*3)
+                chimp_init_delay = sampling_interval*randint(1, 24*7)
+                agent = MonetaryChimp(
+                    unique_id=i,
+                    model=self,
+                    fmarket=fmarket,
+                    inventory=inventory,
+                    pos_amount=self.base_wealth*0.25,
+                    side=-1,
+                    leverage_max=chimp_leverage_max,
+                    init_delay=chimp_init_delay,
                     trade_delay=5,
                     unwind_delay=unwind_delay,
                 )
@@ -404,7 +445,8 @@ class MonetaryModel(Model):
                                                 ("Liquidators", MonetaryLiquidator),
                                                 ("Keepers", MonetaryKeeper),
                                                 ("Snipers", MonetarySniper),
-                                                ("Apes", MonetaryApe)]:
+                                                ("Apes", MonetaryApe),
+                                                ("Chimps", MonetaryChimp)]:
                 if self.data_collection_options.compute_wealth:
                     model_reporters[agent_wealth_ovl_label(agent_type_name)] = \
                         AggregateWealthForAgentTypeReporter(agent_type=agent_type)
@@ -466,6 +508,7 @@ class MonetaryModel(Model):
             MonetaryLiquidator,
             MonetaryKeeper,
             MonetaryApe,
+            MonetaryChimp,
         )
         if self.data_collection_options.perform_data_collection and \
            self.schedule.steps % self.data_collection_options.data_collection_interval == 0:
@@ -627,6 +670,56 @@ class MonetaryModel(Model):
                     f"Model.step: Ape short wealths top 10 -> {top_10_short_apes_wealth}")
                 print(
                     f"Model.step: Ape short wealths bottom 10 -> {bottom_10_short_apes_wealth}")
+
+            # Chimps
+            top_10_long_chimps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryChimp and a.side == 1],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_long_chimps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryChimp and a.side == 1],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_short_chimps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryChimp and a.side == -1],
+                key=lambda item: item.wealth,
+                reverse=True
+            )[:10]
+            bottom_10_short_chimps = sorted(
+                [a for a in self.schedule.agents if type(
+                    a) == MonetaryChimp and a.side == -1],
+                key=lambda item: item.wealth
+            )[:10]
+            top_10_long_chimps_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_long_chimps
+            }
+            bottom_10_long_chimps_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_long_chimps
+            }
+            top_10_short_chimps_wealth = {
+                a.unique_id: a.wealth
+                for a in top_10_short_chimps
+            }
+            bottom_10_short_chimps_wealth = {
+                a.unique_id: a.wealth
+                for a in bottom_10_short_chimps
+            }
+            if True: # PERFORM_INFO_LOGGING:
+                print("========================================")
+                print(
+                    f"Model.step: Chimp long wealths top 10 -> {top_10_long_chimps_wealth}")
+                print(
+                    f"Model.step: Chimp long wealths bottom 10 -> {bottom_10_long_chimps_wealth}")
+                print(
+                    f"Model.step: Chimp short wealths top 10 -> {top_10_short_chimps_wealth}")
+                print(
+                    f"Model.step: Chimp short wealths bottom 10 -> {bottom_10_short_chimps_wealth}")
 
         from ovm.monetary.reporters import (
             compute_supply,

@@ -43,7 +43,7 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
     ]
 
     if data_collection_options.compute_inventory_wealth:
-        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Keepers", "Snipers", "Apes"]:
+        for agent_type_name in ["Arbitrageurs", "Traders", "Holders", "Liquidators", "Keepers", "Snipers", "Apes", "Chimps"]:
             chart_elements += [
                 ChartModule([{"Label": agent_wealth_ovl_label(agent_type_name), "Color": random_color()}],
                             data_collector_name=DATA_COLLECTOR_NAME),
