@@ -8,7 +8,10 @@ from ovm.monetary.plot_labels import (
     skew_label, reserve_skew_relative_label, open_positions_label,
     agent_wealth_ovl_label, LIQUIDITY_LABEL, GINI_LABEL,
     GINI_ARBITRAGEURS_LABEL, spot_price_label, futures_price_label,
-    funding_fees_label,
+    funding_fees_label, skew_relative_label, avg_cost_label,
+    funding_pay_long_label, funding_pay_short_label, funding_supply_change_label,
+    unrealized_pnl_label, notional_skew_label, notional_skew_relative_label,
+    notional_skew_relative_supply_label,
 )
 from ovm.monetary.plots import random_color
 
@@ -28,15 +31,15 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),
 
-        ChartModule([{"Label": skew_label(ticker), "Color": random_color()}
+        ChartModule([{"Label": notional_skew_label(ticker), "Color": random_color()}
                      for ticker
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": reserve_skew_relative_label(ticker), "Color": random_color()}
+        ChartModule([{"Label": notional_skew_relative_label(ticker), "Color": random_color()}
                      for ticker
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),
-        ChartModule([{"Label": open_positions_label(ticker), "Color": random_color()}
+        ChartModule([{"Label": notional_skew_relative_supply_label(ticker), "Color": random_color()}
                      for ticker
                      in tickers],
                     data_collector_name=DATA_COLLECTOR_NAME),
@@ -69,6 +72,14 @@ def construct_chart_elements(tickers, data_collection_options: DataCollectionOpt
             ChartModule([
                 {"Label": spot_price_label(ticker), "Color": "Black"},
                 {"Label": futures_price_label(ticker), "Color": "Red"},
+            ], data_collector_name='data_collector')
+        )
+
+        chart_elements.append(
+            ChartModule([
+                {"Label": funding_pay_long_label(ticker), "Color": "Black"},
+                {"Label": funding_pay_short_label(ticker), "Color": "Red"},
+                {"Label": funding_supply_change_label(ticker), "Color": "Blue"},
             ], data_collector_name='data_collector')
         )
 

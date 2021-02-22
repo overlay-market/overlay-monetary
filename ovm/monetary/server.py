@@ -38,13 +38,13 @@ time_resolution = TimeResolution.FIFTEEN_MINUTES
 DATA_SIM_RNG = 42
 
 # Load sims from csv files as arrays
-tickers = [EOS_ETH_TICKER,
-           ETC_ETH_TICKER,
+tickers = [  # EOS_ETH_TICKER,
+           #ETC_ETH_TICKER,
            # NOTE: MKR_ETH has some 3x spikes in a span of an hour or two (likely wrong but good test bed for "insurance" mechanism of socializing losses)
-           MKR_ETH_TICKER,
-           TRX_ETH_TICKER,
-           SNX_ETH_TICKER,
-           XRP_ETH_TICKER]
+           #MKR_ETH_TICKER,
+           #TRX_ETH_TICKER,
+           #XRP_ETH_TICKER,
+           SNX_ETH_TICKER]
 
 ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
@@ -67,19 +67,20 @@ sampling_twap_granularity = int(
 trade_limit = int(time_resolution.in_seconds/15.0)  # 1 per min
 
 # For historical data to test different time periods
-# int(1.625*365.25*86400.0/time_resolution.in_seconds)  # 0
-start_idx = int(1.25*365.25*86400.0/time_resolution.in_seconds)
+# NOTE: below start_idx is to test against SNX-ETH run up at end of data set
+# int(1.35*365.25*86400.0/time_resolution.in_seconds)  # 0
+start_idx = int(1.35*365.25*86400.0/time_resolution.in_seconds)
 end_idx = None  # defaults to end of array
 
-num_arbitrageurs = int(total_supply*0.110/base_wealth)
-num_long_apes = int(total_supply*0.03/base_wealth)
-num_short_apes = int(total_supply*0.0125/base_wealth)
-num_long_chimps = int(total_supply*0.03/base_wealth)
-num_short_chimps = int(total_supply*0.0125/base_wealth)
-num_keepers = int(total_supply*0.005/base_wealth)
+num_arbitrageurs = int(total_supply*0.185/base_wealth)
+num_long_apes = int(total_supply*0.000/base_wealth)
+num_short_apes = int(total_supply*0.000/base_wealth)
+num_long_chimps = int(total_supply*0.400/base_wealth)
+num_short_chimps = int(total_supply*0.100/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)  # TODO: 0.005
 num_traders = int(total_supply*0.00/base_wealth)
-num_holders = int(total_supply*0.500/base_wealth)
-num_snipers = int(total_supply*0.010/base_wealth)  # TODO: Fix these!
+num_holders = int(total_supply*0.000/base_wealth)
+num_snipers = int(total_supply*0.020/base_wealth)  # TODO: Fix these!
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators

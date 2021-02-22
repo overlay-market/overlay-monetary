@@ -28,7 +28,13 @@ from ovm.monetary.plot_labels import (
     spot_price_label,
     futures_price_label,
     skew_label,
+    skew_relative_label,
+    notional_skew_label,
+    notional_skew_relative_label,
+    notional_skew_relative_supply_label,
     reserve_skew_relative_label,
+    avg_cost_label,
+    unrealized_pnl_label,
     open_positions_label,
     inventory_wealth_ovl_label,
     inventory_wealth_quote_label,
@@ -114,6 +120,14 @@ class MonetaryModel(Model):
             AggregateWealthForAgentTypeReporter,
             AggregateInventoryWealthForAgentTypeReporter,
             SkewReporter,
+            SkewRelativeReporter,
+            NotionalSkewReporter,
+            NotionalSkewRelativeReporter,
+            NotionalSkewRelativeSupplyReporter,
+            AvgCostLongReporter,
+            AvgCostShortReporter,
+            UnrealizedPnlLongReporter,
+            UnrealizedPnlShortReporter,
             ReserveSkewRelativeReporter,
             OpenPositionReporter,
             AgentWealthReporter,
@@ -266,18 +280,18 @@ class MonetaryModel(Model):
                     leverage_max=leverage_max
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers:
-                # sniper_leverage_max = randint(1, 2)
+                sniper_leverage_max = randint(1, 2)
                 agent = MonetarySniper(
                     unique_id=i,
                     model=self,
                     fmarket=fmarket,
                     inventory=inventory,
-                    pos_amount=self.base_wealth*0.5,
-                    leverage_max=leverage_max,
-                    size_increment=0.2,
+                    pos_amount=self.base_wealth*0.1,
+                    leverage_max=sniper_leverage_max,
+                    size_increment=0.25,
                     init_delay=init_delay,
                     trade_delay=5,
-                    min_edge=0.025, # NOTE: intense here sort of emulates high gas costs (sort of)
+                    min_edge=0.005, # NOTE: intense here sort of emulates high gas costs (sort of)
                     max_edge=0.1,  # max deploy at 10% edge
                     funding_multiplier=1.0,  # applied to funding cost when considering exiting position
                     min_funding_unwind=0.001,  # start unwind when funding reaches .1% against position
@@ -325,9 +339,9 @@ class MonetaryModel(Model):
                     unwind_delay=unwind_delay,
                 )
             elif i < self.num_arbitraguers + self.num_keepers + self.num_holders + self.num_traders + self.num_snipers + self.num_liquidators + self.num_long_apes + self.num_short_apes + self.num_long_chimps:
-                chimp_leverage_max = randint(1, 6)
+                chimp_leverage_max = randint(1, 4)
                 unwind_delay = randint(
-                    sampling_interval*6, sampling_interval*24*30*3)
+                    sampling_interval*6, sampling_interval*24*7)
                 chimp_init_delay = sampling_interval*randint(1, 24*7)
                 agent = MonetaryChimp(
                     unique_id=i,
@@ -388,17 +402,17 @@ class MonetaryModel(Model):
             })
             model_reporters.update({
                 # skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
-                skew_label(ticker): SkewReporter(ticker=ticker)
+                notional_skew_label(ticker): NotionalSkewReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
                 # skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
-                reserve_skew_relative_label(ticker): ReserveSkewRelativeReporter(ticker=ticker)
+                notional_skew_relative_label(ticker): NotionalSkewRelativeReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
-                # open_positions_label(ticker): partial(compute_open_positions_per_market, ticker=ticker)
-               open_positions_label(ticker): OpenPositionReporter(ticker=ticker)
+                # skew_label(ticker): partial(compute_positional_imbalance_by_market, ticker=ticker)
+                notional_skew_relative_supply_label(ticker): NotionalSkewRelativeSupplyReporter(ticker=ticker)
                 for ticker in tickers
             })
             model_reporters.update({
@@ -748,7 +762,17 @@ class MonetaryModel(Model):
                         f"fmarket: locked_long (OVL) {fmarket.locked_long}")
                     print(
                         f"fmarket: locked_short (OVL) {fmarket.locked_short}")
-
+                    print(
+                        f"fmarket: locked_long_notional (OVL) {fmarket.locked_long_notional}")
+                    print(
+                        f"fmarket: locked_short (OVL) {fmarket.locked_short_notional}")
+                    print(
+                        f"fmarket: twao_long (OVL) {fmarket.sliding_twao_long}")
+                    print(
+                        f"fmarket: twao_short (OVL) {fmarket.sliding_twao_short}")
+                    print(
+                        f"fmarket: funding (%) {fmarket.funding() * 100}%"
+                    )
                     print(f"fmarket: futures price {fmarket.price}")
                     print(f"fmarket: futures sliding TWAP {fmarket.sliding_twap}")
                     print(f"fmarket: spot sliding TWAP {fmarket.sliding_twap_spot}")
@@ -758,6 +782,8 @@ class MonetaryModel(Model):
                                  f"{compute_price_difference(self, ticker)}")
                     print(f"fmarket: positional imbalance "
                                  f"{compute_skew_for_market(self, ticker)}")
+                    print(f"fmarket: positional imbalance / total locked "
+                                 f"{compute_skew_for_market(self, ticker, relative=True)}")
                     print(f"fmarket: reserve skew "
                                  f"{compute_reserve_skew_for_market(self, ticker, relative=False)}")
                     print(f"fmarket: relative reserve skew "

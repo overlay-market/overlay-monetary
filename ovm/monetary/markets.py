@@ -41,6 +41,8 @@ class MonetaryMarketObservation:
     cum_price: float
     cum_locked_long: float = None
     cum_locked_short: float = None
+    cum_locked_long_notional: float = None
+    cum_locked_short_notional: float = None
 
 
 class MonetaryFMarket:
@@ -54,6 +56,7 @@ class MonetaryFMarket:
                  py: float,
                  base_fee: float,
                  max_leverage: float,
+                 #max_skew: float,
                  liquidate_reward: float,
                  funding_reward: float,
                  maintenance: float, # this is times initial margin (i.e. 1/leverage); 0.0 < maintenance < 1.0,
@@ -69,6 +72,7 @@ class MonetaryFMarket:
         self.k = self.x*self.y
         self.base_fee = base_fee
         self.max_leverage = max_leverage
+        #self.max_skew = max_skew
         self.liquidate_reward = liquidate_reward
         self.funding_reward = funding_reward
         self.maintenance = maintenance
@@ -79,10 +83,18 @@ class MonetaryFMarket:
         self.outstanding_amount_short = 0.0 # pos amounts (credits)
         self.locked_long = 0.0  # Total OVL locked in long positions
         self.locked_short = 0.0  # Total OVL locked in short positions
-        self.cum_locked_long = 0.0
-        self.cum_locked_long_idx = 0
+        self.locked_long_notional = 0.0 # Total notional OVL locked in longs
+        self.locked_short_notional = 0.0 # Total notional OVL locked in shorts
+        self.locked_long_avg_cost = 0.0 # Cost basis for the longs
+        self.locked_short_avg_cost = 0.0 # Cost basis for the shorts
+        self.locked_long_unrealized_pnl = 0.0
+        self.locked_short_unrealized_pnl = 0.0
         # Used for time-weighted open interest on a side within sampling period
+        self.cum_locked_long = 0.0
+        self.cum_locked_long_notional = 0.0
+        self.cum_locked_long_idx = 0
         self.cum_locked_short = 0.0
+        self.cum_locked_short_notional = 0.0
         self.cum_locked_short_idx = 0
         self.last_cum_locked_long = 0.0
         self.last_cum_locked_short = 0.0
@@ -96,6 +108,8 @@ class MonetaryFMarket:
                 cum_price=0.0,
                 cum_locked_long=0.0,
                 cum_locked_short=0.0,
+                cum_locked_long_notional=0.0,
+                cum_locked_short_notional=0.0,
             )
             for i in range(self.sliding_period_size)
         ])
@@ -104,6 +118,7 @@ class MonetaryFMarket:
             for i in range(self.sliding_period_size)
         ])
         self.last_sliding_observation_idx = 0
+        self.last_sliding_twap = 0.0
         self.last_liquidity = model.liquidity  # For liquidity adjustments
         self.last_block_price = self.x / self.y
         self.last_fund_cum_price = 0.0
@@ -118,6 +133,7 @@ class MonetaryFMarket:
         self.cum_funding_ds = 0.0
         self.cum_funding_pay_long = 0.0
         self.cum_funding_pay_short = 0.0
+        self.cum_funding_perc = 0.0
 
         if True: # PERFORM_DEBUG_LOGGING:
             logger.debug(f"Init'ing FMarket {self.unique_id}")
@@ -153,7 +169,7 @@ class MonetaryFMarket:
         # TODO: In solidity implementation this could cause problems in the first hour => solution could be leverage = 1.0 for first hour as cap
         if oldest_obs.timestamp == 0:
             return 0.0
-        return (newest_obs.cum_locked_long - oldest_obs.cum_locked_long) / (newest_obs.timestamp - oldest_obs.timestamp)
+        return (newest_obs.cum_locked_long_notional - oldest_obs.cum_locked_long_notional) / (newest_obs.timestamp - oldest_obs.timestamp)
 
     @property
     def sliding_twao_short(self) -> float:
@@ -163,7 +179,7 @@ class MonetaryFMarket:
         # TODO: In solidity implementation this could cause problems in the first hour => solution could be leverage = 1.0 for first hour as cap
         if oldest_obs.timestamp == 0:
             return 0.0
-        return (newest_obs.cum_locked_short - oldest_obs.cum_locked_short) / (newest_obs.timestamp - oldest_obs.timestamp)
+        return (newest_obs.cum_locked_short_notional - oldest_obs.cum_locked_short_notional) / (newest_obs.timestamp - oldest_obs.timestamp)
 
     @property
     def sliding_twap_spot(self) -> float:
@@ -174,6 +190,22 @@ class MonetaryFMarket:
         if oldest_obs.timestamp == 0:
             return 0.0
         return (newest_obs.cum_price - oldest_obs.cum_price) / (newest_obs.timestamp - oldest_obs.timestamp)
+
+    @property
+    def locked_skew(self) -> float:
+        imbalance = self.locked_long - self.locked_short
+        total = self.locked_long + self.locked_short
+        if total == 0.0:
+            return 0.0
+        return imbalance / total
+
+    @property
+    def notional_skew(self) -> float:
+        imbalance = self.locked_long_notional - self.locked_short_notional
+        total = self.locked_long_notional + self.locked_short_notional
+        if total == 0.0:
+            return 0.0
+        return imbalance / total
 
     def _update_cum_price(self):
         # TODO: cum_price and time_elapsed setters ...
@@ -188,6 +220,8 @@ class MonetaryFMarket:
         if idx > self.cum_locked_long_idx:
             self.cum_locked_long += (idx
                                      - self.cum_locked_long_idx) * self.locked_long
+            self.cum_locked_long_notional += (idx
+                                     - self.cum_locked_long_idx) * self.locked_long_notional
             self.cum_locked_long_idx = idx
 
     def _update_cum_locked_short(self):
@@ -195,21 +229,27 @@ class MonetaryFMarket:
         if idx > self.cum_locked_short_idx:
             self.cum_locked_short += (idx
                                       - self.cum_locked_short_idx) * self.locked_short
+            self.cum_locked_short_notional += (idx
+                                     - self.cum_locked_short_idx) * self.locked_short_notional
             self.cum_locked_short_idx = idx
 
     def _update_cum_locked(self):
         self._update_cum_locked_long()
         self._update_cum_locked_short()
 
-    def _update_locked_amount(self, dn: float, build: bool, long: bool):
+    def _update_locked_amount(self, dn: float, build: bool, long: bool, leverage: float):
         if build and long:
             self.locked_long += dn
+            self.locked_long_notional += dn*leverage
         elif build and not long:
             self.locked_short += dn
+            self.locked_short_notional += dn*leverage
         elif not build and long:
             self.locked_long -= min(self.locked_long, dn)
+            self.locked_long_notional -= min(self.locked_long, dn*leverage)
         else:
             self.locked_short -= min(self.locked_short, dn)
+            self.locked_short_notional -= min(self.locked_short, dn*leverage)
 
     def _update_outstanding_amount(self, amount: float, build: bool, long: bool):
         if build and long:
@@ -240,7 +280,9 @@ class MonetaryFMarket:
                     timestamp=idx,
                     cum_price=self.cum_price,
                     cum_locked_long=self.cum_locked_long,
+                    cum_locked_long_notional=self.cum_locked_long_notional,
                     cum_locked_short=self.cum_locked_short,
+                    cum_locked_short_notional=self.cum_locked_short_notional,
                 )
             )
 
@@ -478,7 +520,7 @@ class MonetaryFMarket:
             dn, build=True, long=long, leverage=leverage)
 
         # Update locked amount
-        self._update_locked_amount(amount, build=True, long=long)
+        self._update_locked_amount(amount, build=True, long=long, leverage=leverage)
 
         # Update cumulative cache
         self._update_cum_locked()
@@ -493,7 +535,7 @@ class MonetaryFMarket:
                                 trader=trader)
         self.positions[pos.id] = pos
 
-        # Update outstanding pos amounts
+        # Update outstanding pos amounts and avg cost
         self._update_outstanding_amount(amount, build=True, long=long)
 
         return pos
@@ -540,7 +582,7 @@ class MonetaryFMarket:
         amount = dn
 
         # Update locked amount
-        self._update_locked_amount(amount, build=False, long=pos.long)
+        self._update_locked_amount(amount, build=False, long=pos.long, leverage=pos.leverage)
 
         # Update cumulative cache
         self._update_cum_locked()
@@ -575,6 +617,10 @@ class MonetaryFMarket:
     # TODO: adjust liquidity for nx, ny based on funding ...
     # def _update_liquidity
 
+    def update_cum_funding(self):
+        # TODO: Remove
+        self.cum_funding_perc += self.funding()
+
     def funding(self):
         # View for current estimate of the funding rate over current sampling period
         idx=self.model.schedule.steps
@@ -596,12 +642,17 @@ class MonetaryFMarket:
         self._update_cum_price()
         self._update_sliding_observations()
 
+        # TODO: Improve this!
+        last_twap = self.last_sliding_twap
+        self.last_sliding_twap = self.sliding_twap
+
         start_idx, end_idx = self._sliding_observations_window()
         if (idx % self.model.sampling_interval != 0) or \
            (idx-self.model.sampling_interval < 0) or \
            self._has_empty_sliding_observations() or \
            start_idx == end_idx or \
-           (idx == self.last_funding_idx):
+           (idx == self.last_funding_idx) or \
+           last_twap == 0.0:
             return 0.0
 
         # Calculate twap of oracle feed using timestamps from sliding observations
@@ -623,34 +674,6 @@ class MonetaryFMarket:
 
         self.last_funding_rate=funding
 
-        # Update virtual liquidity reserves
-        # p_market = n_x*p_x/(n_y*p_y) = x/y; nx + ny = L/n (ignoring weighting, but maintain price ratio); px*nx = x, py*ny = y;\
-        # n_y = (1/p_y)*(n_x*p_x)/(p_market) ... nx + n_x*(p_x/p_y)(1/p_market) = L/n
-        # n_x = L/n * (1/(1 + (p_x/p_y)*(1/p_market)))
-        #if PERFORM_DEBUG_LOGGING:
-        #    logger.debug(f"fund: Adjusting virtual liquidity constants for {self.unique_id}")
-        #    logger.debug(f"fund: nx (prior) = {self.nx}")
-        #    logger.debug(f"fund: ny (prior) = {self.ny}")
-        #    logger.debug(f"fund: x (prior) = {self.x}")
-        #    logger.debug(f"fund: y (prior) = {self.y}")
-        #    logger.debug(f"fund: price (prior) = {self.price}")
-
-        # TODO: use liquidity_supply_emission ...
-        #liquidity=self.model.liquidity
-        #liq_scale_factor=liquidity / self.last_liquidity
-
-        #if PERFORM_DEBUG_LOGGING:
-        #    logger.debug(f"fund: last_liquidity = {self.last_liquidity}")
-        #    logger.debug(f"fund: new liquidity = {liquidity}")
-        #    logger.debug(f"fund: liquidity scale factor = {liq_scale_factor}")
-
-        #self.last_liquidity=liquidity
-        #self.nx *= liq_scale_factor
-        #self.ny *= liq_scale_factor
-        #self.x=self.nx*self.px
-        #self.y=self.ny*self.py
-        #self.k=self.x * self.y
-
         # Fetch OVL-ETH FMarket and get twap_spot of feed to use in px, py adjustment
         ovl_quote_fmarket = self.model.fmarkets[self.model.ovl_quote_ticker]
 
@@ -661,16 +684,16 @@ class MonetaryFMarket:
         twap_feed = self.sliding_twap_spot
         twap_market = self.sliding_twap
 
-        #print(f"fund: twap_ovl_quote_feed (spot) = {twap_ovl_quote_feed}")
-        #print(f"fund: twap_ovl_quote_market (futures) = {twap_ovl_quote_market}")
-        #print(f"fund: twap_feed (spot) = {twap_feed}")
-        #print(f"fund: twap_market (futures) = {twap_market}")
+        funding_pay_from_long = self.sliding_twao_long * (self.sliding_twap-self.sliding_twap_spot)/self.sliding_twap_spot
+        funding_pay_from_short = self.sliding_twao_short * (self.sliding_twap_spot-self.sliding_twap)/self.sliding_twap_spot
 
-        # I can still do this twap futures fanciness, but
+        self.cum_funding_pay_long -= funding_pay_from_long
+        self.cum_funding_pay_short -= funding_pay_from_short
+        self.cum_funding_ds -= funding_pay_from_long + funding_pay_from_short
 
         # NOTE: these below only update when trading is happening
-        if twap_ovl_quote_market != 0.0 and twap_ovl_quote_feed != 0.0 and \
-           twap_market != 0.0 and twap_feed != 0.0:
+        if False: #twap_ovl_quote_market != 0.0 and twap_ovl_quote_feed != 0.0 and \
+           #twap_market != 0.0 and twap_feed != 0.0:
             #print(f"fund: Adjusting price sensitivity constants for {self.unique_id}")
             #print(f"fund: Step idx {idx}")
             # print(f"fund: twap_ovl_quote_feed = {twap_ovl_quote_feed}")
