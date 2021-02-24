@@ -11,6 +11,7 @@ from ovm.tickers import (
     ETC_ETH_TICKER,
     MKR_ETH_TICKER,
     SNX_ETH_TICKER,
+    TRX_ETH_TICKER,
     XRP_ETH_TICKER,
     ETH_TICKER,
     get_ovl_quote_ticker,
@@ -33,15 +34,17 @@ logger = logging.getLogger(__name__)
 # Simulation Parameters
 ################################################################################
 historical_data_source = HistoricalDataSource.KUCOIN
-time_resolution = TimeResolution.ONE_MINUTE
+time_resolution = TimeResolution.FIFTEEN_MINUTES
 DATA_SIM_RNG = 42
 
 # Load sims from csv files as arrays
-tickers = [EOS_ETH_TICKER,
-           ETC_ETH_TICKER,
-           MKR_ETH_TICKER,
-           SNX_ETH_TICKER,
-           XRP_ETH_TICKER]
+tickers = [  # EOS_ETH_TICKER,
+           #ETC_ETH_TICKER,
+           # NOTE: MKR_ETH has some 3x spikes in a span of an hour or two (likely wrong but good test bed for "insurance" mechanism of socializing losses)
+           #MKR_ETH_TICKER,
+           #TRX_ETH_TICKER,
+           #XRP_ETH_TICKER,
+           SNX_ETH_TICKER]
 
 ovl_ticker = SNX_ETH_TICKER  # for sim source, since OVL doesn't actually exist yet
 quote_ticker = ETH_TICKER
@@ -52,21 +55,32 @@ base_wealth = 0.0005*total_supply  # OVL
 base_market_fee = 0.0030
 base_max_leverage = 10.0
 base_liquidate_reward = 0.1
+base_funding_reward = 0.01
 base_maintenance = 0.6
 liquidity = 0.285*total_supply
 time_liquidity_mine = time_resolution.steps_per_month_clamped
 treasury = 0.0
 sampling_interval = int(3600 / time_resolution.in_seconds)
 sampling_twap_granularity = int(
-    sampling_interval / 10)
+    3600 / (time_resolution.in_seconds * 2))  # every 30 min
+# num trades allowed on a market per idx
+trade_limit = int(time_resolution.in_seconds/15.0)  # 1 per min
 
-num_arbitrageurs = int(total_supply*0.1/base_wealth)
-num_long_apes = int(total_supply*0.035/base_wealth)
-num_short_apes = int(total_supply*0.015/base_wealth)
-num_keepers = int(total_supply*0.005/base_wealth)
-num_traders = int(total_supply*0.005/base_wealth)
-num_holders = int(total_supply*0.5/base_wealth)
-num_snipers = int(total_supply*0.05/base_wealth)
+# For historical data to test different time periods
+# NOTE: below start_idx is to test against SNX-ETH run up at end of data set
+# int(1.35*365.25*86400.0/time_resolution.in_seconds)  # 0
+start_idx = int(1.35*365.25*86400.0/time_resolution.in_seconds)
+end_idx = None  # defaults to end of array
+
+num_arbitrageurs = int(total_supply*0.185/base_wealth)
+num_long_apes = int(total_supply*0.000/base_wealth)
+num_short_apes = int(total_supply*0.000/base_wealth)
+num_long_chimps = int(total_supply*0.400/base_wealth)
+num_short_chimps = int(total_supply*0.100/base_wealth)
+num_keepers = int(total_supply*0.005/base_wealth)  # TODO: 0.005
+num_traders = int(total_supply*0.00/base_wealth)
+num_holders = int(total_supply*0.000/base_wealth)
+num_snipers = int(total_supply*0.020/base_wealth)  # TODO: Fix these!
 num_liquidators = int(total_supply*0.005/base_wealth)
 num_agents = num_arbitrageurs + num_keepers + \
     num_traders + num_holders + num_snipers + num_liquidators
@@ -95,7 +109,9 @@ sims = construct_abs_data_input_with_historical_data(
             historical_data_source=historical_data_source,
             tickers=tickers,
             ovl_ticker=ovl_ticker,
-            ovl_quote_ticker=ovl_quote_ticker)
+            ovl_quote_ticker=ovl_quote_ticker,
+            start_idx=start_idx,
+            end_idx=end_idx)
 # Use historical data - End
 
 ################################################################################
@@ -129,11 +145,14 @@ model_kwargs = {
     "num_snipers": num_snipers,
     "num_long_apes": num_long_apes,
     "num_short_apes": num_short_apes,
+    "num_long_chimps": num_long_chimps,
+    "num_short_chimps": num_short_chimps,
     "num_liquidators": num_liquidators,
     "base_wealth": base_wealth,
     "base_market_fee": base_market_fee,
     "base_max_leverage": base_max_leverage,
     "base_liquidate_reward": base_liquidate_reward,
+    "base_funding_reward": base_funding_reward,
     "base_maintenance": base_maintenance,
     # Setting liquidity = 100x agent-owned OVL for now; TODO: eventually have this be a function/array
     "liquidity": liquidity,
@@ -141,7 +160,8 @@ model_kwargs = {
     "treasury": treasury,
     "sampling_interval": sampling_interval,
     "sampling_twap_granularity": sampling_twap_granularity,
-    "time_resolution": time_resolution
+    "time_resolution": time_resolution,
+    "trade_limit": trade_limit,
 }
 
 

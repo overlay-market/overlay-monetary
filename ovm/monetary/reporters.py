@@ -187,27 +187,19 @@ class AggregateInventoryWealthForAgentTypeReporter(
 ################################################################################
 # Skew (Positional Imbalance)
 ################################################################################
-def compute_skew_for_market(model: MonetaryModel, ticker: str) -> float:
+def compute_skew_for_market(model: MonetaryModel, ticker: str, relative: bool = False) -> float:
     monetary_futures_market = model.fmarkets[ticker]
     uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
     if len(uuid_to_position_map) > 0:
-        # import numpy as np
-
-        # positional_imbalance_1 = \
-        #     sum(position.directional_size for position in uuid_to_position_map.values())
-
-        positional_imbalance_2 = \
+        positional_imbalance = \
             monetary_futures_market.locked_long - monetary_futures_market.locked_short
 
-        # assert np.isclose(positional_imbalance_1, positional_imbalance_2)
+        total_locked = monetary_futures_market.locked_long + monetary_futures_market.locked_short
 
-        # positional_imbalance_3 = \
-        #     monetary_futures_market.nx - monetary_futures_market.ny
+        if relative and total_locked != 0.0:
+            positional_imbalance = positional_imbalance / total_locked
 
-        # print(f'positional_imbalance_1={positional_imbalance_1}')
-        # print(f'positional_imbalance_2={positional_imbalance_2}')
-        # print(f'positional_imbalance_3={positional_imbalance_3}')
-        return positional_imbalance_2
+        return positional_imbalance
     else:
         return 0.0
 
@@ -216,6 +208,58 @@ class SkewReporter(AbstractMarketLevelReporter[MonetaryModel]):
     def report(self, model: MonetaryModel) -> float:
         return compute_skew_for_market(model, self.ticker)
 
+
+class SkewRelativeReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_skew_for_market(model, self.ticker, relative=True)
+
+
+################################################################################
+# Notional Skew (Positional Imbalance)
+################################################################################
+
+def compute_notional_skew_for_market(model: MonetaryModel, ticker: str, relative: bool = False) -> float:
+    monetary_futures_market = model.fmarkets[ticker]
+    uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
+    if len(uuid_to_position_map) > 0:
+        positional_imbalance = \
+            monetary_futures_market.locked_long_notional - monetary_futures_market.locked_short_notional
+
+        total_locked = monetary_futures_market.locked_long_notional + monetary_futures_market.locked_short_notional
+
+        if relative and total_locked != 0.0:
+            positional_imbalance = positional_imbalance / total_locked
+
+        return positional_imbalance
+    else:
+        return 0.0
+
+
+def compute_notional_skew_for_market_per_supply(model: MonetaryModel, ticker: str) -> float:
+    monetary_futures_market = model.fmarkets[ticker]
+    uuid_to_position_map: tp.Dict[tp.Any, MonetaryFPosition] = monetary_futures_market.positions
+    if len(uuid_to_position_map) > 0:
+        positional_imbalance = \
+            monetary_futures_market.locked_long_notional - monetary_futures_market.locked_short_notional
+
+        return positional_imbalance/model.supply
+    else:
+        return 0.0
+
+
+class NotionalSkewReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_notional_skew_for_market(model, self.ticker)
+
+
+class NotionalSkewRelativeReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_notional_skew_for_market(model, self.ticker, relative=True)
+
+
+class NotionalSkewRelativeSupplyReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_notional_skew_for_market_per_supply(model, self.ticker)
 
 ################################################################################
 # Reserve Skew (Virtual Reserve + Locked OVL Imbalance)
@@ -244,6 +288,45 @@ class ReserveSkewRelativeReporter(AbstractMarketLevelReporter[MonetaryModel]):
 
 
 ################################################################################
+# Cost basis
+################################################################################
+def compute_avg_cost_for_market(model: MonetaryModel, ticker: str, long: bool) -> float:
+    fmarket = model.fmarkets[ticker]
+    if long:
+        return fmarket.locked_long_avg_cost
+    else:
+        return fmarket.locked_short_avg_cost
+
+
+def compute_unrealized_pnl_for_market(model: MonetaryModel, ticker: str, long: bool) -> float:
+    fmarket = model.fmarkets[ticker]
+    if long:
+        return fmarket.locked_long_unrealized_pnl
+    else:
+        return fmarket.locked_short_unrealized_pnl
+
+
+class AvgCostLongReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_avg_cost_for_market(model, self.ticker, long=True)
+
+
+class AvgCostShortReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_avg_cost_for_market(model, self.ticker, long=False)
+
+
+class UnrealizedPnlLongReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_unrealized_pnl_for_market(model, self.ticker, long=True)
+
+
+class UnrealizedPnlShortReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_unrealized_pnl_for_market(model, self.ticker, long=False)
+
+
+################################################################################
 # Open Positions
 ################################################################################
 def compute_open_positions_per_market(model: MonetaryModel, ticker: str) -> int:
@@ -259,6 +342,49 @@ class OpenPositionReporter(AbstractMarketLevelReporter[MonetaryModel]):
     def report(self, model: MonetaryModel) -> int:
         return compute_open_positions_per_market(model, self.ticker)
 
+
+################################################################################
+# Cumulative funding payments
+################################################################################
+
+def compute_cumulative_funding_ds(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_ds
+
+
+def compute_cumulative_funding_pay_long(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_pay_long
+
+
+def compute_cumulative_funding_pay_short(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_pay_short
+
+
+def compute_cumulative_funding_fees(model: MonetaryModel, ticker: str) -> float:
+    fmarket = model.fmarkets[ticker]
+    return fmarket.cum_funding_fees
+
+
+class FundingSupplyChangeReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_ds(model, self.ticker)
+
+
+class FundingPaymentsLongReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_pay_long(model, self.ticker)
+
+
+class FundingPaymentsShortReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_pay_short(model, self.ticker)
+
+
+class FundingFeesReporter(AbstractMarketLevelReporter[MonetaryModel]):
+    def report(self, model: MonetaryModel) -> float:
+        return compute_cumulative_funding_fees(model, self.ticker)
 
 ################################################################################
 # Agent Level Reporters

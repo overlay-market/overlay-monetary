@@ -122,6 +122,8 @@ def construct_hist_map(
         tickers: tp.Sequence[str],
         ovl_ticker: str = YFI_USD_TICKER,
         ovl_quote_ticker: str = OVL_USD_TICKER,
+        start_idx: int = 0,
+        end_idx: tp.Optional[int] = None,
         verbose: bool = False):
     hist_data_dir = \
         construct_historical_data_directory(
@@ -137,11 +139,14 @@ def construct_hist_map(
 
         df = pd.read_parquet(rpath)
         f = df[PHCN.CLOSE]
+        end_idx = len(f.transpose().values.reshape(
+            (-1, ))) if end_idx is None else end_idx
         if ticker == ovl_ticker:
             close_prices[ovl_quote_ticker] = f.transpose(
-            ).values.reshape((-1, ))
+            ).values.reshape((-1, ))[start_idx:end_idx]
         else:
-            close_prices[ticker] = f.transpose().values.reshape((-1, ))
+            close_prices[ticker] = f.transpose().values.reshape(
+                (-1, ))[start_idx:end_idx]
 
     return close_prices
 
@@ -152,6 +157,8 @@ def construct_abs_data_input_with_historical_data(
         tickers: tp.Sequence[str],
         ovl_ticker: str = YFI_USD_TICKER,
         ovl_quote_ticker: str = OVL_USD_TICKER,
+        start_idx: int = 0,
+        end_idx: tp.Optional[int] = None,
         verbose: bool = False) -> AgentBasedSimulationInputData:
     ticker_to_series_of_prices_map = \
         construct_hist_map(time_resolution=time_resolution,
@@ -159,6 +166,8 @@ def construct_abs_data_input_with_historical_data(
                            tickers=tickers,
                            ovl_ticker=ovl_ticker,
                            ovl_quote_ticker=ovl_quote_ticker,
+                           start_idx=start_idx,
+                           end_idx=end_idx,
                            verbose=verbose)
 
     return AgentBasedSimulationInputData(
